@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: inmoflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inmoflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: inmoflow-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      PORT: 3000
+      JWT_SECRET: super-secret-dev-key
+      JWT_EXPIRES_IN: 7d
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: inmoflow
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_SYNCHRONIZE: 'false'
+      DB_LOGGING: 'false'
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./storage/photos:/app/storage/photos
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: inmoflow-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    ports:
+      - '5173:5173'
+
+volumes:
+  postgres_data:

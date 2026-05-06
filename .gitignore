@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.DS_Store
+coverage
+backend/dist
+frontend/dist
+backend/node_modules
+frontend/node_modules
+storage

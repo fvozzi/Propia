@@ -1,0 +1,66 @@
+export enum ContactRoleType {
+  OWNER = 'OWNER',
+  BUYER = 'BUYER',
+  TENANT = 'TENANT',
+  INVESTOR = 'INVESTOR',
+  REFERRER = 'REFERRER',
+  REALTOR = 'REALTOR',
+  NOTARY = 'NOTARY',
+  OTHER = 'OTHER',
+}
+
+export enum OperationType {
+  SALE = 'SALE',
+  RENT = 'RENT',
+}
+
+export enum PropertyType {
+  HOUSE = 'HOUSE',
+  APARTMENT = 'APARTMENT',
+  PH = 'PH',
+  LAND = 'LAND',
+  OFFICE = 'OFFICE',
+  COMMERCIAL = 'COMMERCIAL',
+  OTHER = 'OTHER',
+}
+
+export enum PropertyStatus {
+  DRAFT = 'DRAFT',
+  APPRAISAL = 'APPRAISAL',
+  CAPTURED = 'CAPTURED',
+  ACTIVE = 'ACTIVE',
+  RESERVED = 'RESERVED',
+  SOLD = 'SOLD',
+  RENTED = 'RENTED',
+  ARCHIVED = 'ARCHIVED',
+  LOST = 'LOST',
+}
+
+export enum CurrencyType {
+  USD = 'USD',
+  ARS = 'ARS',
+}
+
+export enum SearchRequirementStatus {
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  CLOSED = 'CLOSED',
+}
+
+export enum ActivityType {
+  CALL = 'CALL',
+  WHATSAPP = 'WHATSAPP',
+  EMAIL = 'EMAIL',
+  INSTAGRAM = 'INSTAGRAM',
+  MEETING = 'MEETING',
+  VISIT = 'VISIT',
+  NOTE = 'NOTE',
+  FOLLOW_UP = 'FOLLOW_UP',
+}
+
+export enum VisitStatus {
+  SCHEDULED = 'SCHEDULED',
+  DONE = 'DONE',
+  CANCELLED = 'CANCELLED',
+  RESCHEDULED = 'RESCHEDULED',
+}
