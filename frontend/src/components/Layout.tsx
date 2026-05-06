@@ -20,7 +20,7 @@ export function Layout() {
     <div className="shell">
       <aside className="sidebar">
         <div>
-          <p className="eyebrow">InmoFlow</p>
+          <p className="eyebrow">Propia</p>
           <h1>{t('layout.title')}</h1>
           <p className="muted">{t('layout.subtitle')}</p>
         </div>

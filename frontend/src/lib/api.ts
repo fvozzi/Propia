@@ -2,8 +2,8 @@ import type { LoginResponse } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 const GOOGLE_AUTH_ENABLED = import.meta.env.VITE_ENABLE_GOOGLE_AUTH === 'true';
-const TOKEN_KEY = 'inmoflow_token';
-const USER_KEY = 'inmoflow_user';
+const TOKEN_KEY = 'propia_token';
+const USER_KEY = 'propia_user';
 
 export function getApiUrl() {
   return API_URL;

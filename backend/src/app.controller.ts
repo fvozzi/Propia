@@ -6,7 +6,7 @@ export class AppController {
   health() {
     return {
       status: 'ok',
-      service: 'inmoflow-backend',
+      service: 'propia-backend',
     };
   }
 }

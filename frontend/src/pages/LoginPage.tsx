@@ -8,8 +8,8 @@ export function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const { locale, setLocale, t } = useI18n();
   const googleAuthEnabled = isGoogleAuthEnabled();
-  const [email, setEmail] = useState('agent@inmoflow.local');
-  const [password, setPassword] = useState('inmoflow123');
+  const [email, setEmail] = useState('agent@propia.local');
+  const [password, setPassword] = useState('propia123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +38,7 @@ export function LoginPage() {
   return (
     <div className="login-screen">
       <div className="login-card">
-        <p className="eyebrow">InmoFlow</p>
+        <p className="eyebrow">Propia</p>
         <h1>{t('login.title')}</h1>
         <p className="muted">{t('login.subtitle')}</p>
         <label className="full-span">

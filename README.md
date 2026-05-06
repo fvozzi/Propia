@@ -1,4 +1,4 @@
-# InmoFlow
+# Propia
 
 MVP de CRM inmobiliario personal para una agente que empieza a vender propiedades.
 
@@ -46,7 +46,7 @@ JWT_EXPIRES_IN=7d
 FRONTEND_URL=http://localhost:5173
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=inmoflow
+DB_NAME=propia
 DB_USER=postgres
 DB_PASSWORD=postgres
 DB_SYNCHRONIZE=false
@@ -88,7 +88,7 @@ El contenedor de backend ejecuta:
 
 ### 1. Base de datos
 
-Crear una base PostgreSQL llamada `inmoflow`.
+Crear una base PostgreSQL llamada `propia`.
 
 ### 2. Backend
 
@@ -140,8 +140,8 @@ Datos mínimos incluidos:
 
 ## Credenciales demo
 
-- Email: `agent@inmoflow.local`
-- Password: `inmoflow123`
+- Email: `agent@propia.local`
+- Password: `propia123`
 
 ## Google OAuth y Calendar
 
@@ -167,7 +167,7 @@ Flujo implementado:
 
 - `GET /api/auth/google`
 - callback en `GET /api/auth/google/callback`
-- InmoFlow emite su propio JWT luego del login con Google
+- Propia emite su propio JWT luego del login con Google
 - al crear o editar una visita, se intenta sincronizar con el calendario `primary` del usuario conectado
 
 Si dejas `VITE_ENABLE_GOOGLE_AUTH=false`, el frontend oculta el acceso con Google y el login demo sigue funcionando normalmente.

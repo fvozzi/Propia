@@ -28,7 +28,7 @@ export function buildStandaloneDataSourceOptions(): DataSourceOptions {
     port: Number(process.env.DB_PORT ?? 5432),
     username: process.env.DB_USER ?? 'postgres',
     password: process.env.DB_PASSWORD ?? 'postgres',
-    database: process.env.DB_NAME ?? 'inmoflow',
+    database: process.env.DB_NAME ?? 'propia',
     synchronize: false,
     logging: process.env.DB_LOGGING === 'true',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],

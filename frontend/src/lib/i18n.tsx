@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 export type Locale = 'en' | 'es';
 
-const LANGUAGE_KEY = 'inmoflow_language';
+const LANGUAGE_KEY = 'propia_language';
 
 const translations = {
   en: {

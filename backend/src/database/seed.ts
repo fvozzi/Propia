@@ -33,21 +33,26 @@ async function run() {
   const activitiesRepository = dataSource.getRepository(Activity);
   const visitsRepository = dataSource.getRepository(Visit);
 
-  const existingUser = await usersRepository.findOne({
-    where: { email: 'agent@inmoflow.local' },
-  });
+  const existingUser =
+    (await usersRepository.findOne({
+      where: { email: 'agent@propia.local' },
+    })) ??
+    (await usersRepository.findOne({
+      where: { email: 'agent@inmoflow.local' },
+    }));
 
-  const demoPasswordHash = await bcrypt.hash('inmoflow123', 10);
+  const demoPasswordHash = await bcrypt.hash('propia123', 10);
 
   if (!existingUser) {
     await usersRepository.save(
       usersRepository.create({
-        email: 'agent@inmoflow.local',
+        email: 'agent@propia.local',
         passwordHash: demoPasswordHash,
         name: 'Agente Demo',
       }),
     );
-  } else if (!existingUser.passwordHash) {
+  } else {
+    existingUser.email = 'agent@propia.local';
     existingUser.passwordHash = demoPasswordHash;
     if (!existingUser.name) {
       existingUser.name = 'Agente Demo';

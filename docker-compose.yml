@@ -1,10 +1,10 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: inmoflow-postgres
+    container_name: propia-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: inmoflow
+      POSTGRES_DB: propia
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -15,7 +15,7 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: inmoflow-backend
+    container_name: propia-backend
     restart: unless-stopped
     depends_on:
       - postgres
@@ -25,7 +25,7 @@ services:
       JWT_EXPIRES_IN: 7d
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: inmoflow
+      DB_NAME: propia
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_SYNCHRONIZE: 'false'
@@ -38,7 +38,7 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: inmoflow-frontend
+    container_name: propia-frontend
     restart: unless-stopped
     depends_on:
       - backend
