@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import logo from '../assests/logoTransparente.png';
 import { useAuth } from '../lib/auth';
 import { getGoogleAuthUrl, isGoogleAuthEnabled } from '../lib/api';
 import { useI18n } from '../lib/i18n';
@@ -38,6 +39,7 @@ export function LoginPage() {
   return (
     <div className="login-screen">
       <div className="login-card">
+        <img src={logo} alt="Propia" className="brand-logo login-brand-logo" />
         <p className="eyebrow">Propia</p>
         <h1>{t('login.title')}</h1>
         <p className="muted">{t('login.subtitle')}</p>

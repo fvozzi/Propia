@@ -88,6 +88,19 @@ label {
   font-size: clamp(1.8rem, 2vw, 2.4rem);
 }
 
+.brand-logo {
+  display: block;
+  width: 96px;
+  height: auto;
+  margin-bottom: 1rem;
+  object-fit: contain;
+}
+
+.login-brand-logo {
+  width: 112px;
+  margin-inline: auto;
+}
+
 .nav {
   display: grid;
   gap: 0.6rem;
@@ -550,6 +563,7 @@ label {
 .login-card {
   max-width: 460px;
   width: 100%;
+  text-align: center;
 }
 
 .google-button {

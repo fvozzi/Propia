@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import logo from '../assests/logoTransparente.png';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 
@@ -20,6 +21,7 @@ export function Layout() {
     <div className="shell">
       <aside className="sidebar">
         <div>
+          <img src={logo} alt="Propia" className="brand-logo" />
           <p className="eyebrow">Propia</p>
           <h1>{t('layout.title')}</h1>
           <p className="muted">{t('layout.subtitle')}</p>
