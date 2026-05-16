@@ -1,5 +1,6 @@
 # Base spec for DigitalOcean App Platform.
-# Replace placeholder DB credentials and JWT secret before deploying.
+# This spec creates a dev PostgreSQL database component named `db`.
+# Replace JWT secret and any optional OAuth settings before deploying.
 name: propia
 region: nyc
 features:
@@ -42,22 +43,20 @@ services:
         scope: RUN_TIME
         type: SECRET
       - key: DB_HOST
-        value: your-db-host
+        value: ${db.HOSTNAME}
         scope: RUN_TIME
       - key: DB_PORT
-        value: "5432"
+        value: ${db.PORT}
         scope: RUN_TIME
       - key: DB_NAME
-        value: propia
+        value: ${db.DATABASE}
         scope: RUN_TIME
       - key: DB_USER
-        value: doadmin
+        value: ${db.USERNAME}
         scope: RUN_TIME
-        type: SECRET
       - key: DB_PASSWORD
-        value: change-me
+        value: ${db.PASSWORD}
         scope: RUN_TIME
-        type: SECRET
       - key: DB_SYNCHRONIZE
         value: "false"
         scope: RUN_TIME
@@ -85,3 +84,7 @@ static_sites:
       - key: VITE_ENABLE_GOOGLE_AUTH
         value: "false"
         scope: BUILD_TIME
+databases:
+  - engine: PG
+    name: db
+    version: "16"
