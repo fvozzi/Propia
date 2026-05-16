@@ -1,0 +1,119 @@
+# VPS Deploy
+
+Este setup asume:
+
+- Ubuntu en un Droplet de DigitalOcean
+- PostgreSQL local en el mismo servidor
+- `nginx` sirviendo el frontend y proxyeando `/api` al backend
+- deploy continuo por `git push` usando GitHub Actions + SSH
+
+## 1. Preparar el Droplet
+
+Entrar como `root` y ejecutar:
+
+```bash
+apt update && apt install -y git
+git clone git@github.com:fvozzi/Propia.git /root/propia-bootstrap
+cd /root/propia-bootstrap
+chmod +x deploy/server/bootstrap.sh deploy/server/deploy.sh
+APP_NAME=propia \
+APP_USER=propia \
+DOMAIN=tu-dominio.com \
+DB_NAME=propia \
+DB_USER=propia \
+DB_PASSWORD=cambia-esto \
+ENABLE_CERTBOT=false \
+./deploy/server/bootstrap.sh
+```
+
+Si el repo es privado, el servidor necesita una clave SSH con acceso al repo.
+La opcion mas simple es:
+
+1. generar una clave en el servidor
+2. agregar la publica como deploy key en GitHub
+3. recien despues correr el bootstrap
+
+Ejemplo:
+
+```bash
+ssh-keygen -t ed25519 -C "propia-server" -f ~/.ssh/id_ed25519_propia
+cat ~/.ssh/id_ed25519_propia.pub
+```
+
+Despues agrega esa publica en GitHub y asegura que `git clone git@github.com:fvozzi/Propia.git` funcione desde el Droplet.
+
+## 2. Variables de entorno
+
+Editar en el servidor:
+
+```bash
+nano /var/www/propia/shared/backend/.env
+nano /var/www/propia/shared/frontend/.env
+```
+
+Backend recomendado:
+
+```env
+PORT=3000
+JWT_SECRET=cambia-esto
+JWT_EXPIRES_IN=7d
+FRONTEND_URL=https://tu-dominio.com
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=propia
+DB_USER=propia
+DB_PASSWORD=cambia-esto
+DB_SYNCHRONIZE=false
+DB_LOGGING=false
+SEED_ON_BOOTSTRAP=false
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=https://tu-dominio.com/api/auth/google/callback
+```
+
+Frontend recomendado:
+
+```env
+VITE_API_URL=/api
+VITE_ENABLE_GOOGLE_AUTH=false
+```
+
+## 3. Primer deploy
+
+```bash
+sudo /var/www/propia/app/deploy/server/deploy.sh
+```
+
+Si querés seed inicial:
+
+```bash
+cd /var/www/propia/app
+cp /var/www/propia/shared/backend/.env backend/.env
+sudo -u propia npm --prefix backend run seed
+```
+
+## 4. Deploy continuo
+
+Hay un workflow en `.github/workflows/deploy.yml`.
+
+Configurar estos secrets en GitHub:
+
+- `DROPLET_HOST`
+- `DROPLET_PORT`
+- `DROPLET_USER`
+- `DROPLET_SSH_KEY`
+
+El usuario del secret tiene que poder ejecutar:
+
+```bash
+sudo /var/www/propia/app/deploy/server/deploy.sh
+```
+
+Si usas `root` como `DROPLET_USER`, no necesitas configurar sudo extra.
+
+## 5. Recomendaciones operativas
+
+- No guardar claves SSH privadas dentro del repo o del directorio del proyecto.
+- Abrir solo `22`, `80` y `443` en el firewall.
+- Habilitar backups del Droplet.
+- Programar backups de PostgreSQL aparte del snapshot del VPS.

@@ -117,6 +117,22 @@ Notas:
 - Necesitas una base PostgreSQL accesible desde App Platform.
 - Si no vas a usar Google OAuth, deja vacias `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_CALLBACK_URL`.
 
+## Deploy en VPS
+
+Si vas a usar un Droplet en vez de App Platform, el setup base esta en:
+
+- `deploy/README.md`
+- `deploy/server/bootstrap.sh`
+- `deploy/server/deploy.sh`
+- `.github/workflows/deploy.yml`
+
+Ese flujo deja:
+
+- `nginx` sirviendo el frontend
+- backend NestJS bajo `systemd`
+- PostgreSQL local en el mismo servidor
+- deploy continuo por `git push` usando GitHub Actions + SSH
+
 ## Levantar en local sin Docker
 
 ### 1. Base de datos
