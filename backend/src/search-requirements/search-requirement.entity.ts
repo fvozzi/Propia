@@ -20,6 +20,12 @@ export class SearchRequirement {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column()
+  teamId: number;
+
+  @Column()
+  ownerUserId: number;
+
   @ManyToOne(() => Contact, (contact) => contact.searchRequirements, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'contactId' })
   contact: Contact;

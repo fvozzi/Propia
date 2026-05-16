@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateSearchRequirementDto } from './dto/create-search-requirement.dto';
 import { QuerySearchRequirementsDto } from './dto/query-search-requirements.dto';
@@ -22,30 +23,34 @@ export class SearchRequirementsController {
   constructor(private readonly searchRequirementsService: SearchRequirementsService) {}
 
   @Post()
-  create(@Body() dto: CreateSearchRequirementDto) {
-    return this.searchRequirementsService.create(dto);
+  create(@Body() dto: CreateSearchRequirementDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.searchRequirementsService.create(dto, user);
   }
 
   @Get()
-  findAll(@Query() query: QuerySearchRequirementsDto) {
-    return this.searchRequirementsService.findAll(query);
+  findAll(
+    @Query() query: QuerySearchRequirementsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.searchRequirementsService.findAll(query, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.searchRequirementsService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.searchRequirementsService.findOne(id, user);
   }
 
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateSearchRequirementDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.searchRequirementsService.update(id, dto);
+    return this.searchRequirementsService.update(id, dto, user);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.searchRequirementsService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.searchRequirementsService.remove(id, user);
   }
 }

@@ -5,6 +5,7 @@ import {
   getToken,
   login as loginRequest,
   storeSession,
+  switchActiveTeam as switchActiveTeamRequest,
 } from './api';
 import type { LoginResponse } from '../types';
 
@@ -14,6 +15,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   completeGoogleLogin: (payload: LoginResponse) => void;
+  switchTeam: (teamId: number) => Promise<void>;
   logout: () => void;
 };
 
@@ -37,6 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       storeSession(payload);
       setToken(payload.accessToken);
       setUser(payload.user);
+    },
+    async switchTeam(teamId: number) {
+      const response = await switchActiveTeamRequest(teamId);
+      storeSession(response);
+      setToken(response.accessToken);
+      setUser(response.user);
     },
     logout() {
       clearSession();

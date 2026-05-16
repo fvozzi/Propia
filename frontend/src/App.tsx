@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { AdminRoute } from './components/AdminRoute';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './lib/auth';
@@ -13,6 +14,7 @@ import { LoginPage } from './pages/LoginPage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { PropertyDetailPage } from './pages/PropertyDetailPage';
 import { SearchRequirementsPage } from './pages/SearchRequirementsPage';
+import { UsersPage } from './pages/UsersPage';
 import { VisitsPage } from './pages/VisitsPage';
 
 export default function App() {
@@ -34,6 +36,9 @@ export default function App() {
                 <Route path="/requirements" element={<SearchRequirementsPage />} />
                 <Route path="/activities" element={<ActivitiesPage />} />
                 <Route path="/visits" element={<VisitsPage />} />
+                <Route element={<AdminRoute />}>
+                  <Route path="/users" element={<UsersPage />} />
+                </Route>
               </Route>
             </Route>
           </Routes>

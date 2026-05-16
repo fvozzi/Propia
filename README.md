@@ -16,7 +16,7 @@ MVP de CRM inmobiliario personal para una agente que empieza a vender propiedade
 /backend
 /frontend
 /storage/photos
-/docker-compose.yml
+/.do/app.yaml
 /README.md
 ```
 
@@ -66,23 +66,56 @@ VITE_API_URL=http://localhost:3000/api
 VITE_ENABLE_GOOGLE_AUTH=false
 ```
 
-## Levantar con Docker
+## Deploy en DigitalOcean App Platform
 
-```bash
-docker compose up --build
+Este repo esta preparado para deploy sin Docker, usando buildpacks de App Platform y source directories del monorepo.
+
+Componentes:
+
+- `api`: servicio Node.js con `source_dir=backend`
+- `web`: static site con `source_dir=frontend`
+
+Archivo incluido:
+
+- `.do/app.yaml`: spec base para App Platform
+
+Configuracion recomendada:
+
+- Backend: `source_dir=backend`, `build_command="npm ci && npm run build"`, `run_command="npm run migration:run && npm run start:prod"`, `http_port=3000`
+- Frontend: `source_dir=frontend`, `build_command="npm ci && npm run build"`, `output_dir=dist`
+
+Variables minimas del backend:
+
+```env
+PORT=3000
+JWT_SECRET=change-me
+FRONTEND_URL=https://tu-app.ondigitalocean.app
+DB_HOST=tu-host-postgres
+DB_PORT=5432
+DB_NAME=propia
+DB_USER=doadmin
+DB_PASSWORD=tu-password
+DB_SYNCHRONIZE=false
+DB_LOGGING=false
+SEED_ON_BOOTSTRAP=false
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=https://tu-app.ondigitalocean.app/api/auth/google/callback
 ```
 
-Esto levanta:
+Variables del frontend:
 
-- PostgreSQL en `http://localhost:5432`
-- Backend en `http://localhost:3000/api`
-- Frontend en `http://localhost:5173`
+```env
+VITE_API_URL=/api
+VITE_ENABLE_GOOGLE_AUTH=false
+```
 
-El contenedor de backend ejecuta:
+Notas:
 
-1. migraciones
-2. seed inicial
-3. servidor NestJS
+- App Platform no detecta este repo desde la raiz si no configuras `source_dir`, porque `package.json` vive en `backend/` y `frontend/`.
+- Si usas el spec, reemplaza los placeholders de base de datos y secretos antes de crear el app.
+- Necesitas una base PostgreSQL accesible desde App Platform.
+- Si no vas a usar Google OAuth, deja vacias `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_CALLBACK_URL`.
 
 ## Levantar en local sin Docker
 
@@ -90,21 +123,46 @@ El contenedor de backend ejecuta:
 
 Crear una base PostgreSQL llamada `propia`.
 
-### 2. Backend
+### 2. Instalar dependencias una sola vez
+
+Desde la raiz:
+
+```bash
+npm run setup
+```
+
+### 3. Preparar backend
 
 ```bash
 cd backend
-npm install
+npm run migration:run
+npm run seed
+```
+
+### 4. Levantar todo con un solo comando
+
+Desde la raiz:
+
+```bash
+npm run dev
+```
+
+Esto levanta:
+
+- backend en `http://localhost:3000/api`
+- frontend en `http://localhost:5173`
+
+Si queres correrlos por separado:
+
+```bash
+cd backend
 npm run migration:run
 npm run seed
 npm run start:dev
 ```
 
-### 3. Frontend
-
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 

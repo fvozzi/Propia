@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { paginate } from '../common/pagination';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { QueryContactsDto } from './dto/query-contacts.dto';
@@ -17,19 +18,24 @@ export class ContactsService {
     private readonly rolesRepository: Repository<ContactRole>,
   ) {}
 
-  async create(dto: CreateContactDto) {
+  async create(dto: CreateContactDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
     const contact = this.contactsRepository.create({
       ...dto,
+      teamId,
+      ownerUserId: user.sub,
       roles: (dto.roles ?? []).map((role) => this.rolesRepository.create({ role })),
     });
 
     return this.contactsRepository.save(contact);
   }
 
-  async findAll(query: QueryContactsDto) {
+  async findAll(query: QueryContactsDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
     const qb = this.contactsRepository
       .createQueryBuilder('contact')
       .leftJoinAndSelect('contact.roles', 'roles')
+      .where('contact.teamId = :teamId', { teamId })
       .orderBy('contact.updatedAt', 'DESC');
 
     if (query.search) {
@@ -46,9 +52,10 @@ export class ContactsService {
     return paginate(qb, query);
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
     const contact = await this.contactsRepository.findOne({
-      where: { id },
+      where: { id, teamId },
       relations: {
         roles: true,
         searchRequirements: true,
@@ -77,8 +84,11 @@ export class ContactsService {
     return contact;
   }
 
-  async update(id: number, dto: UpdateContactDto) {
-    const contact = await this.contactsRepository.findOne({ where: { id } });
+  async update(id: number, dto: UpdateContactDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const contact = await this.contactsRepository.findOne({
+      where: { id, teamId },
+    });
 
     if (!contact) {
       throw new NotFoundException('Contacto no encontrado');
@@ -103,11 +113,14 @@ export class ContactsService {
       }
     }
 
-    return this.findOne(id);
+    return this.findOne(id, user);
   }
 
-  async remove(id: number) {
-    const contact = await this.contactsRepository.findOne({ where: { id } });
+  async remove(id: number, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const contact = await this.contactsRepository.findOne({
+      where: { id, teamId },
+    });
 
     if (!contact) {
       throw new NotFoundException('Contacto no encontrado');

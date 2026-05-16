@@ -1,0 +1,87 @@
+# Base spec for DigitalOcean App Platform.
+# Replace placeholder DB credentials and JWT secret before deploying.
+name: propia
+region: nyc
+features:
+  - buildpack-stack=ubuntu-22
+ingress:
+  rules:
+    - component:
+        name: api
+      match:
+        path:
+          prefix: /api
+    - component:
+        name: web
+      match:
+        path:
+          prefix: /
+services:
+  - name: api
+    environment_slug: node-js
+    github:
+      repo: fvozzi/Propia
+      branch: main
+      deploy_on_push: true
+    source_dir: backend
+    build_command: npm ci && npm run build
+    run_command: npm run migration:run && npm run start:prod
+    http_port: 3000
+    envs:
+      - key: NODE_ENV
+        value: production
+        scope: RUN_TIME
+      - key: PORT
+        value: "3000"
+        scope: RUN_TIME
+      - key: FRONTEND_URL
+        value: ${APP_URL}
+        scope: RUN_TIME
+      - key: JWT_SECRET
+        value: change-me
+        scope: RUN_TIME
+        type: SECRET
+      - key: DB_HOST
+        value: your-db-host
+        scope: RUN_TIME
+      - key: DB_PORT
+        value: "5432"
+        scope: RUN_TIME
+      - key: DB_NAME
+        value: propia
+        scope: RUN_TIME
+      - key: DB_USER
+        value: doadmin
+        scope: RUN_TIME
+        type: SECRET
+      - key: DB_PASSWORD
+        value: change-me
+        scope: RUN_TIME
+        type: SECRET
+      - key: DB_SYNCHRONIZE
+        value: "false"
+        scope: RUN_TIME
+      - key: DB_LOGGING
+        value: "false"
+        scope: RUN_TIME
+      - key: SEED_ON_BOOTSTRAP
+        value: "false"
+        scope: RUN_TIME
+static_sites:
+  - name: web
+    environment_slug: node-js
+    github:
+      repo: fvozzi/Propia
+      branch: main
+      deploy_on_push: true
+    source_dir: frontend
+    build_command: npm ci && npm run build
+    output_dir: dist
+    catchall_document: index.html
+    envs:
+      - key: VITE_API_URL
+        value: /api
+        scope: BUILD_TIME
+      - key: VITE_ENABLE_GOOGLE_AUTH
+        value: "false"
+        scope: BUILD_TIME

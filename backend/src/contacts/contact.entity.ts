@@ -18,6 +18,12 @@ export class Contact {
   id: number;
 
   @Column()
+  teamId: number;
+
+  @Column()
+  ownerUserId: number;
+
+  @Column()
   firstName: string;
 
   @Column()

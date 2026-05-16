@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, switchTeam } = useAuth();
   const { locale, setLocale, t } = useI18n();
 
   const links = [
@@ -15,7 +15,17 @@ export function Layout() {
     { to: '/requirements', label: t('nav.requirements') },
     { to: '/activities', label: t('nav.activities') },
     { to: '/visits', label: t('nav.visits') },
+    ...(user?.appRole === 'ADMIN' ? [{ to: '/users', label: t('nav.users') }] : []),
   ];
+
+  async function handleTeamChange(teamId: number) {
+    if (teamId === user?.activeTeamId) {
+      return;
+    }
+
+    await switchTeam(teamId);
+    window.location.reload();
+  }
 
   return (
     <div className="shell">
@@ -46,6 +56,21 @@ export function Layout() {
               <option value="en">English</option>
             </select>
           </label>
+          {user?.teams?.length ? (
+            <label>
+              {t('common.team')}
+              <select
+                value={user.activeTeamId ?? ''}
+                onChange={(event) => handleTeamChange(Number(event.target.value))}
+              >
+                {user.teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <div>
             <strong>{user?.name}</strong>
             <p className="muted">{user?.email}</p>

@@ -15,6 +15,12 @@ export class Activity {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column()
+  teamId: number;
+
+  @Column()
+  ownerUserId: number;
+
   @ManyToOne(() => Contact, (contact) => contact.activities, {
     nullable: true,
     onDelete: 'SET NULL',

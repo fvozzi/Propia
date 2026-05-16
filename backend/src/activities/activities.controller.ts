@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
@@ -22,27 +23,31 @@ export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
   @Post()
-  create(@Body() dto: CreateActivityDto) {
-    return this.activitiesService.create(dto);
+  create(@Body() dto: CreateActivityDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.activitiesService.create(dto, user);
   }
 
   @Get()
-  findAll(@Query() query: QueryActivitiesDto) {
-    return this.activitiesService.findAll(query);
+  findAll(@Query() query: QueryActivitiesDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.activitiesService.findAll(query, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.activitiesService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.activitiesService.findOne(id, user);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateActivityDto) {
-    return this.activitiesService.update(id, dto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateActivityDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.activitiesService.update(id, dto, user);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.activitiesService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.activitiesService.remove(id, user);
   }
 }

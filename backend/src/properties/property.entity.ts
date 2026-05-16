@@ -25,6 +25,12 @@ export class Property {
   id: number;
 
   @Column()
+  teamId: number;
+
+  @Column()
+  ownerUserId: number;
+
+  @Column()
   title: string;
 
   @Column({ type: 'text', nullable: true })

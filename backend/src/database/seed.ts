@@ -3,15 +3,19 @@ import 'reflect-metadata';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
+import { TeamMembership } from '../auth/team-membership.entity';
+import { Team } from '../auth/team.entity';
 import { User } from '../auth/user.entity';
 import {
   ActivityType,
+  AppUserRole,
   ContactRoleType,
   CurrencyType,
   OperationType,
   PropertyStatus,
   PropertyType,
   SearchRequirementStatus,
+  TeamMembershipRole,
   VisitStatus,
 } from '../common/enums';
 import { ContactRole } from '../contacts/contact-role.entity';
@@ -27,13 +31,15 @@ async function run() {
   await dataSource.initialize();
 
   const usersRepository = dataSource.getRepository(User);
+  const teamsRepository = dataSource.getRepository(Team);
+  const membershipsRepository = dataSource.getRepository(TeamMembership);
   const contactsRepository = dataSource.getRepository(Contact);
   const requirementsRepository = dataSource.getRepository(SearchRequirement);
   const propertiesRepository = dataSource.getRepository(Property);
   const activitiesRepository = dataSource.getRepository(Activity);
   const visitsRepository = dataSource.getRepository(Visit);
 
-  const existingUser =
+  let existingUser =
     (await usersRepository.findOne({
       where: { email: 'agent@propia.local' },
     })) ??
@@ -44,20 +50,47 @@ async function run() {
   const demoPasswordHash = await bcrypt.hash('propia123', 10);
 
   if (!existingUser) {
-    await usersRepository.save(
+    existingUser = await usersRepository.save(
       usersRepository.create({
         email: 'agent@propia.local',
         passwordHash: demoPasswordHash,
         name: 'Agente Demo',
+        appRole: AppUserRole.ADMIN,
+        activeTeamId: null,
       }),
     );
   } else {
     existingUser.email = 'agent@propia.local';
     existingUser.passwordHash = demoPasswordHash;
+    existingUser.appRole = AppUserRole.ADMIN;
     if (!existingUser.name) {
       existingUser.name = 'Agente Demo';
     }
-    await usersRepository.save(existingUser);
+    existingUser = await usersRepository.save(existingUser);
+  }
+
+  if (!existingUser.activeTeamId) {
+    const team = await teamsRepository.save(
+      teamsRepository.create({
+        name: `${existingUser.name} Team`,
+      }),
+    );
+
+    existingUser.activeTeamId = team.id;
+    existingUser = await usersRepository.save(existingUser);
+
+    await membershipsRepository.save(
+      membershipsRepository.create({
+        teamId: team.id,
+        userId: existingUser.id,
+        role: TeamMembershipRole.OWNER,
+      }),
+    );
+  }
+
+  const activeTeamId = existingUser.activeTeamId;
+  if (!activeTeamId) {
+    throw new Error('Seed user requires an active team.');
   }
 
   const contactCount = await contactsRepository.count();
@@ -68,6 +101,8 @@ async function run() {
 
   const owner = await contactsRepository.save(
     contactsRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       firstName: 'Marta',
       lastName: 'Suarez',
       displayName: 'Marta Suarez',
@@ -85,6 +120,8 @@ async function run() {
 
   const buyer = await contactsRepository.save(
     contactsRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       firstName: 'Luciano',
       lastName: 'Perez',
       displayName: 'Luciano Perez',
@@ -99,6 +136,8 @@ async function run() {
 
   const investor = await contactsRepository.save(
     contactsRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       firstName: 'Sofia',
       lastName: 'Lopez',
       displayName: 'Sofia Lopez',
@@ -113,6 +152,8 @@ async function run() {
 
   const properties = await propertiesRepository.save([
     propertiesRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       title: 'PH reciclado con patio',
       description: 'PH de 3 ambientes reciclado a nuevo.',
       address: 'Av. Directorio 1200',
@@ -141,6 +182,8 @@ async function run() {
       ],
     }),
     propertiesRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       title: 'Departamento apto profesional',
       description: '2 ambientes luminosos cerca del subte.',
       address: 'Uriarte 900',
@@ -169,6 +212,8 @@ async function run() {
       ],
     }),
     propertiesRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       title: 'Lote con salida a dos calles',
       description: 'Terreno ideal desarrollo de unidades.',
       address: 'Los Aromos 450',
@@ -200,6 +245,8 @@ async function run() {
 
   await requirementsRepository.save([
     requirementsRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       contactId: buyer.id,
       operationType: OperationType.SALE,
       propertyType: PropertyType.APARTMENT,
@@ -213,6 +260,8 @@ async function run() {
       status: SearchRequirementStatus.ACTIVE,
     }),
     requirementsRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       contactId: investor.id,
       operationType: OperationType.SALE,
       propertyType: PropertyType.LAND,
@@ -238,6 +287,8 @@ async function run() {
 
   await activitiesRepository.save([
     activitiesRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       contactId: buyer.id,
       propertyId: properties[0].id,
       activityType: ActivityType.WHATSAPP,
@@ -247,6 +298,8 @@ async function run() {
       nextFollowUpDate: todayMorning,
     }),
     activitiesRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       contactId: investor.id,
       propertyId: properties[2].id,
       activityType: ActivityType.CALL,
@@ -256,6 +309,8 @@ async function run() {
       nextFollowUpDate: overdueDate,
     }),
     activitiesRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       contactId: owner.id,
       propertyId: properties[1].id,
       activityType: ActivityType.NOTE,
@@ -268,6 +323,8 @@ async function run() {
 
   await visitsRepository.save([
     visitsRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       propertyId: properties[0].id,
       contactId: buyer.id,
       scheduledAt: todayAfternoon,
@@ -275,6 +332,8 @@ async function run() {
       notes: 'Confirmar media hora antes.',
     }),
     visitsRepository.create({
+      teamId: activeTeamId,
+      ownerUserId: existingUser.id,
       propertyId: properties[1].id,
       contactId: investor.id,
       scheduledAt: tomorrow,

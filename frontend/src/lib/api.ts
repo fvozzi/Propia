@@ -69,3 +69,10 @@ export async function login(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   });
 }
+
+export async function switchActiveTeam(teamId: number) {
+  return apiRequest<LoginResponse>('/auth/active-team', {
+    method: 'PATCH',
+    body: JSON.stringify({ teamId }),
+  });
+}

@@ -24,17 +24,17 @@ export class VisitsController {
 
   @Post()
   create(@Body() dto: CreateVisitDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.visitsService.create(dto, user.sub);
+    return this.visitsService.create(dto, user);
   }
 
   @Get()
-  findAll(@Query() query: QueryVisitsDto) {
-    return this.visitsService.findAll(query);
+  findAll(@Query() query: QueryVisitsDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.visitsService.findAll(query, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.visitsService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.visitsService.findOne(id, user);
   }
 
   @Patch(':id')
@@ -43,11 +43,11 @@ export class VisitsController {
     @Body() dto: UpdateVisitDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.visitsService.update(id, dto, user.sub);
+    return this.visitsService.update(id, dto, user);
   }
 
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
-    return this.visitsService.remove(id, user.sub);
+    return this.visitsService.remove(id, user);
   }
 }

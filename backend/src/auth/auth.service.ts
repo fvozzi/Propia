@@ -4,7 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Profile } from 'passport-google-oauth20';
 import { Repository } from 'typeorm';
+import { AppUserRole } from '../common/enums';
 import { GoogleCalendarConnection } from './google-calendar-connection.entity';
+import { UserWorkspaceService } from './user-workspace.service';
 import { User } from './user.entity';
 
 @Injectable()
@@ -15,10 +17,11 @@ export class AuthService {
     @InjectRepository(GoogleCalendarConnection)
     private readonly googleConnectionsRepository: Repository<GoogleCalendarConnection>,
     private readonly jwtService: JwtService,
+    private readonly userWorkspaceService: UserWorkspaceService,
   ) {}
 
   async login(email: string, password: string) {
-    const user = await this.usersRepository.findOne({ where: { email } });
+    let user = await this.usersRepository.findOne({ where: { email } });
 
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
@@ -30,7 +33,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.buildAuthResponse(user, false);
+    user = await this.userWorkspaceService.ensurePersonalTeam(user);
+    return this.buildAuthResponse(user);
   }
 
   async loginWithGoogle(params: {
@@ -61,6 +65,8 @@ export class AuthService {
       user = await this.usersRepository.save(user);
     }
 
+    user = await this.userWorkspaceService.ensurePersonalTeam(user);
+
     const existingConnection = await this.googleConnectionsRepository.findOne({
       where: { userId: user.id },
     });
@@ -89,7 +95,7 @@ export class AuthService {
 
     await this.googleConnectionsRepository.save(connection);
 
-    return this.buildAuthResponse(user, true);
+    return this.buildAuthResponse(user);
   }
 
   async getGoogleConnectionStatus(userId: number) {
@@ -107,17 +113,42 @@ export class AuthService {
     };
   }
 
-  private async buildAuthResponse(user: User, googleCalendarConnected: boolean) {
+  async switchActiveTeam(userId: number, teamId: number) {
+    await this.userWorkspaceService.setActiveTeam(userId, teamId);
+    const user = await this.usersRepository.findOneOrFail({ where: { id: userId } });
+    return this.buildAuthResponse(user);
+  }
+
+  private async buildAuthResponse(user: User) {
+    const [hydratedUser, googleConnection] = await Promise.all([
+      this.userWorkspaceService.loadUserWithWorkspace(user.id),
+      this.googleConnectionsRepository.findOne({
+        where: { userId: user.id, isActive: true },
+      }),
+    ]);
+
+    const appRole = hydratedUser.appRole ?? AppUserRole.USER;
+
     return {
       accessToken: await this.jwtService.signAsync({
-        sub: user.id,
-        email: user.email,
+        sub: hydratedUser.id,
+        email: hydratedUser.email,
+        appRole,
+        activeTeamId: hydratedUser.activeTeamId,
       }),
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        googleCalendarConnected,
+        id: hydratedUser.id,
+        email: hydratedUser.email,
+        name: hydratedUser.name,
+        appRole,
+        activeTeamId: hydratedUser.activeTeamId,
+        activeTeamName: hydratedUser.activeTeam?.name ?? null,
+        googleCalendarConnected: Boolean(googleConnection),
+        teams: (hydratedUser.memberships ?? []).map((membership) => ({
+          id: membership.team.id,
+          name: membership.team.name,
+          membershipRole: membership.role,
+        })),
       },
     };
   }

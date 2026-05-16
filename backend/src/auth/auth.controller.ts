@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Req,
   Res,
@@ -14,6 +15,7 @@ import { CurrentUser, type AuthenticatedUser } from './current-user.decorator';
 import { GoogleEnabledGuard } from './google-enabled.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { SwitchActiveTeamDto } from './dto/switch-active-team.dto';
 import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
@@ -55,5 +57,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   googleStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getGoogleConnectionStatus(user.sub);
+  }
+
+  @Patch('active-team')
+  @UseGuards(JwtAuthGuard)
+  switchActiveTeam(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SwitchActiveTeamDto,
+  ) {
+    return this.authService.switchActiveTeam(user.sub, dto.teamId);
   }
 }

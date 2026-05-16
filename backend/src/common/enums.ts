@@ -64,3 +64,13 @@ export enum VisitStatus {
   CANCELLED = 'CANCELLED',
   RESCHEDULED = 'RESCHEDULED',
 }
+
+export enum AppUserRole {
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
+
+export enum TeamMembershipRole {
+  OWNER = 'OWNER',
+  MEMBER = 'MEMBER',
+}

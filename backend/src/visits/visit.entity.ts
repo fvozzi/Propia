@@ -16,6 +16,12 @@ export class Visit {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column()
+  teamId: number;
+
+  @Column()
+  ownerUserId: number;
+
   @ManyToOne(() => Property, (property) => property.visits, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'propertyId' })
   property: Property;

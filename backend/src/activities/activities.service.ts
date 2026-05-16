@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
+import { Contact } from '../contacts/contact.entity';
 import { paginate } from '../common/pagination';
+import { Property } from '../properties/property.entity';
 import { Activity } from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
@@ -12,11 +15,20 @@ export class ActivitiesService {
   constructor(
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
+    @InjectRepository(Contact)
+    private readonly contactsRepository: Repository<Contact>,
+    @InjectRepository(Property)
+    private readonly propertiesRepository: Repository<Property>,
   ) {}
 
-  async create(dto: CreateActivityDto) {
+  async create(dto: CreateActivityDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    await this.assertScopedRelations(dto.contactId ?? null, dto.propertyId ?? null, teamId);
+
     const activity = this.activitiesRepository.create({
       ...dto,
+      teamId,
+      ownerUserId: user.sub,
       activityDate: new Date(dto.activityDate),
       nextFollowUpDate: dto.nextFollowUpDate ? new Date(dto.nextFollowUpDate) : null,
       contactId: dto.contactId ?? null,
@@ -26,11 +38,13 @@ export class ActivitiesService {
     return this.activitiesRepository.save(activity);
   }
 
-  async findAll(query: QueryActivitiesDto) {
+  async findAll(query: QueryActivitiesDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
     const qb = this.activitiesRepository
       .createQueryBuilder('activity')
       .leftJoinAndSelect('activity.contact', 'contact')
       .leftJoinAndSelect('activity.property', 'property')
+      .where('activity.teamId = :teamId', { teamId })
       .orderBy('activity.activityDate', 'DESC');
 
     if (query.contactId) {
@@ -62,9 +76,10 @@ export class ActivitiesService {
     return paginate(qb, query);
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
     const activity = await this.activitiesRepository.findOne({
-      where: { id },
+      where: { id, teamId },
       relations: { contact: true, property: true },
     });
 
@@ -75,12 +90,19 @@ export class ActivitiesService {
     return activity;
   }
 
-  async update(id: number, dto: UpdateActivityDto) {
-    const activity = await this.activitiesRepository.findOne({ where: { id } });
+  async update(id: number, dto: UpdateActivityDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const activity = await this.activitiesRepository.findOne({
+      where: { id, teamId },
+    });
 
     if (!activity) {
       throw new NotFoundException('Actividad no encontrada');
     }
+
+    const nextContactId = dto.contactId === undefined ? activity.contactId : dto.contactId;
+    const nextPropertyId = dto.propertyId === undefined ? activity.propertyId : dto.propertyId;
+    await this.assertScopedRelations(nextContactId ?? null, nextPropertyId ?? null, teamId);
 
     Object.assign(activity, {
       ...dto,
@@ -96,11 +118,14 @@ export class ActivitiesService {
     });
 
     await this.activitiesRepository.save(activity);
-    return this.findOne(id);
+    return this.findOne(id, user);
   }
 
-  async remove(id: number) {
-    const activity = await this.activitiesRepository.findOne({ where: { id } });
+  async remove(id: number, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const activity = await this.activitiesRepository.findOne({
+      where: { id, teamId },
+    });
 
     if (!activity) {
       throw new NotFoundException('Actividad no encontrada');
@@ -108,5 +133,31 @@ export class ActivitiesService {
 
     await this.activitiesRepository.remove(activity);
     return { success: true };
+  }
+
+  private async assertScopedRelations(
+    contactId: number | null,
+    propertyId: number | null,
+    teamId: number | null,
+  ) {
+    if (contactId && teamId) {
+      const contact = await this.contactsRepository.findOne({
+        where: { id: contactId, teamId },
+      });
+
+      if (!contact) {
+        throw new NotFoundException('Contacto no encontrado');
+      }
+    }
+
+    if (propertyId && teamId) {
+      const property = await this.propertiesRepository.findOne({
+        where: { id: propertyId, teamId },
+      });
+
+      if (!property) {
+        throw new NotFoundException('Propiedad no encontrada');
+      }
+    }
   }
 }

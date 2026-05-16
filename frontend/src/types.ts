@@ -39,6 +39,14 @@ export type ActivityType =
   | 'NOTE'
   | 'FOLLOW_UP';
 export type VisitStatus = 'SCHEDULED' | 'DONE' | 'CANCELLED' | 'RESCHEDULED';
+export type AppUserRole = 'ADMIN' | 'USER';
+export type TeamMembershipRole = 'OWNER' | 'MEMBER';
+
+export interface SessionTeam {
+  id: number;
+  name: string;
+  membershipRole: TeamMembershipRole;
+}
 
 export interface Paginated<T> {
   items: T[];
@@ -168,6 +176,29 @@ export interface LoginResponse {
     id: number;
     email: string;
     name: string;
+    appRole: AppUserRole;
+    activeTeamId: number | null;
+    activeTeamName: string | null;
     googleCalendarConnected: boolean;
+    teams: SessionTeam[];
   };
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  name: string;
+  appRole: AppUserRole;
+  activeTeamId: number;
+  activeTeamName: string | null;
+  googleCalendarConnected: boolean;
+  createdAt: string;
+  memberships: SessionTeam[];
+}
+
+export interface TeamSummary {
+  id: number;
+  name: string;
+  memberCount: number;
+  createdAt: string;
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Activity } from '../activities/activity.entity';
 import { PropertyStatus, SearchRequirementStatus } from '../common/enums';
 import { Property } from '../properties/property.entity';
@@ -20,7 +21,8 @@ export class DashboardService {
     private readonly requirementsRepository: Repository<SearchRequirement>,
   ) {}
 
-  async getToday() {
+  async getToday(user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
@@ -32,7 +34,8 @@ export class DashboardService {
           .createQueryBuilder('activity')
           .leftJoinAndSelect('activity.contact', 'contact')
           .leftJoinAndSelect('activity.property', 'property')
-          .where('activity.nextFollowUpDate >= :start', { start: start.toISOString() })
+          .where('activity.teamId = :teamId', { teamId })
+          .andWhere('activity.nextFollowUpDate >= :start', { start: start.toISOString() })
           .andWhere('activity.nextFollowUpDate < :end', { end: end.toISOString() })
           .orderBy('activity.nextFollowUpDate', 'ASC')
           .getMany(),
@@ -40,7 +43,8 @@ export class DashboardService {
           .createQueryBuilder('activity')
           .leftJoinAndSelect('activity.contact', 'contact')
           .leftJoinAndSelect('activity.property', 'property')
-          .where('activity.nextFollowUpDate IS NOT NULL')
+          .where('activity.teamId = :teamId', { teamId })
+          .andWhere('activity.nextFollowUpDate IS NOT NULL')
           .andWhere('activity.nextFollowUpDate < :start', { start: start.toISOString() })
           .orderBy('activity.nextFollowUpDate', 'ASC')
           .getMany(),
@@ -48,15 +52,19 @@ export class DashboardService {
           .createQueryBuilder('visit')
           .leftJoinAndSelect('visit.contact', 'contact')
           .leftJoinAndSelect('visit.property', 'property')
-          .where('visit.scheduledAt >= :start', { start: start.toISOString() })
+          .where('visit.teamId = :teamId', { teamId })
+          .andWhere('visit.scheduledAt >= :start', { start: start.toISOString() })
           .andWhere('visit.scheduledAt < :end', { end: end.toISOString() })
           .orderBy('visit.scheduledAt', 'ASC')
           .getMany(),
         this.propertiesRepository.count({
-          where: { status: PropertyStatus.ACTIVE },
+          where: { status: PropertyStatus.ACTIVE, teamId },
         }),
         this.requirementsRepository.count({
-          where: { status: SearchRequirementStatus.ACTIVE },
+          where: {
+            status: SearchRequirementStatus.ACTIVE,
+            teamId,
+          },
         }),
       ]);
 

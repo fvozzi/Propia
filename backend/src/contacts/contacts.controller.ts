@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { QueryContactsDto } from './dto/query-contacts.dto';
@@ -22,27 +23,31 @@ export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
 
   @Post()
-  create(@Body() dto: CreateContactDto) {
-    return this.contactsService.create(dto);
+  create(@Body() dto: CreateContactDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.contactsService.create(dto, user);
   }
 
   @Get()
-  findAll(@Query() query: QueryContactsDto) {
-    return this.contactsService.findAll(query);
+  findAll(@Query() query: QueryContactsDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.contactsService.findAll(query, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.contactsService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.contactsService.findOne(id, user);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateContactDto) {
-    return this.contactsService.update(id, dto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateContactDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.contactsService.update(id, dto, user);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.contactsService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.contactsService.remove(id, user);
   }
 }
