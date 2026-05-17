@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Propia">
+  <rect width="64" height="64" rx="16" fill="#1f314f" />
+  <path
+    d="M18 14h16c8.837 0 16 7.163 16 16s-7.163 16-16 16h-8v10H18V14Zm8 8v16h8c4.418 0 8-3.582 8-8s-3.582-8-8-8h-8Z"
+    fill="#ffffff"
+  />
+  <path
+    d="M28 50V36.5l8-6.5 8 6.5V50h-6V39h-4v11h-6Z"
+    fill="#2aa38f"
+  />
+  <path d="M27 35.5 36 27l9 8.5-3.4 2.8-5.6-5-5.6 5-3.4-2.8Z" fill="#2aa38f" />
+</svg>
