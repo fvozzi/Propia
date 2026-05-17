@@ -8,6 +8,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
     "seed:prod": "node dist/database/seed.js",
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
@@ -48,6 +49,7 @@
     "@types/passport-jwt": "^4.0.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.6"
   }
 }
