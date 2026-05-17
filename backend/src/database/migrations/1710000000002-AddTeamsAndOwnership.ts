@@ -194,14 +194,21 @@ export class AddTeamsAndOwnership1710000000002 implements MigrationInterface {
     }
 
     if (primaryUserId === null || primaryTeamId === null) {
-      throw new Error('At least one user is required to migrate ownership data.');
-    }
-
-    for (const tableName of scopedTables) {
-      await queryRunner.query(
-        `UPDATE "${tableName}" SET "teamId" = $1, "ownerUserId" = $2 WHERE "teamId" IS NULL OR "ownerUserId" IS NULL`,
-        [primaryTeamId, primaryUserId],
-      );
+      for (const tableName of scopedTables) {
+        const [{ count }] = await queryRunner.query(`SELECT COUNT(*)::int AS count FROM "${tableName}"`);
+        if (Number(count) > 0) {
+          throw new Error(
+            `At least one user is required to migrate ownership data when "${tableName}" already has rows.`,
+          );
+        }
+      }
+    } else {
+      for (const tableName of scopedTables) {
+        await queryRunner.query(
+          `UPDATE "${tableName}" SET "teamId" = $1, "ownerUserId" = $2 WHERE "teamId" IS NULL OR "ownerUserId" IS NULL`,
+          [primaryTeamId, primaryUserId],
+        );
+      }
     }
 
     for (const tableName of scopedTables) {
