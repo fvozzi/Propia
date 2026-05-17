@@ -40,7 +40,21 @@ import { User } from './user.entity';
     AdminUsersService,
     UserWorkspaceService,
     JwtStrategy,
-    GoogleStrategy,
+    {
+      provide: GoogleStrategy,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const clientId = configService.get<string>('GOOGLE_CLIENT_ID');
+        const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
+        const callbackUrl = configService.get<string>('GOOGLE_CALLBACK_URL');
+
+        if (!clientId || !clientSecret || !callbackUrl) {
+          return null;
+        }
+
+        return new GoogleStrategy(configService);
+      },
+    },
     GoogleEnabledGuard,
     AdminGuard,
   ],
