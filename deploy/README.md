@@ -6,6 +6,7 @@ Este setup asume:
 - PostgreSQL local en el mismo servidor
 - `nginx` sirviendo el frontend y proxyeando `/api` al backend
 - deploy continuo por `git push` usando GitHub Actions + SSH
+- build de backend/frontend fuera del servidor
 
 ## 1. Preparar el Droplet
 
@@ -78,21 +79,22 @@ VITE_API_URL=/api
 VITE_ENABLE_GOOGLE_AUTH=false
 ```
 
-## 3. Primer deploy
+## 3. Actualizar scripts en el servidor
+
+Antes del primer deploy por artefacto, actualiza el repo ya clonado en el Droplet para que tenga el `deploy.sh` nuevo:
 
 ```bash
-sudo /var/www/propia/app/deploy/server/deploy.sh
-```
+cd /root/propia-bootstrap
+git pull origin main
 
-Si querés seed inicial:
-
-```bash
 cd /var/www/propia/app
-cp /var/www/propia/shared/backend/.env backend/.env
-sudo -u propia npm --prefix backend run seed
+git pull origin main
+chmod +x deploy/server/bootstrap.sh deploy/server/deploy.sh
 ```
 
-## 4. Deploy continuo
+Si la clave SSH del servidor para GitHub tiene passphrase, este `git pull` manual puede pedirla una vez. El deploy continuo ya no depende de `git pull` durante cada release.
+
+## 4. Deploy continuo recomendado
 
 Hay un workflow en `.github/workflows/deploy.yml`.
 
@@ -103,15 +105,44 @@ Configurar estos secrets en GitHub:
 - `DROPLET_USER`
 - `DROPLET_SSH_KEY`
 
+Opcionales como repo variables de GitHub Actions:
+
+- `VITE_API_URL`
+- `VITE_ENABLE_GOOGLE_AUTH`
+
 El usuario del secret tiene que poder ejecutar:
 
 ```bash
-sudo /var/www/propia/app/deploy/server/deploy.sh
+sudo RELEASE_ARCHIVE=/tmp/propia-release.tgz bash /var/www/propia/app/deploy/server/deploy.sh
 ```
 
 Si usas `root` como `DROPLET_USER`, no necesitas configurar sudo extra.
 
-## 5. Recomendaciones operativas
+El workflow:
+
+- builda backend y frontend en GitHub
+- empaqueta artefactos Linux listos para deploy
+- los sube por `scp`
+- ejecuta migraciones productivas en el Droplet
+- reinicia backend y recarga `nginx`
+
+## 5. Fallback manual en el servidor
+
+No recomendado en el Droplet de `1 GB`, pero disponible:
+
+```bash
+sudo FORCE_SERVER_BUILD=true bash /var/www/propia/app/deploy/server/deploy.sh
+```
+
+## 6. Seed inicial
+
+```bash
+cd /var/www/propia/app
+cp /var/www/propia/shared/backend/.env backend/.env
+sudo -u propia npm --prefix backend run seed
+```
+
+## 7. Recomendaciones operativas
 
 - No guardar claves SSH privadas dentro del repo o del directorio del proyecto.
 - Abrir solo `22`, `80` y `443` en el firewall.

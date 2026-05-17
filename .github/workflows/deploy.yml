@@ -8,10 +8,51 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: 20
+      RELEASE_NAME: propia-release.tgz
+      VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
+      VITE_ENABLE_GOOGLE_AUTH: ${{ vars.VITE_ENABLE_GOOGLE_AUTH || 'false' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: Build backend
+        run: npm --prefix backend run build
+
+      - name: Prune backend dev dependencies
+        run: npm --prefix backend prune --omit=dev
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Build frontend
+        run: npm --prefix frontend run build
+        env:
+          VITE_API_URL: ${{ env.VITE_API_URL }}
+          VITE_ENABLE_GOOGLE_AUTH: ${{ env.VITE_ENABLE_GOOGLE_AUTH }}
+
+      - name: Create release archive
+        run: |
+          mkdir -p release/backend release/frontend
+          cp backend/package.json backend/package-lock.json release/backend/
+          cp -R backend/dist release/backend/dist
+          cp -R backend/node_modules release/backend/node_modules
+          cp -R frontend/dist release/frontend/dist
+          tar -czf "${RELEASE_NAME}" -C release .
 
       - name: Start ssh-agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -21,5 +62,8 @@ jobs:
       - name: Add droplet host key
         run: ssh-keyscan -p "${{ secrets.DROPLET_PORT }}" -H "${{ secrets.DROPLET_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Upload release archive
+        run: scp -P "${{ secrets.DROPLET_PORT }}" "${RELEASE_NAME}" "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:/tmp/${RELEASE_NAME}"
+
       - name: Deploy on droplet
-        run: ssh -p "${{ secrets.DROPLET_PORT }}" "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}" "sudo /var/www/propia/app/deploy/server/deploy.sh"
+        run: ssh -p "${{ secrets.DROPLET_PORT }}" "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}" "sudo RELEASE_ARCHIVE=/tmp/${RELEASE_NAME} bash /var/www/propia/app/deploy/server/deploy.sh"
