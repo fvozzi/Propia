@@ -7,6 +7,9 @@ APP_GROUP="${APP_GROUP:-$APP_USER}"
 APP_DIR="${APP_DIR:-/var/www/$APP_NAME}"
 REPO_SSH="${REPO_SSH:-git@github.com:fvozzi/Propia.git}"
 DOMAIN="${DOMAIN:-_}"
+APP_DOMAIN="${APP_DOMAIN:-$DOMAIN}"
+ROOT_DOMAIN="${ROOT_DOMAIN:-_}"
+WWW_DOMAIN="${WWW_DOMAIN:-}"
 API_PORT="${API_PORT:-3000}"
 DB_NAME="${DB_NAME:-propia}"
 DB_USER="${DB_USER:-propia}"
@@ -76,24 +79,33 @@ sed \
   -e "s|__API_PORT__|$API_PORT|g" \
   "$APP_DIR/app/deploy/systemd/propia-backend.service" >"$SERVICE_PATH"
 
-NGINX_PATH="/etc/nginx/sites-available/${APP_NAME}.conf"
-sed \
-  -e "s|__SERVER_NAME__|$DOMAIN|g" \
-  -e "s|__APP_DIR__|$APP_DIR|g" \
-  -e "s|__API_PORT__|$API_PORT|g" \
-  "$APP_DIR/app/deploy/nginx/propia.conf" >"$NGINX_PATH"
-
-ln -sf "$NGINX_PATH" "/etc/nginx/sites-enabled/${APP_NAME}.conf"
-rm -f /etc/nginx/sites-enabled/default
-
 systemctl daemon-reload
 systemctl enable "${APP_NAME}-backend"
 systemctl enable nginx
-nginx -t
-systemctl reload nginx
 
-if [[ "$ENABLE_CERTBOT" == "true" && "$DOMAIN" != "_" ]]; then
-  certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "admin@$DOMAIN" --redirect
+APP_NAME="$APP_NAME" \
+APP_DIR="$APP_DIR" \
+API_PORT="$API_PORT" \
+DOMAIN="$DOMAIN" \
+APP_DOMAIN="$APP_DOMAIN" \
+ROOT_DOMAIN="$ROOT_DOMAIN" \
+WWW_DOMAIN="$WWW_DOMAIN" \
+bash "$APP_DIR/app/deploy/server/configure-nginx.sh"
+
+if [[ "$ENABLE_CERTBOT" == "true" ]]; then
+  if [[ "$ROOT_DOMAIN" != "_" && "$APP_DOMAIN" != "_" ]]; then
+    CERTBOT_EMAIL_DOMAIN="$ROOT_DOMAIN"
+    certbot --nginx \
+      -d "$APP_DOMAIN" \
+      -d "$ROOT_DOMAIN" \
+      -d "${WWW_DOMAIN:-www.$ROOT_DOMAIN}" \
+      --non-interactive \
+      --agree-tos \
+      -m "admin@$CERTBOT_EMAIL_DOMAIN" \
+      --redirect
+  elif [[ "$APP_DOMAIN" != "_" ]]; then
+    certbot --nginx -d "$APP_DOMAIN" --non-interactive --agree-tos -m "admin@$APP_DOMAIN" --redirect
+  fi
 fi
 
 echo "Bootstrap complete."

@@ -47,11 +47,12 @@ jobs:
 
       - name: Create release archive
         run: |
-          mkdir -p release/backend release/frontend
+          mkdir -p release/backend release/frontend release/deploy
           cp backend/package.json backend/package-lock.json release/backend/
           cp -R backend/dist release/backend/dist
           cp -R backend/node_modules release/backend/node_modules
           cp -R frontend/dist release/frontend/dist
+          cp -R deploy/. release/deploy/
           tar -czf "${RELEASE_NAME}" -C release .
 
       - name: Start ssh-agent

@@ -19,7 +19,9 @@ cd /root/propia-bootstrap
 chmod +x deploy/server/bootstrap.sh deploy/server/deploy.sh
 APP_NAME=propia \
 APP_USER=propia \
-DOMAIN=tu-dominio.com \
+APP_DOMAIN=app.tu-dominio.com \
+ROOT_DOMAIN=tu-dominio.com \
+WWW_DOMAIN=www.tu-dominio.com \
 DB_NAME=propia \
 DB_USER=propia \
 DB_PASSWORD=cambia-esto \
@@ -58,7 +60,7 @@ Backend recomendado:
 PORT=3000
 JWT_SECRET=cambia-esto
 JWT_EXPIRES_IN=7d
-FRONTEND_URL=https://tu-dominio.com
+FRONTEND_URL=https://app.tu-dominio.com
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=propia
@@ -69,7 +71,7 @@ DB_LOGGING=false
 SEED_ON_BOOTSTRAP=false
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=https://tu-dominio.com/api/auth/google/callback
+GOOGLE_CALLBACK_URL=https://app.tu-dominio.com/api/auth/google/callback
 ```
 
 Frontend recomendado:
@@ -77,6 +79,24 @@ Frontend recomendado:
 ```env
 VITE_API_URL=/api
 VITE_ENABLE_GOOGLE_AUTH=false
+```
+
+## 2.1 DNS recomendado
+
+Si vas a usar landing + app separadas:
+
+```text
+A     @      TU_IP
+A     app    TU_IP
+CNAME www    @
+```
+
+Los nameservers de DigitalOcean son:
+
+```text
+ns1.digitalocean.com
+ns2.digitalocean.com
+ns3.digitalocean.com
 ```
 
 ## 3. Actualizar scripts en el servidor
@@ -93,6 +113,26 @@ chmod +x deploy/server/bootstrap.sh deploy/server/deploy.sh
 ```
 
 Si la clave SSH del servidor para GitHub tiene passphrase, este `git pull` manual puede pedirla una vez. El deploy continuo ya no depende de `git pull` durante cada release.
+
+## 3.1 Regenerar nginx para landing + app
+
+Cuando el DNS ya resuelva al Droplet:
+
+```bash
+sudo APP_NAME=propia \
+APP_DIR=/var/www/propia \
+APP_DOMAIN=app.propiacrm.ar \
+ROOT_DOMAIN=propiacrm.ar \
+WWW_DOMAIN=www.propiacrm.ar \
+API_PORT=3000 \
+bash /var/www/propia/app/deploy/server/configure-nginx.sh
+```
+
+La landing estatica se sirve desde:
+
+```text
+/var/www/propia/app/deploy/landing
+```
 
 ## 4. Deploy continuo recomendado
 

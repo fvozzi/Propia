@@ -47,7 +47,7 @@ else
   exit 1
 fi
 
-chown -R "$APP_USER:$APP_GROUP" "$APP_DIR/app/backend" "$APP_DIR/app/frontend/dist"
+chown -R "$APP_USER:$APP_GROUP" "$APP_DIR/app/backend" "$APP_DIR/app/frontend/dist" "$APP_DIR/app/deploy"
 
 sudo -u "$APP_USER" npm --prefix backend run migration:run:prod
 

@@ -133,6 +133,16 @@ Ese flujo deja:
 - PostgreSQL local en el mismo servidor
 - deploy continuo por `git push` usando GitHub Actions + SSH
 
+Si queres separar sitio comercial y app:
+
+- `propiacrm.ar`: landing y pricing
+- `app.propiacrm.ar`: aplicacion
+
+La landing estatica vive en:
+
+- `deploy/landing/index.html`
+- `deploy/landing/styles.css`
+
 ## Levantar en local sin Docker
 
 ### 1. Base de datos
