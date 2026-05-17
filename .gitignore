@@ -14,3 +14,4 @@ storage
 /id_*
 /id_*.pub
 *.pem
+/tmp-*/
