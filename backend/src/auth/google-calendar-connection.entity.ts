@@ -14,7 +14,7 @@ export class GoogleCalendarConnection {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column({ type: 'integer', unique: true })
   userId: number;
 
   @OneToOne(() => User, (user) => user.googleCalendarConnection, {
@@ -23,16 +23,16 @@ export class GoogleCalendarConnection {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column()
+  @Column({ type: 'varchar' })
   googleSub: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   email: string;
 
-  @Column({ default: 'primary' })
+  @Column({ type: 'varchar', default: 'primary' })
   calendarId: string;
 
-  @Column({ default: true })
+  @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
   @Column({ type: 'text', nullable: true })
