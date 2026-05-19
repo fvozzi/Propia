@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import logo from '../assests/logoTransparente.png';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
@@ -6,6 +7,8 @@ import { useI18n } from '../lib/i18n';
 export function Layout() {
   const { user, logout, switchTeam } = useAuth();
   const { locale, setLocale, t } = useI18n();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const links = [
     { to: '/', label: t('nav.dashboard') },
@@ -18,6 +21,10 @@ export function Layout() {
     ...(user?.appRole === 'ADMIN' ? [{ to: '/users', label: t('nav.users') }] : []),
   ];
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   async function handleTeamChange(teamId: number) {
     if (teamId === user?.activeTeamId) {
       return;
@@ -28,8 +35,38 @@ export function Layout() {
   }
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
+    <div className={mobileMenuOpen ? 'shell mobile-menu-open' : 'shell'}>
+      <button
+        type="button"
+        className="mobile-nav-toggle"
+        aria-expanded={mobileMenuOpen}
+        aria-controls="app-sidebar"
+        onClick={() => setMobileMenuOpen(true)}
+      >
+        Menu
+      </button>
+      {mobileMenuOpen ? (
+        <button
+          type="button"
+          className="mobile-nav-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      ) : null}
+      <aside
+        id="app-sidebar"
+        className={mobileMenuOpen ? 'sidebar sidebar-open' : 'sidebar'}
+      >
+        <div className="sidebar-mobile-header">
+          <strong>Menu</strong>
+          <button
+            type="button"
+            className="ghost-button sidebar-close"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Cerrar
+          </button>
+        </div>
         <div>
           <img src={logo} alt="Propia" className="brand-logo" />
           <p className="eyebrow">Propia</p>
