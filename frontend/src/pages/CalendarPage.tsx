@@ -215,7 +215,7 @@ export function CalendarPage() {
       </section>
 
       <div className="calendar-layout">
-        <section className="card">
+        <section className="card calendar-month-panel">
           <div className="calendar-toolbar">
             <button type="button" className="ghost-button" onClick={() => moveMonth(-1)}>
               {t('common.previous')}
@@ -251,7 +251,8 @@ export function CalendarPage() {
                   type="button"
                   className={`calendar-day${isCurrentMonth ? '' : ' outside'}${isSelected ? ' selected' : ''}${
                     isToday ? ' today' : ''
-                  }`}
+                  }${dayItems.length ? ' has-items' : ''}`}
+                  aria-label={buildCalendarDayLabel(day, dayItems.length, locale)}
                   onClick={() => setSelectedDateKey(dayKey)}
                   onDoubleClick={() => openVisitComposer(dayKey)}
                   onContextMenu={(event) => handleDayContextMenu(event, dayKey)}
@@ -273,7 +274,7 @@ export function CalendarPage() {
           </div>
         </section>
 
-        <section className="card">
+        <section className="card calendar-agenda-panel">
           <div className="calendar-selected-header">
             <div>
               <p className="eyebrow">{t('calendar.selectedDay')}</p>
@@ -408,6 +409,14 @@ export function CalendarPage() {
                   ))}
                 </select>
               </label>
+              <div className="full-span calendar-related-actions">
+                <Link to="/contacts/new" className="ghost-button button-link">
+                  {t('contacts.newContact')}
+                </Link>
+                <Link to="/properties/new" className="ghost-button button-link">
+                  {t('properties.newProperty')}
+                </Link>
+              </div>
               <label>
                 {t('activities.activityDate')}
                 <input
@@ -674,4 +683,22 @@ function formatTime(value: string, locale: 'es' | 'en') {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function buildCalendarDayLabel(day: Date, itemCount: number, locale: 'es' | 'en') {
+  const formattedDate = new Intl.DateTimeFormat(locale === 'es' ? 'es-AR' : 'en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(day);
+
+  if (itemCount === 0) {
+    return formattedDate;
+  }
+
+  return locale === 'es'
+    ? `${formattedDate}. ${itemCount} elemento${itemCount === 1 ? '' : 's'} programado${
+        itemCount === 1 ? '' : 's'
+      }.`
+    : `${formattedDate}. ${itemCount} scheduled item${itemCount === 1 ? '' : 's'}.`;
 }

@@ -14,6 +14,7 @@ import {
   SearchRequirementStatus,
 } from '../common/enums';
 import { Contact } from '../contacts/contact.entity';
+import { Property } from '../properties/property.entity';
 
 @Entity('search_requirements')
 export class SearchRequirement {
@@ -38,6 +39,13 @@ export class SearchRequirement {
 
   @Column({ type: 'enum', enum: PropertyType, enumName: 'property_type' })
   propertyType: PropertyType;
+
+  @ManyToOne(() => Property, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'propertyId' })
+  property?: Property | null;
+
+  @Column({ type: 'integer', nullable: true })
+  propertyId: number | null;
 
   @Column('text', { array: true, default: () => "'{}'" })
   neighborhoods: string[];

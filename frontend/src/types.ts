@@ -8,7 +8,7 @@ export type Role =
   | 'NOTARY'
   | 'OTHER';
 
-export type OperationType = 'SALE' | 'RENT';
+export type OperationType = 'SALE' | 'BUY' | 'RENT';
 export type PropertyType =
   | 'HOUSE'
   | 'APARTMENT'
@@ -116,6 +116,7 @@ export interface Property {
 export interface SearchRequirement {
   id: number;
   contactId: number;
+  propertyId?: number | null;
   operationType: OperationType;
   propertyType: PropertyType;
   neighborhoods: string[];
@@ -129,6 +130,7 @@ export interface SearchRequirement {
   createdAt: string;
   updatedAt: string;
   contact?: Contact;
+  property?: Property | null;
 }
 
 export interface Activity {

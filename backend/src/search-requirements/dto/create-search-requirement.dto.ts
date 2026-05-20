@@ -19,6 +19,11 @@ export class CreateSearchRequirementDto {
   @IsInt()
   contactId: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  propertyId?: number;
+
   @IsEnum(OperationType)
   operationType: OperationType;
 

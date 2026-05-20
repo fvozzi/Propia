@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { Timeline, type TimelineItem } from '../components/Timeline';
 import { apiRequest } from '../lib/api';
@@ -19,7 +19,7 @@ export function ContactDetailPage() {
   }
 
   useEffect(() => {
-    load();
+    void load();
   }, [id]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -121,11 +121,7 @@ export function ContactDetailPage() {
               <div className="checkbox-grid">
                 {roleOptions.map((role) => (
                   <label key={role} className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      checked={roles.includes(role)}
-                      onChange={() => toggleRole(role)}
-                    />
+                    <input type="checkbox" checked={roles.includes(role)} onChange={() => toggleRole(role)} />
                     <span>{translateEnum('role', role)}</span>
                   </label>
                 ))}
@@ -153,17 +149,18 @@ export function ContactDetailPage() {
                   {translateEnum('operationType', requirement.operationType)} · {translateEnum('propertyType', requirement.propertyType)}
                 </strong>
                 <span>{requirement.neighborhoods.join(', ')}</span>
+                {requirement.property ? (
+                  <Link to={`/properties/${requirement.property.id}`} className="agenda-link">
+                    {t('common.property')}: {requirement.property.title}
+                  </Link>
+                ) : null}
               </div>
             ))}
           </div>
         </section>
       </div>
 
-      <Timeline
-        title={t('contacts.timelineTitle')}
-        emptyMessage={t('contacts.timelineEmpty')}
-        items={timelineItems}
-      />
+      <Timeline title={t('contacts.timelineTitle')} emptyMessage={t('contacts.timelineEmpty')} items={timelineItems} />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { paginate } from '../common/pagination';
 import { Contact } from '../contacts/contact.entity';
+import { OperationType } from '../common/enums';
+import { Property } from '../properties/property.entity';
 import { CreateSearchRequirementDto } from './dto/create-search-requirement.dto';
 import { QuerySearchRequirementsDto } from './dto/query-search-requirements.dto';
 import { UpdateSearchRequirementDto } from './dto/update-search-requirement.dto';
@@ -16,14 +18,17 @@ export class SearchRequirementsService {
     private readonly requirementsRepository: Repository<SearchRequirement>,
     @InjectRepository(Contact)
     private readonly contactsRepository: Repository<Contact>,
+    @InjectRepository(Property)
+    private readonly propertiesRepository: Repository<Property>,
   ) {}
 
   async create(dto: CreateSearchRequirementDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
     await this.assertScopedContact(dto.contactId, teamId);
+    const scopedProperty = dto.propertyId ? await this.assertScopedProperty(dto.propertyId, teamId) : null;
 
     const requirement = this.requirementsRepository.create({
-      ...dto,
+      ...this.normalizeRequirementPayload(dto, scopedProperty),
       teamId,
       ownerUserId: user.sub,
     });
@@ -35,6 +40,7 @@ export class SearchRequirementsService {
     const qb = this.requirementsRepository
       .createQueryBuilder('requirement')
       .leftJoinAndSelect('requirement.contact', 'contact')
+      .leftJoinAndSelect('requirement.property', 'property')
       .where('requirement.teamId = :teamId', { teamId })
       .orderBy('requirement.updatedAt', 'DESC');
 
@@ -53,7 +59,7 @@ export class SearchRequirementsService {
     const teamId = requireActiveTeamId(user);
     const requirement = await this.requirementsRepository.findOne({
       where: { id, teamId },
-      relations: { contact: true },
+      relations: { contact: true, property: true },
     });
 
     if (!requirement) {
@@ -75,8 +81,20 @@ export class SearchRequirementsService {
 
     const nextContactId = dto.contactId ?? requirement.contactId;
     await this.assertScopedContact(nextContactId, teamId);
+    const nextPropertyId = dto.propertyId === undefined ? requirement.propertyId : dto.propertyId;
+    const scopedProperty = nextPropertyId ? await this.assertScopedProperty(nextPropertyId, teamId) : null;
 
-    Object.assign(requirement, dto);
+    Object.assign(
+      requirement,
+      this.normalizeRequirementPayload(
+        {
+          ...requirement,
+          ...dto,
+          propertyId: nextPropertyId ?? undefined,
+        },
+        scopedProperty,
+      ),
+    );
     await this.requirementsRepository.save(requirement);
     return this.findOne(id, user);
   }
@@ -103,5 +121,50 @@ export class SearchRequirementsService {
     if (!contact) {
       throw new NotFoundException('Contacto no encontrado');
     }
+  }
+
+  private async assertScopedProperty(propertyId: number, teamId: number) {
+    const property = await this.propertiesRepository.findOne({
+      where: { id: propertyId, teamId },
+    });
+
+    if (!property) {
+      throw new NotFoundException('Propiedad no encontrada');
+    }
+
+    return property;
+  }
+
+  private normalizeRequirementPayload(
+    dto: Pick<
+      CreateSearchRequirementDto,
+      | 'contactId'
+      | 'propertyId'
+      | 'operationType'
+      | 'propertyType'
+      | 'neighborhoods'
+      | 'minPrice'
+      | 'maxPrice'
+      | 'currency'
+      | 'minRooms'
+      | 'minBedrooms'
+      | 'notes'
+      | 'status'
+    >,
+    property: Property | null,
+  ) {
+    if (dto.operationType === OperationType.SALE && property) {
+      return {
+        ...dto,
+        propertyId: property.id,
+        propertyType: property.propertyType,
+        neighborhoods: property.neighborhood ? [property.neighborhood] : [],
+      };
+    }
+
+    return {
+      ...dto,
+      propertyId: dto.propertyId ?? null,
+    };
   }
 }

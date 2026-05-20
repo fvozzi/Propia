@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import {
@@ -8,28 +9,49 @@ import {
   searchRequirementStatusOptions,
   useI18n,
 } from '../lib/i18n';
-import type { Contact, Paginated, SearchRequirement, SearchRequirementStatus } from '../types';
+import type {
+  Contact,
+  OperationType,
+  Paginated,
+  Property,
+  PropertyType,
+  SearchRequirement,
+  SearchRequirementStatus,
+} from '../types';
 
 export function SearchRequirementsPage() {
   const { t, translateEnum } = useI18n();
   const [requirements, setRequirements] = useState<Paginated<SearchRequirement> | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [status, setStatus] = useState('');
+  const [operationType, setOperationType] = useState<OperationType>('SALE');
+  const [propertyType, setPropertyType] = useState<PropertyType>('APARTMENT');
+  const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [neighborhoods, setNeighborhoods] = useState('');
 
   async function load() {
     const params = new URLSearchParams({ page: '1', limit: '20' });
     if (status) params.set('status', status);
-    const [requirementsData, contactsData] = await Promise.all([
+
+    const [requirementsData, contactsData, propertiesData] = await Promise.all([
       apiRequest<Paginated<SearchRequirement>>(`/search-requirements?${params.toString()}`),
       apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100'),
+      apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
     ]);
+
     setRequirements(requirementsData);
     setContacts(contactsData.items);
+    setProperties(propertiesData.items);
   }
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
+
+  const selectedProperty = properties.find((property) => String(property.id) === selectedPropertyId) ?? null;
+  const isSaleRequirement = operationType === 'SALE';
+  const usingExistingProperty = isSaleRequirement && Boolean(selectedProperty);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,9 +60,10 @@ export function SearchRequirementsPage() {
       method: 'POST',
       body: JSON.stringify({
         contactId: Number(formData.get('contactId')),
-        operationType: formData.get('operationType'),
-        propertyType: formData.get('propertyType'),
-        neighborhoods: String(formData.get('neighborhoods'))
+        propertyId: usingExistingProperty ? Number(selectedPropertyId) : undefined,
+        operationType,
+        propertyType,
+        neighborhoods: neighborhoods
           .split(',')
           .map((value) => value.trim())
           .filter(Boolean),
@@ -54,6 +77,10 @@ export function SearchRequirementsPage() {
       }),
     });
     event.currentTarget.reset();
+    setOperationType('SALE');
+    setPropertyType('APARTMENT');
+    setSelectedPropertyId('');
+    setNeighborhoods('');
     await load();
   }
 
@@ -61,6 +88,32 @@ export function SearchRequirementsPage() {
     if (!window.confirm(t('common.yesDeleteRequirement'))) return;
     await apiRequest(`/search-requirements/${id}`, { method: 'DELETE' });
     await load();
+  }
+
+  function handleOperationTypeChange(nextOperationType: OperationType) {
+    setOperationType(nextOperationType);
+
+    if (nextOperationType !== 'SALE') {
+      setSelectedPropertyId('');
+      return;
+    }
+
+    if (selectedProperty) {
+      setPropertyType(selectedProperty.propertyType);
+      setNeighborhoods(selectedProperty.neighborhood ?? '');
+    }
+  }
+
+  function handlePropertyChange(nextPropertyId: string) {
+    setSelectedPropertyId(nextPropertyId);
+    const property = properties.find((item) => String(item.id) === nextPropertyId);
+
+    if (!property) {
+      return;
+    }
+
+    setPropertyType(property.propertyType);
+    setNeighborhoods(property.neighborhood ?? '');
   }
 
   return (
@@ -79,7 +132,9 @@ export function SearchRequirementsPage() {
               </option>
             ))}
           </select>
-          <button onClick={load}>{t('common.filter')}</button>
+          <button type="button" onClick={load}>
+            {t('common.filter')}
+          </button>
         </div>
       </section>
 
@@ -100,7 +155,7 @@ export function SearchRequirementsPage() {
             </label>
             <label>
               {t('common.operation')}
-              <select name="operationType" defaultValue="SALE">
+              <select value={operationType} onChange={(event) => handleOperationTypeChange(event.target.value as OperationType)}>
                 {operationTypeOptions.map((option) => (
                   <option key={option} value={option}>
                     {translateEnum('operationType', option)}
@@ -108,9 +163,34 @@ export function SearchRequirementsPage() {
                 ))}
               </select>
             </label>
+            {isSaleRequirement ? (
+              <div className="full-span stack-gap">
+                <label>
+                  {t('common.property')}
+                  <select value={selectedPropertyId} onChange={(event) => handlePropertyChange(event.target.value)}>
+                    <option value="">{t('common.select')}</option>
+                    {properties.map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {selectedProperty ? (
+                  <p className="muted">
+                    {t('common.type')}: {translateEnum('propertyType', selectedProperty.propertyType)} ·{' '}
+                    {t('common.neighborhood')}: {selectedProperty.neighborhood ?? t('common.noData')}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <label>
               {t('common.type')}
-              <select name="propertyType" defaultValue="APARTMENT">
+              <select
+                value={propertyType}
+                onChange={(event) => setPropertyType(event.target.value as PropertyType)}
+                disabled={usingExistingProperty}
+              >
                 {propertyTypeOptions.map((option) => (
                   <option key={option} value={option}>
                     {translateEnum('propertyType', option)}
@@ -120,7 +200,12 @@ export function SearchRequirementsPage() {
             </label>
             <label>
               {t('requirements.neighborhoods')}
-              <input name="neighborhoods" placeholder="Caballito, Almagro" />
+              <input
+                value={neighborhoods}
+                onChange={(event) => setNeighborhoods(event.target.value)}
+                placeholder="Caballito, Almagro"
+                disabled={usingExistingProperty}
+              />
             </label>
             <label>
               {t('requirements.minPrice')}
@@ -165,11 +250,17 @@ export function SearchRequirementsPage() {
               <div>
                 <strong>{requirement.contact?.displayName ?? `${t('common.contact')} #${requirement.contactId}`}</strong>
                 <p className="muted">
-                  {translateEnum('operationType', requirement.operationType)} · {translateEnum('propertyType', requirement.propertyType)} · {requirement.neighborhoods.join(', ')}
+                  {translateEnum('operationType', requirement.operationType)} ·{' '}
+                  {translateEnum('propertyType', requirement.propertyType)} · {requirement.neighborhoods.join(', ')}
                 </p>
+                {requirement.property ? (
+                  <Link to={`/properties/${requirement.property.id}`} className="agenda-link">
+                    {t('common.property')}: {requirement.property.title}
+                  </Link>
+                ) : null}
                 <StatusPill value={requirement.status} />
               </div>
-              <button className="ghost-button" onClick={() => handleDelete(requirement.id)}>
+              <button type="button" className="ghost-button" onClick={() => handleDelete(requirement.id)}>
                 {t('common.delete')}
               </button>
             </article>

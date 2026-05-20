@@ -11,6 +11,7 @@ export enum ContactRoleType {
 
 export enum OperationType {
   SALE = 'SALE',
+  BUY = 'BUY',
   RENT = 'RENT',
 }
 

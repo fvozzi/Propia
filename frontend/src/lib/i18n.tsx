@@ -89,6 +89,7 @@ const translations = {
       title: 'Commercial base',
       searchPlaceholder: 'Search by name, email, or phone',
       newContact: 'New contact',
+      backToList: 'Back to contacts',
       listTitle: 'Contacts',
       firstName: 'First name',
       lastName: 'Last name',
@@ -111,6 +112,7 @@ const translations = {
       allStatuses: 'All statuses',
       allOperations: 'All operations',
       newProperty: 'New property',
+      backToList: 'Back to properties',
       listTitle: 'Properties',
       address: 'Address',
       photoUrl: 'Photo URL',
@@ -218,6 +220,7 @@ const translations = {
       },
       operationType: {
         SALE: 'Sale',
+        BUY: 'Purchase',
         RENT: 'Rent',
       },
       propertyType: {
@@ -351,6 +354,7 @@ const translations = {
       title: 'Base comercial',
       searchPlaceholder: 'Buscar por nombre, email o telefono',
       newContact: 'Nuevo contacto',
+      backToList: 'Volver a contactos',
       listTitle: 'Contactos',
       firstName: 'Nombre',
       lastName: 'Apellido',
@@ -373,6 +377,7 @@ const translations = {
       allStatuses: 'Todos los estados',
       allOperations: 'Todas las operaciones',
       newProperty: 'Nueva propiedad',
+      backToList: 'Volver a propiedades',
       listTitle: 'Propiedades',
       address: 'Direccion',
       photoUrl: 'URL de foto',
@@ -480,6 +485,7 @@ const translations = {
       },
       operationType: {
         SALE: 'Venta',
+        BUY: 'Compra',
         RENT: 'Alquiler',
       },
       propertyType: {
@@ -618,7 +624,7 @@ export function useI18n() {
 }
 
 export const roleOptions = ['OWNER', 'BUYER', 'TENANT', 'INVESTOR', 'REFERRER', 'REALTOR', 'NOTARY', 'OTHER'] as const;
-export const operationTypeOptions = ['SALE', 'RENT'] as const;
+export const operationTypeOptions = ['SALE', 'BUY', 'RENT'] as const;
 export const propertyTypeOptions = ['HOUSE', 'APARTMENT', 'PH', 'LAND', 'OFFICE', 'COMMERCIAL', 'OTHER'] as const;
 export const propertyStatusOptions = ['DRAFT', 'APPRAISAL', 'CAPTURED', 'ACTIVE', 'RESERVED', 'SOLD', 'RENTED', 'ARCHIVED', 'LOST'] as const;
 export const currencyOptions = ['USD', 'ARS'] as const;

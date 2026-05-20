@@ -58,7 +58,9 @@ export class ContactsService {
       where: { id, teamId },
       relations: {
         roles: true,
-        searchRequirements: true,
+        searchRequirements: {
+          property: true,
+        },
         activities: {
           property: true,
         },

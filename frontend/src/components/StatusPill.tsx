@@ -20,6 +20,7 @@ const enumGroups: Record<
   NOTARY: 'role',
   OTHER: 'role',
   SALE: 'operationType',
+  BUY: 'operationType',
   RENT: 'operationType',
   HOUSE: 'propertyType',
   APARTMENT: 'propertyType',
