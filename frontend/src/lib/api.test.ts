@@ -15,7 +15,7 @@ describe('api helpers', () => {
         email: 'agent@propia.local',
         name: 'Agente Demo',
         activeTeamId: 2,
-        activeTeam: { id: 2, name: 'Demo Team' },
+        activeTeamName: 'Demo Team',
         teams: [],
         appRole: 'ADMIN',
         googleCalendarConnected: false,
