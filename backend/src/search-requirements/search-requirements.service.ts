@@ -11,6 +11,21 @@ import { QuerySearchRequirementsDto } from './dto/query-search-requirements.dto'
 import { UpdateSearchRequirementDto } from './dto/update-search-requirement.dto';
 import { SearchRequirement } from './search-requirement.entity';
 
+type SearchRequirementPayload = {
+  contactId: number;
+  propertyId?: number | null;
+  operationType: CreateSearchRequirementDto['operationType'];
+  propertyType: CreateSearchRequirementDto['propertyType'];
+  neighborhoods: string[];
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  currency: CreateSearchRequirementDto['currency'];
+  minRooms?: number | null;
+  minBedrooms?: number | null;
+  notes?: string | null;
+  status: CreateSearchRequirementDto['status'];
+};
+
 @Injectable()
 export class SearchRequirementsService {
   constructor(
@@ -136,21 +151,7 @@ export class SearchRequirementsService {
   }
 
   private normalizeRequirementPayload(
-    dto: Pick<
-      CreateSearchRequirementDto,
-      | 'contactId'
-      | 'propertyId'
-      | 'operationType'
-      | 'propertyType'
-      | 'neighborhoods'
-      | 'minPrice'
-      | 'maxPrice'
-      | 'currency'
-      | 'minRooms'
-      | 'minBedrooms'
-      | 'notes'
-      | 'status'
-    >,
+    dto: SearchRequirementPayload,
     property: Property | null,
   ) {
     if (dto.operationType === OperationType.SALE && property) {
