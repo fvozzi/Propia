@@ -62,6 +62,20 @@ export class ActivitiesService {
       qb.andWhere('activity.activityType = :activityType', { activityType: query.activityType });
     }
 
+    if (query.propertySearchFeedback) {
+      qb.andWhere('activity.activityType = :propertySearchType', {
+        propertySearchType: ActivityType.PROPERTY_SEARCH,
+      });
+
+      if (query.propertySearchFeedback === 'LIKED') {
+        qb.andWhere('activity.propertySearchLiked = true');
+      } else if (query.propertySearchFeedback === 'DISLIKED') {
+        qb.andWhere('activity.propertySearchLiked = false');
+      } else {
+        qb.andWhere('activity.propertySearchLiked IS NULL');
+      }
+    }
+
     if (query.propertyId) {
       qb.andWhere('activity.propertyId = :propertyId', { propertyId: query.propertyId });
     }

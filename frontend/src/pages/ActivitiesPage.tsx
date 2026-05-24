@@ -19,24 +19,40 @@ export function ActivitiesPage() {
   const [response, setResponse] = useState<Paginated<Activity> | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [activityDate, setActivityDate] = useState('');
   const [contactId, setContactId] = useState('');
   const [activityType, setActivityType] = useState('');
+  const [propertySearchFeedback, setPropertySearchFeedback] = useState('');
   const [sharingActivityId, setSharingActivityId] = useState<number | null>(null);
 
-  async function load(nextPage = page) {
+  async function load(
+    nextPage = page,
+    filters: {
+      activityDate?: string;
+      contactId?: string;
+      activityType?: string;
+      propertySearchFeedback?: string;
+    } = {},
+  ) {
     const params = new URLSearchParams({
       page: String(nextPage),
       limit: '8',
     });
 
-    if (activityDate) {
-      params.set('fromDate', activityDate);
-      params.set('toDate', activityDate);
+    const nextActivityDate = filters.activityDate ?? activityDate;
+    const nextContactId = filters.contactId ?? contactId;
+    const nextActivityType = filters.activityType ?? activityType;
+    const nextPropertySearchFeedback = filters.propertySearchFeedback ?? propertySearchFeedback;
+
+    if (nextActivityDate) {
+      params.set('fromDate', nextActivityDate);
+      params.set('toDate', nextActivityDate);
     }
 
-    if (contactId) params.set('contactId', contactId);
-    if (activityType) params.set('activityType', activityType);
+    if (nextContactId) params.set('contactId', nextContactId);
+    if (nextActivityType) params.set('activityType', nextActivityType);
+    if (nextPropertySearchFeedback) params.set('propertySearchFeedback', nextPropertySearchFeedback);
 
     const data = await apiRequest<Paginated<Activity>>(`/activities?${params.toString()}`);
     setResponse(data);
@@ -58,6 +74,20 @@ export function ActivitiesPage() {
   async function handleApplyFilters() {
     setPage(1);
     await load(1);
+  }
+
+  async function handleClearFilters() {
+    setActivityDate('');
+    setContactId('');
+    setActivityType('');
+    setPropertySearchFeedback('');
+    setPage(1);
+    await load(1, {
+      activityDate: '',
+      contactId: '',
+      activityType: '',
+      propertySearchFeedback: '',
+    });
   }
 
   async function handleDelete(id: number) {
@@ -98,29 +128,8 @@ export function ActivitiesPage() {
         title={t('activities.title')}
         actions={
           <>
-            <select value={contactId} onChange={(event) => setContactId(event.target.value)} aria-label={t('common.contact')}>
-              <option value="">{t('activities.allContacts')}</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.displayName}
-                </option>
-              ))}
-            </select>
-            <select
-              value={activityType}
-              onChange={(event) => setActivityType(event.target.value)}
-              aria-label={t('common.type')}
-            >
-              <option value="">{t('activities.allTypes')}</option>
-              {activityTypeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {translateEnum('activityType', option)}
-                </option>
-              ))}
-            </select>
-            <input type="date" value={activityDate} onChange={(event) => setActivityDate(event.target.value)} aria-label={t('activities.activityDate')} />
-            <button type="button" onClick={handleApplyFilters}>
-              {t('common.apply')}
+            <button type="button" className="ghost-button" onClick={() => setFiltersOpen((current) => !current)}>
+              {filtersOpen ? t('activities.hideFilters') : t('activities.filters')}
             </button>
             <Link to="/activities/new" className="button-link">
               {t('activities.newActivity')}
@@ -128,6 +137,64 @@ export function ActivitiesPage() {
           </>
         }
       />
+
+      {filtersOpen ? (
+        <section className="card filters-panel">
+          <div className="filters-grid">
+            <label>
+              {t('common.contact')}
+              <select value={contactId} onChange={(event) => setContactId(event.target.value)} aria-label={t('common.contact')}>
+                <option value="">{t('activities.allContacts')}</option>
+                {contacts.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t('common.type')}
+              <select
+                value={activityType}
+                onChange={(event) => setActivityType(event.target.value)}
+                aria-label={t('common.type')}
+              >
+                <option value="">{t('activities.allTypes')}</option>
+                {activityTypeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {translateEnum('activityType', option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t('activities.buyerFeedback')}
+              <select
+                value={propertySearchFeedback}
+                onChange={(event) => setPropertySearchFeedback(event.target.value)}
+                aria-label={t('activities.buyerFeedback')}
+              >
+                <option value="">{t('activities.allResponses')}</option>
+                <option value="LIKED">{t('activities.likedProperty')}</option>
+                <option value="DISLIKED">{t('activities.dislikedProperty')}</option>
+                <option value="PENDING">{t('activities.pendingFeedback')}</option>
+              </select>
+            </label>
+            <label>
+              {t('activities.activityDate')}
+              <input type="date" value={activityDate} onChange={(event) => setActivityDate(event.target.value)} aria-label={t('activities.activityDate')} />
+            </label>
+          </div>
+          <div className="filters-actions">
+            <button type="button" onClick={handleApplyFilters}>
+              {t('common.apply')}
+            </button>
+            <button type="button" className="ghost-button" onClick={handleClearFilters}>
+              {t('common.clear')}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <PaginatedListCard
         title={t('activities.listTitle')}
