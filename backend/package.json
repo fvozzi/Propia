@@ -14,10 +14,10 @@
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "typeorm:prod": "typeorm -d dist/database/data-source.js",
     "migration:generate": "npm run typeorm -- migration:generate",
-    "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert",
-    "migration:run:prod": "npm run typeorm:prod -- migration:run",
-    "migration:revert:prod": "npm run typeorm:prod -- migration:revert"
+    "migration:run": "npm run typeorm -- migration:run --transaction each",
+    "migration:revert": "npm run typeorm -- migration:revert --transaction each",
+    "migration:run:prod": "npm run typeorm:prod -- migration:run --transaction each",
+    "migration:revert:prod": "npm run typeorm:prod -- migration:revert --transaction each"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
