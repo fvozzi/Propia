@@ -1,14 +1,14 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
-import { Timeline, type TimelineItem } from '../components/Timeline';
 import { apiRequest } from '../lib/api';
 import { roleOptions, useI18n } from '../lib/i18n';
+import { formatRequirementDetails } from '../lib/requirements';
 import type { Contact, Role } from '../types';
 
 export function ContactDetailPage() {
   const { id } = useParams();
-  const { formatDateTime, t, translateEnum } = useI18n();
+  const { t, translateEnum } = useI18n();
   const [contact, setContact] = useState<Contact | null>(null);
   const [roles, setRoles] = useState<Role[]>(['BUYER']);
 
@@ -54,27 +54,6 @@ export function ContactDetailPage() {
     return <p>{t('common.loading')}</p>;
   }
 
-  const timelineItems: TimelineItem[] = [
-    ...(contact.activities ?? []).map((activity) => ({
-      id: `activity-${activity.id}`,
-      date: activity.activityDate,
-      title: activity.title,
-      subtitle: activity.property ? `${t('common.property')}: ${activity.property.title}` : undefined,
-      description:
-        activity.description ??
-        (activity.nextFollowUpDate ? `${t('contacts.followUpPrefix')}: ${formatDateTime(activity.nextFollowUpDate)}` : null),
-      type: activity.activityType,
-    })),
-    ...(contact.visits ?? []).map((visit) => ({
-      id: `visit-${visit.id}`,
-      date: visit.scheduledAt,
-      title: `${t('timeline.visitTo')} ${visit.property?.title ?? `#${visit.propertyId}`}`,
-      subtitle: `${t('timeline.statePrefix')}: ${translateEnum('visitStatus', visit.status)}`,
-      description: visit.notes,
-      type: 'VISIT',
-    })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
   return (
     <div className="page-stack">
       <section className="page-header">
@@ -82,6 +61,9 @@ export function ContactDetailPage() {
           <p className="eyebrow">{t('contacts.detailsEyebrow')}</p>
           <h2>{contact.displayName}</h2>
         </div>
+        <Link to="/contacts" className="ghost-button button-link">
+          {t('contacts.backToList')}
+        </Link>
       </section>
 
       <div className="two-column">
@@ -90,7 +72,7 @@ export function ContactDetailPage() {
           <form className="form-grid" onSubmit={handleSubmit}>
             <label>
               {t('contacts.firstName')}
-              <input name="firstName" defaultValue={contact.firstName} />
+              <input name="firstName" defaultValue={contact.firstName} required />
             </label>
             <label>
               {t('contacts.lastName')}
@@ -146,9 +128,11 @@ export function ContactDetailPage() {
             {(contact.searchRequirements ?? []).map((requirement) => (
               <div key={requirement.id} className="list-item">
                 <strong>
-                  {translateEnum('operationType', requirement.operationType)} · {translateEnum('propertyType', requirement.propertyType)}
+                  {translateEnum('operationType', requirement.operationType)} ·{' '}
+                  {translateEnum('propertyType', requirement.propertyType)}
                 </strong>
-                <span>{requirement.neighborhoods.join(', ')}</span>
+                <span>{requirement.neighborhoods.join(', ') || t('common.noData')}</span>
+                <span className="muted">{formatRequirementDetails(requirement, t)}</span>
                 {requirement.property ? (
                   <Link to={`/properties/${requirement.property.id}`} className="agenda-link">
                     {t('common.property')}: {requirement.property.title}
@@ -159,8 +143,6 @@ export function ContactDetailPage() {
           </div>
         </section>
       </div>
-
-      <Timeline title={t('contacts.timelineTitle')} emptyMessage={t('contacts.timelineEmpty')} items={timelineItems} />
     </div>
   );
 }

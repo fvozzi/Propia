@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PaginatedListCard } from '../components/PaginatedListCard';
+import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { operationTypeOptions, propertyStatusOptions, propertyTypeOptions, useI18n } from '../lib/i18n';
@@ -51,12 +53,11 @@ export function PropertiesPage() {
 
   return (
     <div className="page-stack">
-      <section className="page-header">
-        <div>
-          <p className="eyebrow">{t('properties.eyebrow')}</p>
-          <h2>{t('properties.title')}</h2>
-        </div>
-        <div className="toolbar toolbar-wrap">
+      <ResourcePageHeader
+        eyebrow={t('properties.eyebrow')}
+        title={t('properties.title')}
+        actions={
+          <>
           <select
             value={filters.status}
             onChange={(event) => setFilters({ ...filters, status: event.target.value as PropertyFilters['status'] })}
@@ -105,11 +106,20 @@ export function PropertiesPage() {
           <Link to="/properties/new" className="button-link">
             {t('properties.newProperty')}
           </Link>
-        </div>
-      </section>
+          </>
+        }
+      />
 
-      <section className="card">
-        <h3>{t('properties.listTitle')}</h3>
+      <PaginatedListCard
+        title={t('properties.listTitle')}
+        page={response?.meta.page ?? 1}
+        totalPages={response?.meta.totalPages ?? 1}
+        pageLabel={t('contacts.page')}
+        previousLabel={t('common.previous')}
+        nextLabel={t('common.next')}
+        onPrevious={() => setPage((current) => current - 1)}
+        onNext={() => setPage((current) => current + 1)}
+      >
         {(response?.items ?? []).map((property) => (
           <article key={property.id} className="list-item list-item-actions">
             <div>
@@ -124,22 +134,7 @@ export function PropertiesPage() {
             </button>
           </article>
         ))}
-        <div className="pagination">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
-            {t('common.previous')}
-          </button>
-          <span>
-            {t('contacts.page')} {response?.meta.page ?? 1} / {response?.meta.totalPages ?? 1}
-          </span>
-          <button
-            type="button"
-            disabled={page >= (response?.meta.totalPages ?? 1)}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            {t('common.next')}
-          </button>
-        </div>
-      </section>
+      </PaginatedListCard>
     </div>
   );
 }

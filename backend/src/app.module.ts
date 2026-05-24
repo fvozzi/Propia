@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from './activities/activities.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
+import { BuyerPropertyCandidatesModule } from './buyer-property-candidates/buyer-property-candidates.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -22,6 +23,7 @@ import { VisitsModule } from './visits/visits.module';
       useFactory: (configService: ConfigService) => buildDataSourceOptions(configService),
     }),
     AuthModule,
+    BuyerPropertyCandidatesModule,
     CalendarModule,
     ContactsModule,
     PropertiesModule,

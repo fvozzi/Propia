@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PaginatedListCard } from '../components/PaginatedListCard';
+import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import type { Contact, Paginated } from '../types';
@@ -39,28 +41,36 @@ export function ContactsPage() {
 
   return (
     <div className="page-stack">
-      <section className="page-header">
-        <div>
-          <p className="eyebrow">{t('contacts.eyebrow')}</p>
-          <h2>{t('contacts.title')}</h2>
-        </div>
-        <div className="toolbar toolbar-wrap">
-          <input
-            placeholder={t('contacts.searchPlaceholder')}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <button type="button" onClick={handleSearch}>
-            {t('common.search')}
-          </button>
-          <Link to="/contacts/new" className="button-link">
-            {t('contacts.newContact')}
-          </Link>
-        </div>
-      </section>
+      <ResourcePageHeader
+        eyebrow={t('contacts.eyebrow')}
+        title={t('contacts.title')}
+        actions={
+          <>
+            <input
+              placeholder={t('contacts.searchPlaceholder')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <button type="button" onClick={handleSearch}>
+              {t('common.search')}
+            </button>
+            <Link to="/contacts/new" className="button-link">
+              {t('contacts.newContact')}
+            </Link>
+          </>
+        }
+      />
 
-      <section className="card">
-        <h3>{t('contacts.listTitle')}</h3>
+      <PaginatedListCard
+        title={t('contacts.listTitle')}
+        page={response?.meta.page ?? 1}
+        totalPages={response?.meta.totalPages ?? 1}
+        pageLabel={t('contacts.page')}
+        previousLabel={t('common.previous')}
+        nextLabel={t('common.next')}
+        onPrevious={() => setPage((current) => current - 1)}
+        onNext={() => setPage((current) => current + 1)}
+      >
         {(response?.items ?? []).map((contact) => (
           <article key={contact.id} className="list-item list-item-actions">
             <div>
@@ -70,27 +80,17 @@ export function ContactsPage() {
                 {contact.phone || contact.email || t('common.noData')}
               </p>
             </div>
-            <button type="button" className="ghost-button" onClick={() => handleDelete(contact.id)}>
-              {t('common.delete')}
-            </button>
+            <div className="candidate-actions">
+              <Link to={`/contacts/${contact.id}`} className="ghost-button button-link">
+                {t('contacts.editContact')}
+              </Link>
+              <button type="button" className="ghost-button" onClick={() => handleDelete(contact.id)}>
+                {t('common.delete')}
+              </button>
+            </div>
           </article>
         ))}
-        <div className="pagination">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
-            {t('common.previous')}
-          </button>
-          <span>
-            {t('contacts.page')} {response?.meta.page ?? 1} / {response?.meta.totalPages ?? 1}
-          </span>
-          <button
-            type="button"
-            disabled={page >= (response?.meta.totalPages ?? 1)}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            {t('common.next')}
-          </button>
-        </div>
-      </section>
+      </PaginatedListCard>
     </div>
   );
 }

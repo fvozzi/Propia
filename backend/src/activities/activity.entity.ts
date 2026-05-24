@@ -50,6 +50,18 @@ export class Activity {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  externalUrl: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  whatsappComment: string | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  whatsappSharedAt: Date | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  propertySearchLiked: boolean | null;
+
   @Column({ type: 'timestamp with time zone' })
   activityDate: Date;
 

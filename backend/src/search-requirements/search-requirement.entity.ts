@@ -4,6 +4,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -13,8 +14,14 @@ import {
   PropertyType,
   SearchRequirementStatus,
 } from '../common/enums';
+import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
+import type {
+  BuyerPropertyRequirementAgeRange,
+  BuyerPropertyRequirementAmenity,
+  BuyerPropertyRequirementRoomType,
+} from '../use-cases/buyer-property-requirement.use-case';
 
 @Entity('search_requirements')
 export class SearchRequirement {
@@ -65,6 +72,33 @@ export class SearchRequirement {
   @Column({ type: 'int', nullable: true })
   minBedrooms: number | null;
 
+  @Column({ type: 'int', nullable: true })
+  minBathrooms: number | null;
+
+  @Column({ type: 'boolean', default: false })
+  needsParking: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  creditEligible: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  professionalUse: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  accessible: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  bright: boolean;
+
+  @Column('text', { array: true, default: () => "'{}'" })
+  amenities: BuyerPropertyRequirementAmenity[];
+
+  @Column('text', { array: true, default: () => "'{}'" })
+  roomTypes: BuyerPropertyRequirementRoomType[];
+
+  @Column({ type: 'varchar', nullable: true })
+  ageRange: BuyerPropertyRequirementAgeRange | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
@@ -80,4 +114,7 @@ export class SearchRequirement {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => BuyerPropertyCandidate, (candidate) => candidate.searchRequirement)
+  propertyCandidates: BuyerPropertyCandidate[];
 }

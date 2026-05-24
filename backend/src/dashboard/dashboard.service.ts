@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Activity } from '../activities/activity.entity';
-import { PropertyStatus, SearchRequirementStatus } from '../common/enums';
+import { ActivityType, PropertyStatus, SearchRequirementStatus } from '../common/enums';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { Visit } from '../visits/visit.entity';
@@ -28,7 +28,14 @@ export class DashboardService {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const [followUpsDueToday, overdueFollowUps, visitsToday, activePropertiesCount, activeSearchRequirementsCount] =
+    const [
+      followUpsDueToday,
+      overdueFollowUps,
+      visitsToday,
+      activePropertiesCount,
+      activeSearchRequirementsCount,
+      pendingBuyerPropertyShares,
+    ] =
       await Promise.all([
         this.activitiesRepository
           .createQueryBuilder('activity')
@@ -66,6 +73,17 @@ export class DashboardService {
             teamId,
           },
         }),
+        this.activitiesRepository
+          .createQueryBuilder('activity')
+          .leftJoinAndSelect('activity.contact', 'contact')
+          .leftJoinAndSelect('activity.property', 'property')
+          .where('activity.teamId = :teamId', { teamId })
+          .andWhere('activity.activityType = :activityType', {
+            activityType: ActivityType.PROPERTY_SEARCH,
+          })
+          .andWhere('activity.whatsappSharedAt IS NULL')
+          .orderBy('activity.activityDate', 'DESC')
+          .getMany(),
       ]);
 
     return {
@@ -74,6 +92,8 @@ export class DashboardService {
       visitsToday,
       activePropertiesCount,
       activeSearchRequirementsCount,
+      pendingBuyerPropertySharesCount: pendingBuyerPropertyShares.length,
+      pendingBuyerPropertyShares,
     };
   }
 }

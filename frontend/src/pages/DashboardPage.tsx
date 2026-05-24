@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import type { DashboardData } from '../types';
@@ -48,6 +49,10 @@ export function DashboardPage() {
           <span>{t('dashboard.activeRequirements')}</span>
           <strong>{data?.activeSearchRequirementsCount ?? 0}</strong>
         </article>
+        <article className="stat-card">
+          <span>{t('dashboard.pendingBuyerShares')}</span>
+          <strong>{data?.pendingBuyerPropertySharesCount ?? 0}</strong>
+        </article>
       </section>
 
       <div className="two-column">
@@ -80,6 +85,21 @@ export function DashboardPage() {
             <span>
               {visit.contact?.displayName ?? t('common.noContact')} · {formatDateTime(visit.scheduledAt)}
             </span>
+          </div>
+        ))}
+      </section>
+
+      <section className="card">
+        <h3>{t('dashboard.pendingBuyerSharesList')}</h3>
+        {(data?.pendingBuyerPropertyShares ?? []).map((activity) => (
+          <div key={activity.id} className="list-item">
+            <strong>{activity.title}</strong>
+            <span>{activity.contact?.displayName ?? t('common.noContact')}</span>
+            {activity.contactId ? (
+              <Link to={`/contacts/${activity.contactId}`} className="agenda-link">
+                {t('calendar.openContact')}
+              </Link>
+            ) : null}
           </div>
         ))}
       </section>

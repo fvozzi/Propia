@@ -265,14 +265,16 @@ label {
 .pill-captured,
 .pill-follow_up,
 .pill-whatsapp,
-.pill-rescheduled {
+.pill-rescheduled,
+.pill-shared_whatsapp {
   background: rgba(0, 120, 212, 0.14);
   color: #0d4f8c;
 }
 
 .pill-note,
 .pill-other,
-.pill-appraisal {
+.pill-appraisal,
+.pill-pending_whatsapp {
   background: rgba(84, 84, 84, 0.14);
   color: #444;
 }
@@ -306,6 +308,30 @@ label {
 .stack-gap {
   display: grid;
   gap: 0.8rem;
+}
+
+.requirement-section {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 0.2rem;
+}
+
+.requirement-section-title {
+  font-weight: 700;
+}
+
+.radio-stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.radio-item {
+  justify-content: flex-start;
+}
+
+.requirement-clear-button {
+  width: fit-content;
 }
 
 .photo-grid {
@@ -556,6 +582,22 @@ label {
   font-weight: 700;
 }
 
+.candidate-header,
+.candidate-actions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.candidate-header {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.candidate-actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .agenda-divider {
   height: 1px;
   background: rgba(21, 32, 34, 0.08);
@@ -710,6 +752,10 @@ label {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .radio-stack {
     grid-template-columns: 1fr;
   }
 

@@ -10,6 +10,7 @@ const enumGroups: Record<
   | 'searchRequirementStatus'
   | 'activityType'
   | 'visitStatus'
+  | 'buyerPropertyShareStatus'
 > = {
   OWNER: 'role',
   BUYER: 'role',
@@ -49,10 +50,13 @@ const enumGroups: Record<
   VISIT: 'activityType',
   NOTE: 'activityType',
   FOLLOW_UP: 'activityType',
+  PROPERTY_SEARCH: 'activityType',
   SCHEDULED: 'visitStatus',
   DONE: 'visitStatus',
   CANCELLED: 'visitStatus',
   RESCHEDULED: 'visitStatus',
+  PENDING_WHATSAPP: 'buyerPropertyShareStatus',
+  SHARED_WHATSAPP: 'buyerPropertyShareStatus',
 };
 
 export function StatusPill({ value }: { value: string }) {

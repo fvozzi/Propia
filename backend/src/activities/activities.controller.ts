@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
+import { ShareActivityDto } from './dto/share-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
 @UseGuards(JwtAuthGuard)
@@ -44,6 +45,15 @@ export class ActivitiesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.activitiesService.update(id, dto, user);
+  }
+
+  @Patch(':id/share')
+  share(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ShareActivityDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.activitiesService.share(id, dto, user);
   }
 
   @Delete(':id')

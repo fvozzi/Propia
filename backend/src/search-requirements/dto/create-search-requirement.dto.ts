@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsArray,
   IsEnum,
   IsInt,
@@ -13,6 +14,11 @@ import {
   PropertyType,
   SearchRequirementStatus,
 } from '../../common/enums';
+import {
+  buyerPropertyRequirementAgeRangeOptions,
+  buyerPropertyRequirementAmenityOptions,
+  buyerPropertyRequirementRoomTypeOptions,
+} from '../../use-cases/buyer-property-requirement.use-case';
 
 export class CreateSearchRequirementDto {
   @Type(() => Number)
@@ -56,6 +62,52 @@ export class CreateSearchRequirementDto {
   @Type(() => Number)
   @IsInt()
   minBedrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  minBathrooms?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  needsParking?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  creditEligible?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  professionalUse?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  accessible?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  bright?: boolean;
+
+  @IsOptional()
+  @Type(() => String)
+  @IsArray()
+  @IsEnum(buyerPropertyRequirementAmenityOptions, { each: true })
+  amenities?: Array<(typeof buyerPropertyRequirementAmenityOptions)[number]>;
+
+  @IsOptional()
+  @Type(() => String)
+  @IsArray()
+  @IsEnum(buyerPropertyRequirementRoomTypeOptions, { each: true })
+  roomTypes?: Array<(typeof buyerPropertyRequirementRoomTypeOptions)[number]>;
+
+  @IsOptional()
+  @IsEnum(buyerPropertyRequirementAgeRangeOptions)
+  ageRange?: (typeof buyerPropertyRequirementAgeRangeOptions)[number];
 
   @IsOptional()
   @IsString()

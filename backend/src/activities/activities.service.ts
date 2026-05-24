@@ -1,13 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Contact } from '../contacts/contact.entity';
 import { paginate } from '../common/pagination';
+import { ActivityType } from '../common/enums';
 import { Property } from '../properties/property.entity';
 import { Activity } from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
+import { ShareActivityDto } from './dto/share-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
 @Injectable()
@@ -24,6 +26,7 @@ export class ActivitiesService {
   async create(dto: CreateActivityDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
     await this.assertScopedRelations(dto.contactId ?? null, dto.propertyId ?? null, teamId);
+    this.assertPropertySearchPayload(dto.activityType, dto.externalUrl);
 
     const activity = this.activitiesRepository.create({
       ...dto,
@@ -33,6 +36,10 @@ export class ActivitiesService {
       nextFollowUpDate: dto.nextFollowUpDate ? new Date(dto.nextFollowUpDate) : null,
       contactId: dto.contactId ?? null,
       propertyId: dto.propertyId ?? null,
+      externalUrl: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.externalUrl?.trim() || null : null,
+      whatsappComment: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.whatsappComment?.trim() || null : null,
+      whatsappSharedAt: dto.whatsappSharedAt ? new Date(dto.whatsappSharedAt) : null,
+      propertySearchLiked: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.propertySearchLiked ?? null : null,
     });
 
     return this.activitiesRepository.save(activity);
@@ -49,6 +56,10 @@ export class ActivitiesService {
 
     if (query.contactId) {
       qb.andWhere('activity.contactId = :contactId', { contactId: query.contactId });
+    }
+
+    if (query.activityType) {
+      qb.andWhere('activity.activityType = :activityType', { activityType: query.activityType });
     }
 
     if (query.propertyId) {
@@ -100,9 +111,10 @@ export class ActivitiesService {
       throw new NotFoundException('Actividad no encontrada');
     }
 
-    const nextContactId = dto.contactId === undefined ? activity.contactId : dto.contactId;
-    const nextPropertyId = dto.propertyId === undefined ? activity.propertyId : dto.propertyId;
+    const nextContactId = dto.contactId === undefined ? activity.contactId : dto.contactId ?? null;
+    const nextPropertyId = dto.propertyId === undefined ? activity.propertyId : dto.propertyId ?? null;
     await this.assertScopedRelations(nextContactId ?? null, nextPropertyId ?? null, teamId);
+    this.assertPropertySearchPayload(dto.activityType ?? activity.activityType, dto.externalUrl ?? activity.externalUrl ?? undefined);
 
     Object.assign(activity, {
       ...dto,
@@ -113,10 +125,61 @@ export class ActivitiesService {
           : dto.nextFollowUpDate
             ? new Date(dto.nextFollowUpDate)
             : null,
-      contactId: dto.contactId ?? activity.contactId,
-      propertyId: dto.propertyId ?? activity.propertyId,
+      contactId: dto.contactId === undefined ? activity.contactId : dto.contactId ?? null,
+      propertyId: dto.propertyId === undefined ? activity.propertyId : dto.propertyId ?? null,
+      externalUrl:
+        (dto.activityType ?? activity.activityType) === ActivityType.PROPERTY_SEARCH
+          ? dto.externalUrl === undefined
+            ? activity.externalUrl
+            : dto.externalUrl?.trim() || null
+          : null,
+      whatsappComment:
+        (dto.activityType ?? activity.activityType) === ActivityType.PROPERTY_SEARCH
+          ? dto.whatsappComment === undefined
+            ? activity.whatsappComment
+            : dto.whatsappComment?.trim() || null
+          : null,
+      whatsappSharedAt:
+        (dto.activityType ?? activity.activityType) !== ActivityType.PROPERTY_SEARCH
+          ? null
+          : dto.whatsappSharedAt === undefined
+          ? activity.whatsappSharedAt
+          : dto.whatsappSharedAt
+            ? new Date(dto.whatsappSharedAt)
+            : null,
+      propertySearchLiked:
+        (dto.activityType ?? activity.activityType) !== ActivityType.PROPERTY_SEARCH
+          ? null
+          : dto.propertySearchLiked === undefined
+            ? activity.propertySearchLiked
+            : dto.propertySearchLiked,
     });
 
+    await this.activitiesRepository.save(activity);
+    return this.findOne(id, user);
+  }
+
+  async share(id: number, dto: ShareActivityDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const activity = await this.activitiesRepository.findOne({
+      where: { id, teamId },
+      relations: { contact: true, property: true },
+    });
+
+    if (!activity) {
+      throw new NotFoundException('Actividad no encontrada');
+    }
+
+    if (activity.activityType !== ActivityType.PROPERTY_SEARCH) {
+      throw new BadRequestException('Solo las actividades de busqueda de propiedad se pueden compartir por WhatsApp');
+    }
+
+    if (!activity.externalUrl) {
+      throw new BadRequestException('La actividad no tiene link para compartir');
+    }
+
+    activity.whatsappComment = dto.whatsappComment?.trim() || activity.whatsappComment;
+    activity.whatsappSharedAt = new Date();
     await this.activitiesRepository.save(activity);
     return this.findOne(id, user);
   }
@@ -158,6 +221,12 @@ export class ActivitiesService {
       if (!property) {
         throw new NotFoundException('Propiedad no encontrada');
       }
+    }
+  }
+
+  private assertPropertySearchPayload(activityType: ActivityType, externalUrl?: string) {
+    if (activityType === ActivityType.PROPERTY_SEARCH && !externalUrl?.trim()) {
+      throw new BadRequestException('La actividad de busqueda de propiedad requiere un link');
     }
   }
 }

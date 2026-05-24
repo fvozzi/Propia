@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
+import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { Visit } from '../visits/visit.entity';
@@ -70,4 +71,7 @@ export class Contact {
 
   @OneToMany(() => Property, (property) => property.ownerContact)
   ownedProperties: Property[];
+
+  @OneToMany(() => BuyerPropertyCandidate, (candidate) => candidate.contact)
+  propertyCandidates: BuyerPropertyCandidate[];
 }

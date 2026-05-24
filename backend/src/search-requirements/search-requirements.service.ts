@@ -2,10 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
+import { CurrencyType, OperationType, PropertyType, SearchRequirementStatus } from '../common/enums';
 import { paginate } from '../common/pagination';
 import { Contact } from '../contacts/contact.entity';
-import { OperationType } from '../common/enums';
 import { Property } from '../properties/property.entity';
+import {
+  createBuyerPropertyRequirementCriteria,
+  type BuyerPropertyRequirementAgeRange,
+  type BuyerPropertyRequirementAmenity,
+  type BuyerPropertyRequirementRoomType,
+} from '../use-cases/buyer-property-requirement.use-case';
 import { CreateSearchRequirementDto } from './dto/create-search-requirement.dto';
 import { QuerySearchRequirementsDto } from './dto/query-search-requirements.dto';
 import { UpdateSearchRequirementDto } from './dto/update-search-requirement.dto';
@@ -14,16 +20,25 @@ import { SearchRequirement } from './search-requirement.entity';
 type SearchRequirementPayload = {
   contactId: number;
   propertyId?: number | null;
-  operationType: CreateSearchRequirementDto['operationType'];
-  propertyType: CreateSearchRequirementDto['propertyType'];
+  operationType: OperationType;
+  propertyType: PropertyType;
   neighborhoods: string[];
   minPrice?: number | null;
   maxPrice?: number | null;
-  currency: CreateSearchRequirementDto['currency'];
+  currency: CurrencyType;
   minRooms?: number | null;
   minBedrooms?: number | null;
+  minBathrooms?: number | null;
+  needsParking?: boolean;
+  creditEligible?: boolean;
+  professionalUse?: boolean;
+  accessible?: boolean;
+  bright?: boolean;
+  amenities?: BuyerPropertyRequirementAmenity[];
+  roomTypes?: BuyerPropertyRequirementRoomType[];
+  ageRange?: BuyerPropertyRequirementAgeRange | null;
   notes?: string | null;
-  status: CreateSearchRequirementDto['status'];
+  status: SearchRequirementStatus;
 };
 
 @Injectable()
@@ -154,18 +169,48 @@ export class SearchRequirementsService {
     dto: SearchRequirementPayload,
     property: Property | null,
   ) {
-    if (dto.operationType === OperationType.SALE && property) {
-      return {
-        ...dto,
-        propertyId: property.id,
-        propertyType: property.propertyType,
-        neighborhoods: property.neighborhood ? [property.neighborhood] : [],
-      };
-    }
+    const criteria = createBuyerPropertyRequirementCriteria({
+      propertyTypes: [dto.propertyType],
+      neighborhoods: dto.neighborhoods,
+      priceMin: dto.minPrice ?? null,
+      priceMax: dto.maxPrice ?? null,
+      currency: dto.currency,
+      roomsMin: dto.minRooms ?? null,
+      bedroomsMin: dto.minBedrooms ?? null,
+      bathroomsMin: dto.minBathrooms ?? null,
+      needsParking: dto.needsParking,
+      creditEligible: dto.creditEligible,
+      professionalUse: dto.professionalUse,
+      accessible: dto.accessible,
+      bright: dto.bright,
+      amenities: dto.amenities,
+      roomTypes: dto.roomTypes,
+      ageRange: dto.ageRange,
+      notes: dto.notes,
+    });
 
     return {
       ...dto,
-      propertyId: dto.propertyId ?? null,
+      propertyId: property ? property.id : dto.propertyId ?? null,
+      propertyType: property
+        ? property.propertyType
+        : ((criteria.propertyTypes[0] ?? dto.propertyType) as PropertyType),
+      neighborhoods: property ? (property.neighborhood ? [property.neighborhood] : []) : criteria.neighborhoods,
+      minPrice: criteria.priceMin,
+      maxPrice: criteria.priceMax,
+      currency: criteria.currency as CurrencyType,
+      minRooms: criteria.roomsMin,
+      minBedrooms: criteria.bedroomsMin,
+      minBathrooms: criteria.bathroomsMin,
+      needsParking: criteria.needsParking,
+      creditEligible: criteria.creditEligible,
+      professionalUse: criteria.professionalUse,
+      accessible: criteria.accessible,
+      bright: criteria.bright,
+      amenities: criteria.amenities,
+      roomTypes: criteria.roomTypes,
+      ageRange: criteria.ageRange,
+      notes: criteria.notes,
     };
   }
 }

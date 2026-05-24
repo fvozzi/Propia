@@ -20,8 +20,9 @@ export class ContactsService {
 
   async create(dto: CreateContactDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
+    const contactFields = this.normalizeContactFields(dto);
     const contact = this.contactsRepository.create({
-      ...dto,
+      ...contactFields,
       teamId,
       ownerUserId: user.sub,
       roles: (dto.roles ?? []).map((role) => this.rolesRepository.create({ role })),
@@ -61,6 +62,9 @@ export class ContactsService {
         searchRequirements: {
           property: true,
         },
+        propertyCandidates: {
+          searchRequirement: true,
+        },
         activities: {
           property: true,
         },
@@ -75,6 +79,9 @@ export class ContactsService {
         },
         visits: {
           scheduledAt: 'DESC',
+        },
+        propertyCandidates: {
+          createdAt: 'DESC',
         },
       },
     });
@@ -97,7 +104,17 @@ export class ContactsService {
     }
 
     const { roles, ...rest } = dto;
-    Object.assign(contact, rest);
+    const contactFields = this.normalizeContactFields({
+      firstName: rest.firstName ?? contact.firstName,
+      lastName: rest.lastName ?? contact.lastName,
+      displayName: rest.displayName ?? contact.displayName,
+      phone: rest.phone ?? contact.phone ?? undefined,
+      whatsapp: rest.whatsapp ?? contact.whatsapp ?? undefined,
+      email: rest.email ?? contact.email ?? undefined,
+      source: rest.source ?? contact.source ?? undefined,
+      notes: rest.notes ?? contact.notes ?? undefined,
+    });
+    Object.assign(contact, contactFields);
     const saved = await this.contactsRepository.save(contact);
 
     if (roles) {
@@ -130,5 +147,25 @@ export class ContactsService {
 
     await this.contactsRepository.remove(contact);
     return { success: true };
+  }
+
+  private normalizeContactFields(dto: Pick<
+    CreateContactDto,
+    'firstName' | 'lastName' | 'displayName' | 'phone' | 'whatsapp' | 'email' | 'source' | 'notes'
+  >) {
+    const firstName = dto.firstName.trim();
+    const lastName = dto.lastName?.trim() ?? '';
+    const displayName = dto.displayName?.trim() || [firstName, lastName].filter(Boolean).join(' ');
+
+    return {
+      firstName,
+      lastName,
+      displayName,
+      phone: dto.phone ?? null,
+      whatsapp: dto.whatsapp ?? null,
+      email: dto.email ?? null,
+      source: dto.source ?? null,
+      notes: dto.notes ?? null,
+    };
   }
 }

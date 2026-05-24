@@ -48,6 +48,11 @@ export enum SearchRequirementStatus {
   CLOSED = 'CLOSED',
 }
 
+export enum BuyerPropertyShareStatus {
+  PENDING_WHATSAPP = 'PENDING_WHATSAPP',
+  SHARED_WHATSAPP = 'SHARED_WHATSAPP',
+}
+
 export enum ActivityType {
   CALL = 'CALL',
   WHATSAPP = 'WHATSAPP',
@@ -57,6 +62,7 @@ export enum ActivityType {
   VISIT = 'VISIT',
   NOTE = 'NOTE',
   FOLLOW_UP = 'FOLLOW_UP',
+  PROPERTY_SEARCH = 'PROPERTY_SEARCH',
 }
 
 export enum VisitStatus {

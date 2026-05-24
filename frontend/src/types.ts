@@ -29,6 +29,39 @@ export type PropertyStatus =
   | 'LOST';
 export type CurrencyType = 'USD' | 'ARS';
 export type SearchRequirementStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED';
+export type SearchRequirementAmenity =
+  | 'POOL'
+  | 'GRILL'
+  | 'DOORMAN'
+  | 'SECURITY'
+  | 'ELEVATOR'
+  | 'SPORTS_COURT'
+  | 'GYM'
+  | 'LAUNDRY'
+  | 'QUINCHO'
+  | 'SOLARIUM'
+  | 'SUM';
+export type SearchRequirementRoomType =
+  | 'KITCHEN'
+  | 'LIVING_DINING'
+  | 'BALCONY'
+  | 'LAUNDRY_ROOM'
+  | 'TOILET'
+  | 'SERVICE_ROOM'
+  | 'SUITE_BEDROOM'
+  | 'GARDEN'
+  | 'PATIO'
+  | 'TERRACE'
+  | 'DRESSING_ROOM';
+export type SearchRequirementAgeRange =
+  | 'UNDER_CONSTRUCTION'
+  | 'BRAND_NEW'
+  | 'UP_TO_5_YEARS'
+  | 'UP_TO_10_YEARS'
+  | 'UP_TO_20_YEARS'
+  | 'UP_TO_50_YEARS'
+  | 'OVER_50_YEARS';
+export type BuyerPropertyShareStatus = 'PENDING_WHATSAPP' | 'SHARED_WHATSAPP';
 export type ActivityType =
   | 'CALL'
   | 'WHATSAPP'
@@ -37,7 +70,8 @@ export type ActivityType =
   | 'MEETING'
   | 'VISIT'
   | 'NOTE'
-  | 'FOLLOW_UP';
+  | 'FOLLOW_UP'
+  | 'PROPERTY_SEARCH';
 export type VisitStatus = 'SCHEDULED' | 'DONE' | 'CANCELLED' | 'RESCHEDULED';
 export type AppUserRole = 'ADMIN' | 'USER';
 export type TeamMembershipRole = 'OWNER' | 'MEMBER';
@@ -72,6 +106,7 @@ export interface Contact {
   updatedAt: string;
   roles: Array<{ id: number; role: Role }>;
   searchRequirements?: SearchRequirement[];
+  propertyCandidates?: BuyerPropertyCandidate[];
   activities?: Activity[];
   visits?: Visit[];
   ownedProperties?: Property[];
@@ -125,12 +160,38 @@ export interface SearchRequirement {
   currency: CurrencyType;
   minRooms: number | null;
   minBedrooms: number | null;
+  minBathrooms: number | null;
+  needsParking: boolean;
+  creditEligible: boolean;
+  professionalUse: boolean;
+  accessible: boolean;
+  bright: boolean;
+  amenities: SearchRequirementAmenity[];
+  roomTypes: SearchRequirementRoomType[];
+  ageRange: SearchRequirementAgeRange | null;
   notes: string | null;
   status: SearchRequirementStatus;
   createdAt: string;
   updatedAt: string;
   contact?: Contact;
   property?: Property | null;
+}
+
+export interface BuyerPropertyCandidate {
+  id: number;
+  contactId: number;
+  searchRequirementId: number | null;
+  portal: string;
+  url: string;
+  title: string;
+  internalNotes: string | null;
+  shareComments: string | null;
+  shareStatus: BuyerPropertyShareStatus;
+  sharedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contact?: Contact;
+  searchRequirement?: SearchRequirement | null;
 }
 
 export interface Activity {
@@ -140,9 +201,14 @@ export interface Activity {
   activityType: ActivityType;
   title: string;
   description: string | null;
+  externalUrl: string | null;
+  whatsappComment: string | null;
+  whatsappSharedAt: string | null;
+  propertySearchLiked: boolean | null;
   activityDate: string;
   nextFollowUpDate: string | null;
   createdAt: string;
+  updatedAt: string;
   contact?: Contact | null;
   property?: Property | null;
 }
@@ -170,6 +236,8 @@ export interface DashboardData {
   visitsToday: Visit[];
   activePropertiesCount: number;
   activeSearchRequirementsCount: number;
+  pendingBuyerPropertySharesCount: number;
+  pendingBuyerPropertyShares: Activity[];
 }
 
 export interface LoginResponse {

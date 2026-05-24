@@ -52,7 +52,11 @@ export function ContactCreatePage() {
         <form className="form-grid" onSubmit={handleCreate}>
           <label>
             {t('contacts.firstName')}
-            <input value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
+            <input
+              value={form.firstName}
+              onChange={(event) => setForm({ ...form, firstName: event.target.value })}
+              required
+            />
           </label>
           <label>
             {t('contacts.lastName')}
