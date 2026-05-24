@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
 export class MoveBuyerSearchToActivities1710000000007 implements MigrationInterface {
+  transaction = false;
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`ALTER TYPE "activity_type" ADD VALUE IF NOT EXISTS 'PROPERTY_SEARCH'`);
 

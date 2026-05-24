@@ -208,7 +208,6 @@ export interface Activity {
   activityDate: string;
   nextFollowUpDate: string | null;
   createdAt: string;
-  updatedAt: string;
   contact?: Contact | null;
   property?: Property | null;
 }
