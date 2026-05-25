@@ -47,7 +47,5 @@ export function navigateWhatsAppShareWindow(shareWindow: Window | null, whatsapp
     return;
   }
 
-  const nextWindow = window.open(whatsappUrl, WHATSAPP_SHARE_TARGET);
-  whatsappShareWindow = nextWindow;
-  nextWindow?.focus();
+  window.location.assign(whatsappUrl);
 }
