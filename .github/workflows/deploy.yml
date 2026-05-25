@@ -13,6 +13,7 @@ jobs:
       RELEASE_NAME: propia-release.tgz
       VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
       VITE_ENABLE_GOOGLE_AUTH: ${{ vars.VITE_ENABLE_GOOGLE_AUTH || 'false' }}
+      VITE_GOOGLE_MAPS_API_KEY: ${{ vars.VITE_GOOGLE_MAPS_API_KEY || '' }}
 
     steps:
       - name: Checkout
@@ -56,6 +57,7 @@ jobs:
         env:
           VITE_API_URL: ${{ env.VITE_API_URL }}
           VITE_ENABLE_GOOGLE_AUTH: ${{ env.VITE_ENABLE_GOOGLE_AUTH }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ env.VITE_GOOGLE_MAPS_API_KEY }}
 
       - name: Create release archive
         run: |
