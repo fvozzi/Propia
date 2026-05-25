@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { google } from 'googleapis';
 import { Repository } from 'typeorm';
+import { Activity } from '../activities/activity.entity';
 import { GoogleCalendarConnection } from '../auth/google-calendar-connection.entity';
+import { buildActivityCalendarEvent } from '../use-cases/google-calendar-activity.use-case';
 import { Visit } from '../visits/visit.entity';
 
 @Injectable()
@@ -103,6 +105,73 @@ export class GoogleCalendarService {
     });
   }
 
+  async syncActivityCreate(userId: number, activity: Activity) {
+    const connection = await this.findActiveConnectionForUser(userId);
+
+    if (!connection) {
+      return {
+        googleEventId: null,
+        googleSyncStatus: 'NOT_CONNECTED',
+        lastSyncedAt: null,
+        googleSyncError: null,
+      };
+    }
+
+    const calendar = await this.createCalendarClient(connection);
+    const response = await calendar.events.insert({
+      calendarId: connection.calendarId,
+      requestBody: this.buildActivityEvent(activity),
+    });
+
+    return {
+      googleEventId: response.data.id ?? null,
+      googleSyncStatus: 'SYNCED',
+      lastSyncedAt: new Date(),
+      googleSyncError: null,
+    };
+  }
+
+  async syncActivityUpdate(userId: number, activity: Activity) {
+    const connection = await this.findActiveConnectionForUser(userId);
+
+    if (!connection) {
+      return {
+        googleSyncStatus: 'NOT_CONNECTED',
+      };
+    }
+
+    if (!activity.googleEventId) {
+      return this.syncActivityCreate(userId, activity);
+    }
+
+    const calendar = await this.createCalendarClient(connection);
+    await calendar.events.update({
+      calendarId: connection.calendarId,
+      eventId: activity.googleEventId,
+      requestBody: this.buildActivityEvent(activity),
+    });
+
+    return {
+      googleSyncStatus: 'SYNCED',
+      lastSyncedAt: new Date(),
+      googleSyncError: null,
+    };
+  }
+
+  async syncActivityDelete(userId: number, activity: Activity) {
+    const connection = await this.findActiveConnectionForUser(userId);
+
+    if (!connection || !activity.googleEventId) {
+      return;
+    }
+
+    const calendar = await this.createCalendarClient(connection);
+    await calendar.events.delete({
+      calendarId: connection.calendarId,
+      eventId: activity.googleEventId,
+    });
+  }
+
   private async createCalendarClient(connection: GoogleCalendarConnection) {
     const oauth2Client = new google.auth.OAuth2(
       this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID'),
@@ -162,5 +231,11 @@ export class GoogleCalendarService {
         dateTime: endDate.toISOString(),
       },
     };
+  }
+
+  private buildActivityEvent(activity: Activity) {
+    return buildActivityCalendarEvent(activity, {
+      frontendUrl: this.configService.get<string>('FRONTEND_URL'),
+    });
   }
 }

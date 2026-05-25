@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ActivityCalendarSyncService } from '../activities/activity-calendar-sync.service';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Activity } from '../activities/activity.entity';
 import { ActivityType } from '../common/enums';
@@ -29,6 +30,7 @@ export class AppraisalRequestsService {
     private readonly contactsRepository: Repository<Contact>,
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
+    private readonly activityCalendarSyncService: ActivityCalendarSyncService,
   ) {}
 
   async create(dto: CreateAppraisalRequestDto, user: AuthenticatedUser) {
@@ -119,6 +121,7 @@ export class AppraisalRequestsService {
     });
 
     if (linkedActivity) {
+      await this.activityCalendarSyncService.deleteExternal(linkedActivity);
       await this.activitiesRepository.remove(linkedActivity);
     }
 
@@ -275,6 +278,7 @@ export class AppraisalRequestsService {
         activityDate: request.submittedAt ?? linkedActivity.activityDate,
       });
       await this.activitiesRepository.save(linkedActivity);
+      await this.activityCalendarSyncService.syncById(linkedActivity.id, 'update');
       return linkedActivity;
     }
 
@@ -287,10 +291,16 @@ export class AppraisalRequestsService {
       activityType: ActivityType.APPRAISAL_REQUEST,
       title: buildAppraisalRequestActivityTitle(request.propertyAddress),
       description,
+      googleEventId: null,
+      googleSyncStatus: 'PENDING',
+      lastSyncedAt: null,
+      googleSyncError: null,
       activityDate: request.submittedAt ?? request.createdAt ?? new Date(),
       nextFollowUpDate: null,
     });
 
-    return this.activitiesRepository.save(activity);
+    const saved = await this.activitiesRepository.save(activity);
+    await this.activityCalendarSyncService.syncById(saved.id, 'create');
+    return saved;
   }
 }

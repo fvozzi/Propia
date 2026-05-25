@@ -1,16 +1,18 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
+import { CalendarModule } from '../calendar/calendar.module';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
+import { ActivityCalendarSyncService } from './activity-calendar-sync.service';
 import { Activity } from './activity.entity';
 import { ActivitiesController } from './activities.controller';
 import { ActivitiesService } from './activities.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Activity, Contact, Property, AppraisalRequest])],
+  imports: [TypeOrmModule.forFeature([Activity, Contact, Property, AppraisalRequest]), CalendarModule],
   controllers: [ActivitiesController],
-  providers: [ActivitiesService],
-  exports: [ActivitiesService, TypeOrmModule],
+  providers: [ActivitiesService, ActivityCalendarSyncService],
+  exports: [ActivitiesService, ActivityCalendarSyncService, TypeOrmModule],
 })
 export class ActivitiesModule {}

@@ -73,6 +73,18 @@ export class Activity {
   @Column({ type: 'boolean', nullable: true })
   propertySearchLiked: boolean | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  googleEventId: string | null;
+
+  @Column({ type: 'varchar', default: 'PENDING' })
+  googleSyncStatus: string;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  lastSyncedAt: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  googleSyncError: string | null;
+
   @Column({ type: 'timestamp with time zone' })
   activityDate: Date;
 

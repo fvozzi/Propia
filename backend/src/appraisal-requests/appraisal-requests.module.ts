@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { Activity } from '../activities/activity.entity';
 import { Contact } from '../contacts/contact.entity';
 import {
@@ -10,7 +11,7 @@ import { AppraisalRequest } from './appraisal-request.entity';
 import { AppraisalRequestsService } from './appraisal-requests.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AppraisalRequest, Contact, Activity])],
+  imports: [TypeOrmModule.forFeature([AppraisalRequest, Contact, Activity]), ActivitiesModule],
   providers: [AppraisalRequestsService],
   controllers: [AppraisalRequestsController, PublicAppraisalRequestsController],
   exports: [AppraisalRequestsService, TypeOrmModule],

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
+import { ActivityCalendarSyncService } from '../activities/activity-calendar-sync.service';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { paginate } from '../common/pagination';
 import { Contact } from '../contacts/contact.entity';
@@ -55,6 +56,7 @@ export class PropertiesService {
     private readonly activitiesRepository: Repository<Activity>,
     @InjectRepository(Visit)
     private readonly visitsRepository: Repository<Visit>,
+    private readonly activityCalendarSyncService: ActivityCalendarSyncService,
   ) {}
 
   async create(dto: CreatePropertyDto, user: AuthenticatedUser) {
@@ -392,6 +394,7 @@ export class PropertiesService {
       if (linkedActivity) {
         linkedActivity.propertyId = propertyId;
         await this.activitiesRepository.save(linkedActivity);
+        await this.activityCalendarSyncService.syncById(linkedActivity.id, 'update');
       }
     }
 
@@ -408,6 +411,7 @@ export class PropertiesService {
         activity.propertyId = null;
       });
       await this.activitiesRepository.save(staleActivities);
+      await this.activityCalendarSyncService.syncMany(staleActivities.map((activity) => activity.id));
     }
   }
 

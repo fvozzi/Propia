@@ -12,6 +12,7 @@ import {
   createAppraisalRequestExpiration,
   createPublicFormToken,
 } from '../use-cases/appraisal-initial-intake.use-case';
+import { ActivityCalendarSyncService } from './activity-calendar-sync.service';
 import { Activity } from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
@@ -29,6 +30,7 @@ export class ActivitiesService {
     private readonly propertiesRepository: Repository<Property>,
     @InjectRepository(AppraisalRequest)
     private readonly appraisalRequestsRepository: Repository<AppraisalRequest>,
+    private readonly activityCalendarSyncService: ActivityCalendarSyncService,
   ) {}
 
   async create(dto: CreateActivityDto, user: AuthenticatedUser) {
@@ -64,6 +66,10 @@ export class ActivitiesService {
       ...dto,
       teamId,
       ownerUserId: user.sub,
+      googleEventId: null,
+      googleSyncStatus: 'PENDING',
+      lastSyncedAt: null,
+      googleSyncError: null,
       activityDate: new Date(dto.activityDate),
       nextFollowUpDate: dto.nextFollowUpDate ? new Date(dto.nextFollowUpDate) : null,
       contactId: dto.contactId ?? null,
@@ -79,7 +85,9 @@ export class ActivitiesService {
       propertySearchLiked: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.propertySearchLiked ?? null : null,
     });
 
-    return this.activitiesRepository.save(activity);
+    const saved = await this.activitiesRepository.save(activity);
+    await this.activityCalendarSyncService.syncById(saved.id, 'create');
+    return this.findOne(saved.id, user);
   }
 
   async findAll(query: QueryActivitiesDto, user: AuthenticatedUser) {
@@ -238,6 +246,7 @@ export class ActivitiesService {
     });
 
     await this.activitiesRepository.save(activity);
+    await this.activityCalendarSyncService.syncById(activity.id, 'update');
     return this.findOne(id, user);
   }
 
@@ -263,6 +272,7 @@ export class ActivitiesService {
     activity.whatsappComment = dto.whatsappComment?.trim() || activity.whatsappComment;
     activity.whatsappSharedAt = new Date();
     await this.activitiesRepository.save(activity);
+    await this.activityCalendarSyncService.syncById(activity.id, 'update');
     return this.findOne(id, user);
   }
 
@@ -275,6 +285,8 @@ export class ActivitiesService {
     if (!activity) {
       throw new NotFoundException('Actividad no encontrada');
     }
+
+    await this.activityCalendarSyncService.deleteExternal(activity);
 
     if (activity.appraisalRequestId) {
       const appraisalRequest = await this.appraisalRequestsRepository.findOne({

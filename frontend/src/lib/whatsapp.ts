@@ -34,8 +34,7 @@ export function openWhatsAppShareWindow() {
     return whatsappShareWindow;
   }
 
-  whatsappShareWindow = window.open('', WHATSAPP_SHARE_TARGET);
-  return whatsappShareWindow;
+  return null;
 }
 
 export function navigateWhatsAppShareWindow(shareWindow: Window | null, whatsappUrl: string) {
