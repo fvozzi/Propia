@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AppraisalRequestsModule } from './appraisal-requests/appraisal-requests.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from './activities/activities.module';
@@ -23,6 +24,7 @@ import { VisitsModule } from './visits/visits.module';
       useFactory: (configService: ConfigService) => buildDataSourceOptions(configService),
     }),
     AuthModule,
+    AppraisalRequestsModule,
     BuyerPropertyCandidatesModule,
     CalendarModule,
     ContactsModule,

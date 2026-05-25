@@ -77,6 +77,42 @@
   - conservacion de filtros booleanos, categoricos y numericos
   - resumen legible de criterios
 
+## UC3. Tasacion: preguntas iniciales
+
+- Objetivo: permitir que la usuaria genere un formulario publico y temporario para que un contacto vendedor complete datos iniciales utiles para una tasacion.
+- Actor principal: usuaria comercial.
+- Actores secundarios: contacto vendedor que responde el formulario.
+- Entidad principal propuesta: `AppraisalRequest`.
+
+### Flujo esperado
+
+1. La usuaria crea una solicitud de tasacion inicial asociada a un contacto vendedor.
+2. El sistema genera un link publico del CRM que no requiere login.
+3. El link debe permanecer disponible durante 48 horas desde su generacion o ultima edicion interna.
+4. El contacto completa el formulario publico.
+5. El sistema guarda las respuestas en la solicitud y registra una actividad en la linea de vida del contacto.
+6. La usuaria puede editar o eliminar la solicitud desde el CRM.
+
+### Criterios de aceptacion
+
+- El link publico debe resolverse por token y no requerir autenticacion.
+- El formulario debe bloquearse cuando venza o cuando ya haya sido respondido.
+- Las respuestas deben conservar direccion, tipo de propiedad y datos iniciales de tasacion.
+- El formulario debe soportar tambien expensas, piso, amenities, orientacion, disposicion y antiguedad.
+- Debe calcular automaticamente `superficie total` como la suma de cubierta, semicubierta y descubierta.
+- Debe calcular automaticamente `superficie ponderada` como `superficie cubierta + ((superficie semicubierta + superficie descubierta) / 2)`.
+- La solicitud debe existir como una `Actividad` propia de tipo `Solicitud de tasacion`.
+- La respuesta completada debe actualizar esa actividad existente, en lugar de generar una nota separada.
+- La usuaria debe poder crear, editar, eliminar y volver a abrir el formulario publico desde el sistema.
+
+### Cobertura unitaria
+
+- Archivo: `backend/src/use-cases/appraisal-initial-intake.use-case.spec.ts`
+- Reglas cubiertas:
+  - vigencia de 48 horas
+  - disponibilidad segun expiracion o envio previo
+  - resumen legible de respuestas para registrar en la linea de vida
+
 ## Nota
 
 Estos casos de uso quedan documentados y testeados a nivel de reglas de negocio. La implementacion funcional completa en entidades, endpoints, dashboard y UI puede construirse iterativamente sobre esta base.

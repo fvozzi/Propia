@@ -15,6 +15,7 @@ export function Layout() {
     { to: '/calendar', label: t('nav.calendar') },
     { to: '/contacts', label: t('nav.contacts') },
     { to: '/properties', label: t('nav.properties') },
+    { to: '/appraisals', label: t('nav.appraisals') },
     { to: '/requirements', label: t('nav.requirements') },
     { to: '/activities', label: t('nav.activities') },
     { to: '/visits', label: t('nav.visits') },

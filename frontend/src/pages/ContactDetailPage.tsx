@@ -143,6 +143,7 @@ export function ContactDetailPage() {
           </div>
         </section>
       </div>
+
     </div>
   );
 }

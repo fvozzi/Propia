@@ -616,6 +616,25 @@ label {
   align-items: center;
 }
 
+.appraisal-request-actions {
+  margin-bottom: 1.25rem;
+}
+
+.empty-list-state {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 0 1.5rem;
+}
+
+.empty-list-state .button-link {
+  justify-self: flex-start;
+}
+
+.appraisal-share-hint {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
 .agenda-divider {
   height: 1px;
   background: rgba(21, 32, 34, 0.08);
@@ -660,6 +679,11 @@ label {
   max-width: 460px;
   width: 100%;
   text-align: center;
+}
+
+.left-aligned-card {
+  max-width: 760px;
+  text-align: left;
 }
 
 .google-button {

@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { ActivityType } from '../common/enums';
+import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
 
@@ -40,6 +41,16 @@ export class Activity {
 
   @Column({ type: 'integer', nullable: true })
   propertyId: number | null;
+
+  @ManyToOne(() => AppraisalRequest, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'appraisalRequestId' })
+  appraisalRequest: AppraisalRequest | null;
+
+  @Column({ type: 'integer', nullable: true })
+  appraisalRequestId: number | null;
 
   @Column({ type: 'enum', enum: ActivityType, enumName: 'activity_type' })
   activityType: ActivityType;

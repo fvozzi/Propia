@@ -21,6 +21,11 @@ export class CreateActivityDto {
   @IsInt()
   propertyId?: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  appraisalRequestId?: number;
+
   @IsEnum(ActivityType)
   activityType: ActivityType;
 

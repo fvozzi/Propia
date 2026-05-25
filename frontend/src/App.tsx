@@ -4,6 +4,8 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
+import { AppraisalRequestFormPage } from './pages/AppraisalRequestFormPage';
+import { AppraisalRequestsPage } from './pages/AppraisalRequestsPage';
 import { ActivitiesPage } from './pages/ActivitiesPage';
 import { ActivitiesCreatePage } from './pages/ActivitiesCreatePage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
@@ -13,6 +15,7 @@ import { ContactDetailPage } from './pages/ContactDetailPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
+import { PublicAppraisalRequestPage } from './pages/PublicAppraisalRequestPage';
 import { PropertiesCreatePage } from './pages/PropertiesCreatePage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { PropertyDetailPage } from './pages/PropertyDetailPage';
@@ -29,6 +32,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
+            <Route path="/tasacion/:token" element={<PublicAppraisalRequestPage />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/" element={<DashboardPage />} />
@@ -36,6 +40,9 @@ export default function App() {
                 <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/contacts/new" element={<ContactCreatePage />} />
                 <Route path="/contacts/:id" element={<ContactDetailPage />} />
+                <Route path="/appraisals" element={<AppraisalRequestsPage />} />
+                <Route path="/appraisals/new" element={<AppraisalRequestFormPage />} />
+                <Route path="/appraisals/:id/edit" element={<AppraisalRequestFormPage />} />
                 <Route path="/properties" element={<PropertiesPage />} />
                 <Route path="/properties/new" element={<PropertiesCreatePage />} />
                 <Route path="/properties/:id" element={<PropertyDetailPage />} />

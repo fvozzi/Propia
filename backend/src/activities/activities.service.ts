@@ -6,6 +6,12 @@ import { Contact } from '../contacts/contact.entity';
 import { paginate } from '../common/pagination';
 import { ActivityType } from '../common/enums';
 import { Property } from '../properties/property.entity';
+import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
+import {
+  buildAppraisalRequestActivityTitle,
+  createAppraisalRequestExpiration,
+  createPublicFormToken,
+} from '../use-cases/appraisal-initial-intake.use-case';
 import { Activity } from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
@@ -21,12 +27,34 @@ export class ActivitiesService {
     private readonly contactsRepository: Repository<Contact>,
     @InjectRepository(Property)
     private readonly propertiesRepository: Repository<Property>,
+    @InjectRepository(AppraisalRequest)
+    private readonly appraisalRequestsRepository: Repository<AppraisalRequest>,
   ) {}
 
   async create(dto: CreateActivityDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    await this.assertScopedRelations(dto.contactId ?? null, dto.propertyId ?? null, teamId);
+    await this.assertScopedRelations(dto.contactId ?? null, dto.propertyId ?? null, dto.appraisalRequestId ?? null, teamId);
     this.assertPropertySearchPayload(dto.activityType, dto.externalUrl);
+
+    let appraisalRequestId = dto.appraisalRequestId ?? null;
+
+    if (dto.activityType === ActivityType.APPRAISAL_REQUEST) {
+      if (!dto.contactId) {
+        throw new BadRequestException('La actividad de solicitud de tasacion requiere un contacto');
+      }
+
+      const request = await this.appraisalRequestsRepository.save(
+        this.appraisalRequestsRepository.create({
+          teamId,
+          ownerUserId: user.sub,
+          contactId: dto.contactId,
+          publicToken: createPublicFormToken(),
+          expiresAt: createAppraisalRequestExpiration(),
+          submittedAt: null,
+        }),
+      );
+      appraisalRequestId = request.id;
+    }
 
     const activity = this.activitiesRepository.create({
       ...dto,
@@ -36,6 +64,11 @@ export class ActivitiesService {
       nextFollowUpDate: dto.nextFollowUpDate ? new Date(dto.nextFollowUpDate) : null,
       contactId: dto.contactId ?? null,
       propertyId: dto.propertyId ?? null,
+      appraisalRequestId,
+      title:
+        dto.activityType === ActivityType.APPRAISAL_REQUEST
+          ? buildAppraisalRequestActivityTitle(null)
+          : dto.title,
       externalUrl: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.externalUrl?.trim() || null : null,
       whatsappComment: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.whatsappComment?.trim() || null : null,
       whatsappSharedAt: dto.whatsappSharedAt ? new Date(dto.whatsappSharedAt) : null,
@@ -51,6 +84,7 @@ export class ActivitiesService {
       .createQueryBuilder('activity')
       .leftJoinAndSelect('activity.contact', 'contact')
       .leftJoinAndSelect('activity.property', 'property')
+      .leftJoinAndSelect('activity.appraisalRequest', 'appraisalRequest')
       .where('activity.teamId = :teamId', { teamId })
       .orderBy('activity.activityDate', 'DESC');
 
@@ -105,7 +139,7 @@ export class ActivitiesService {
     const teamId = requireActiveTeamId(user);
     const activity = await this.activitiesRepository.findOne({
       where: { id, teamId },
-      relations: { contact: true, property: true },
+      relations: { contact: true, property: true, appraisalRequest: true },
     });
 
     if (!activity) {
@@ -119,16 +153,34 @@ export class ActivitiesService {
     const teamId = requireActiveTeamId(user);
     const activity = await this.activitiesRepository.findOne({
       where: { id, teamId },
+      relations: { appraisalRequest: true },
     });
 
     if (!activity) {
       throw new NotFoundException('Actividad no encontrada');
     }
 
+    if (activity.activityType === ActivityType.APPRAISAL_REQUEST && dto.activityType && dto.activityType !== ActivityType.APPRAISAL_REQUEST) {
+      throw new BadRequestException('La actividad de solicitud de tasacion no puede cambiar de tipo');
+    }
+
+    const nextActivityType = dto.activityType ?? activity.activityType;
     const nextContactId = dto.contactId === undefined ? activity.contactId : dto.contactId ?? null;
     const nextPropertyId = dto.propertyId === undefined ? activity.propertyId : dto.propertyId ?? null;
-    await this.assertScopedRelations(nextContactId ?? null, nextPropertyId ?? null, teamId);
-    this.assertPropertySearchPayload(dto.activityType ?? activity.activityType, dto.externalUrl ?? activity.externalUrl ?? undefined);
+    const nextAppraisalRequestId = activity.appraisalRequestId;
+    await this.assertScopedRelations(nextContactId ?? null, nextPropertyId ?? null, nextAppraisalRequestId ?? null, teamId);
+    this.assertPropertySearchPayload(nextActivityType, dto.externalUrl ?? activity.externalUrl ?? undefined);
+
+    if (nextActivityType === ActivityType.APPRAISAL_REQUEST) {
+      if (!nextContactId) {
+        throw new BadRequestException('La actividad de solicitud de tasacion requiere un contacto');
+      }
+
+      if (activity.appraisalRequest) {
+        activity.appraisalRequest.contactId = nextContactId;
+        await this.appraisalRequestsRepository.save(activity.appraisalRequest);
+      }
+    }
 
     Object.assign(activity, {
       ...dto,
@@ -139,22 +191,27 @@ export class ActivitiesService {
           : dto.nextFollowUpDate
             ? new Date(dto.nextFollowUpDate)
             : null,
-      contactId: dto.contactId === undefined ? activity.contactId : dto.contactId ?? null,
-      propertyId: dto.propertyId === undefined ? activity.propertyId : dto.propertyId ?? null,
+      contactId: nextContactId,
+      propertyId: nextPropertyId,
+      appraisalRequestId: nextAppraisalRequestId ?? null,
+      title:
+        nextActivityType === ActivityType.APPRAISAL_REQUEST
+          ? buildAppraisalRequestActivityTitle(activity.appraisalRequest?.propertyAddress ?? null)
+          : dto.title ?? activity.title,
       externalUrl:
-        (dto.activityType ?? activity.activityType) === ActivityType.PROPERTY_SEARCH
+        nextActivityType === ActivityType.PROPERTY_SEARCH
           ? dto.externalUrl === undefined
             ? activity.externalUrl
             : dto.externalUrl?.trim() || null
           : null,
       whatsappComment:
-        (dto.activityType ?? activity.activityType) === ActivityType.PROPERTY_SEARCH
+        nextActivityType === ActivityType.PROPERTY_SEARCH
           ? dto.whatsappComment === undefined
             ? activity.whatsappComment
             : dto.whatsappComment?.trim() || null
           : null,
       whatsappSharedAt:
-        (dto.activityType ?? activity.activityType) !== ActivityType.PROPERTY_SEARCH
+        nextActivityType !== ActivityType.PROPERTY_SEARCH
           ? null
           : dto.whatsappSharedAt === undefined
           ? activity.whatsappSharedAt
@@ -162,7 +219,7 @@ export class ActivitiesService {
             ? new Date(dto.whatsappSharedAt)
             : null,
       propertySearchLiked:
-        (dto.activityType ?? activity.activityType) !== ActivityType.PROPERTY_SEARCH
+        nextActivityType !== ActivityType.PROPERTY_SEARCH
           ? null
           : dto.propertySearchLiked === undefined
             ? activity.propertySearchLiked
@@ -208,6 +265,16 @@ export class ActivitiesService {
       throw new NotFoundException('Actividad no encontrada');
     }
 
+    if (activity.appraisalRequestId) {
+      const appraisalRequest = await this.appraisalRequestsRepository.findOne({
+        where: { id: activity.appraisalRequestId, teamId },
+      });
+
+      if (appraisalRequest) {
+        await this.appraisalRequestsRepository.remove(appraisalRequest);
+      }
+    }
+
     await this.activitiesRepository.remove(activity);
     return { success: true };
   }
@@ -215,6 +282,7 @@ export class ActivitiesService {
   private async assertScopedRelations(
     contactId: number | null,
     propertyId: number | null,
+    appraisalRequestId: number | null,
     teamId: number | null,
   ) {
     if (contactId && teamId) {
@@ -234,6 +302,16 @@ export class ActivitiesService {
 
       if (!property) {
         throw new NotFoundException('Propiedad no encontrada');
+      }
+    }
+
+    if (appraisalRequestId && teamId) {
+      const appraisalRequest = await this.appraisalRequestsRepository.findOne({
+        where: { id: appraisalRequestId, teamId },
+      });
+
+      if (!appraisalRequest) {
+        throw new NotFoundException('Solicitud de tasacion no encontrada');
       }
     }
   }

@@ -4,6 +4,15 @@ import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
+import {
+  buildAppraisalMailtoUrl,
+  buildPublicAppraisalUrl,
+  canShareAppraisalByEmail,
+  canShareAppraisalByWhatsApp,
+  getAppraisalRequestStatus,
+  isAppraisalRequestAvailable,
+  openAppraisalWhatsappShare,
+} from '../lib/appraisals';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
 import {
   buildPropertySearchMessage,
@@ -121,6 +130,32 @@ export function ActivitiesPage() {
     }
   }
 
+  async function handleCopyAppraisalLink(activity: Activity) {
+    if (!activity.appraisalRequest) return;
+    await navigator.clipboard.writeText(buildPublicAppraisalUrl(activity.appraisalRequest.publicToken));
+    window.alert(t('appraisals.copySuccess'));
+  }
+
+  function buildAppraisalShareMessage(contact: Contact) {
+    const name = contact.firstName || contact.displayName;
+    return t('appraisals.shareMessage').replace('{name}', name ? ` ${name}` : '');
+  }
+
+  function handleShareAppraisalWhatsApp(activity: Activity) {
+    if (!activity.contact || !activity.appraisalRequest || !canShareAppraisalByWhatsApp(activity.contact)) return;
+    openAppraisalWhatsappShare(activity.contact, activity.appraisalRequest.publicToken, buildAppraisalShareMessage(activity.contact));
+  }
+
+  function handleShareAppraisalEmail(activity: Activity) {
+    if (!activity.contact || !activity.appraisalRequest || !canShareAppraisalByEmail(activity.contact)) return;
+    window.location.href = buildAppraisalMailtoUrl(
+      activity.contact,
+      activity.appraisalRequest.publicToken,
+      t('appraisals.shareEmailSubject'),
+      buildAppraisalShareMessage(activity.contact),
+    );
+  }
+
   return (
     <div className="page-stack">
       <ResourcePageHeader
@@ -206,64 +241,104 @@ export function ActivitiesPage() {
         onPrevious={() => setPage((current) => current - 1)}
         onNext={() => setPage((current) => current + 1)}
       >
-        {(response?.items ?? []).map((activity) => (
-          <article key={activity.id} className="list-item list-item-actions">
-            <div>
-              <strong>{activity.title}</strong>
-              <p className="muted">
-                {activity.contact?.displayName ?? t('activities.withoutContact')} · {formatDateTime(activity.activityDate)}
-              </p>
-              {activity.property ? (
+        {(response?.items ?? []).map((activity) => {
+          const appraisalRequest = activity.appraisalRequest;
+          const appraisalStatus = appraisalRequest ? getAppraisalRequestStatus(appraisalRequest) : null;
+          const canShareAppraisal =
+            activity.activityType === 'APPRAISAL_REQUEST' &&
+            appraisalRequest &&
+            isAppraisalRequestAvailable(appraisalRequest) &&
+            Boolean(activity.contact);
+
+          return (
+            <article key={activity.id} className="list-item list-item-actions">
+              <div>
+                <strong>{activity.title}</strong>
                 <p className="muted">
-                  {t('activities.linkedProperty')}: {activity.property.title}
+                  {activity.contact?.displayName ?? t('activities.withoutContact')} · {formatDateTime(activity.activityDate)}
                 </p>
-              ) : null}
-              {activity.activityType === 'PROPERTY_SEARCH' && activity.propertySearchLiked !== null ? (
-                <p className="muted">
-                  {activity.propertySearchLiked ? t('activities.likedProperty') : t('activities.dislikedProperty')}
-                </p>
-              ) : null}
-              {activity.whatsappComment ? <p className="muted">{activity.whatsappComment}</p> : null}
-              {activity.activityType === 'PROPERTY_SEARCH' ? (
-                <p className="muted">
-                  {activity.whatsappSharedAt
-                    ? `${t('activities.sharedAt')}: ${formatDateTime(activity.whatsappSharedAt)}`
-                    : t('activities.pendingShare')}
-                </p>
-              ) : null}
-              <div className="candidate-actions">
-                <StatusPill value={activity.activityType} />
-                {activity.externalUrl ? (
-                  <a href={activity.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
-                    {t('activities.openListing')}
-                  </a>
+                {activity.property ? (
+                  <p className="muted">
+                    {t('activities.linkedProperty')}: {activity.property.title}
+                  </p>
                 ) : null}
+                {activity.activityType === 'PROPERTY_SEARCH' && activity.propertySearchLiked !== null ? (
+                  <p className="muted">
+                    {activity.propertySearchLiked ? t('activities.likedProperty') : t('activities.dislikedProperty')}
+                  </p>
+                ) : null}
+                {activity.activityType === 'APPRAISAL_REQUEST' && appraisalStatus ? (
+                  <p className="muted">
+                    {appraisalStatus === 'COMPLETED'
+                      ? t('activities.appraisalCompleted')
+                      : appraisalStatus === 'EXPIRED'
+                        ? t('activities.appraisalExpired')
+                        : t('activities.appraisalPending')}
+                  </p>
+                ) : null}
+                {activity.whatsappComment ? <p className="muted">{activity.whatsappComment}</p> : null}
+                {activity.description ? <p className="muted">{activity.description}</p> : null}
+                {activity.activityType === 'PROPERTY_SEARCH' ? (
+                  <p className="muted">
+                    {activity.whatsappSharedAt
+                      ? `${t('activities.sharedAt')}: ${formatDateTime(activity.whatsappSharedAt)}`
+                      : t('activities.pendingShare')}
+                  </p>
+                ) : null}
+                <div className="candidate-actions">
+                  <StatusPill value={activity.activityType} />
+                  {activity.externalUrl ? (
+                    <a href={activity.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
+                      {t('activities.openListing')}
+                    </a>
+                  ) : null}
+                  {appraisalRequest ? (
+                    <Link to={`/appraisals/${appraisalRequest.id}/edit`} className="agenda-link">
+                      {t('activities.openAppraisalRequest')}
+                    </Link>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            <div className="candidate-actions">
-              <Link to={`/activities/${activity.id}/edit`} className="ghost-button button-link">
-                {t('activities.editActivity')}
-              </Link>
-              {activity.activityType === 'PROPERTY_SEARCH' &&
-              activity.externalUrl &&
-              !activity.whatsappSharedAt &&
-              activity.contact &&
-              getContactWhatsappPhone(activity.contact) ? (
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => handleShare(activity)}
-                  disabled={sharingActivityId === activity.id}
-                >
-                  {sharingActivityId === activity.id ? t('common.loading') : t('activities.shareNow')}
+              <div className="candidate-actions">
+                <Link to={`/activities/${activity.id}/edit`} className="ghost-button button-link">
+                  {t('activities.editActivity')}
+                </Link>
+                {activity.activityType === 'PROPERTY_SEARCH' &&
+                activity.externalUrl &&
+                !activity.whatsappSharedAt &&
+                activity.contact &&
+                getContactWhatsappPhone(activity.contact) ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => handleShare(activity)}
+                    disabled={sharingActivityId === activity.id}
+                  >
+                    {sharingActivityId === activity.id ? t('common.loading') : t('activities.shareNow')}
+                  </button>
+                ) : null}
+                {activity.activityType === 'APPRAISAL_REQUEST' && appraisalRequest ? (
+                  <button type="button" className="ghost-button" onClick={() => handleCopyAppraisalLink(activity)}>
+                    {t('appraisals.copyLink')}
+                  </button>
+                ) : null}
+                {canShareAppraisal && activity.contact && canShareAppraisalByWhatsApp(activity.contact) ? (
+                  <button type="button" className="ghost-button" onClick={() => handleShareAppraisalWhatsApp(activity)}>
+                    {t('appraisals.shareWhatsApp')}
+                  </button>
+                ) : null}
+                {canShareAppraisal && activity.contact && canShareAppraisalByEmail(activity.contact) ? (
+                  <button type="button" className="ghost-button" onClick={() => handleShareAppraisalEmail(activity)}>
+                    {t('appraisals.shareEmail')}
+                  </button>
+                ) : null}
+                <button type="button" className="ghost-button" onClick={() => handleDelete(activity.id)}>
+                  {t('common.delete')}
                 </button>
-              ) : null}
-              <button type="button" className="ghost-button" onClick={() => handleDelete(activity.id)}>
-                {t('common.delete')}
-              </button>
-            </div>
-          </article>
-        ))}
+              </div>
+            </article>
+          );
+        })}
       </PaginatedListCard>
     </div>
   );

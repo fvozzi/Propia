@@ -63,6 +63,7 @@ export enum ActivityType {
   NOTE = 'NOTE',
   FOLLOW_UP = 'FOLLOW_UP',
   PROPERTY_SEARCH = 'PROPERTY_SEARCH',
+  APPRAISAL_REQUEST = 'APPRAISAL_REQUEST',
 }
 
 export enum VisitStatus {
@@ -70,6 +71,18 @@ export enum VisitStatus {
   DONE = 'DONE',
   CANCELLED = 'CANCELLED',
   RESCHEDULED = 'RESCHEDULED',
+}
+
+export enum AppraisalOrientation {
+  EAST = 'EAST',
+  NORTH = 'NORTH',
+  SOUTH = 'SOUTH',
+  WEST = 'WEST',
+}
+
+export enum AppraisalDisposition {
+  FRONT = 'FRONT',
+  BACK = 'BACK',
 }
 
 export enum AppUserRole {

@@ -51,6 +51,7 @@ const enumGroups: Record<
   NOTE: 'activityType',
   FOLLOW_UP: 'activityType',
   PROPERTY_SEARCH: 'activityType',
+  APPRAISAL_REQUEST: 'activityType',
   SCHEDULED: 'visitStatus',
   DONE: 'visitStatus',
   CANCELLED: 'visitStatus',

@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
+import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
@@ -74,4 +75,7 @@ export class Contact {
 
   @OneToMany(() => BuyerPropertyCandidate, (candidate) => candidate.contact)
   propertyCandidates: BuyerPropertyCandidate[];
+
+  @OneToMany(() => AppraisalRequest, (appraisalRequest) => appraisalRequest.contact)
+  appraisalRequests: AppraisalRequest[];
 }

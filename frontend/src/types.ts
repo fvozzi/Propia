@@ -71,8 +71,11 @@ export type ActivityType =
   | 'VISIT'
   | 'NOTE'
   | 'FOLLOW_UP'
-  | 'PROPERTY_SEARCH';
+  | 'PROPERTY_SEARCH'
+  | 'APPRAISAL_REQUEST';
 export type VisitStatus = 'SCHEDULED' | 'DONE' | 'CANCELLED' | 'RESCHEDULED';
+export type AppraisalOrientation = 'EAST' | 'NORTH' | 'SOUTH' | 'WEST';
+export type AppraisalDisposition = 'FRONT' | 'BACK';
 export type AppUserRole = 'ADMIN' | 'USER';
 export type TeamMembershipRole = 'OWNER' | 'MEMBER';
 
@@ -107,6 +110,7 @@ export interface Contact {
   roles: Array<{ id: number; role: Role }>;
   searchRequirements?: SearchRequirement[];
   propertyCandidates?: BuyerPropertyCandidate[];
+  appraisalRequests?: AppraisalRequest[];
   activities?: Activity[];
   visits?: Visit[];
   ownedProperties?: Property[];
@@ -198,6 +202,7 @@ export interface Activity {
   id: number;
   contactId: number | null;
   propertyId: number | null;
+  appraisalRequestId: number | null;
   activityType: ActivityType;
   title: string;
   description: string | null;
@@ -210,6 +215,47 @@ export interface Activity {
   createdAt: string;
   contact?: Contact | null;
   property?: Property | null;
+  appraisalRequest?: AppraisalRequest | null;
+}
+
+export interface AppraisalRequest {
+  id: number;
+  contactId: number;
+  publicToken: string;
+  expiresAt: string;
+  submittedAt: string | null;
+  propertyAddress: string | null;
+  city: string | null;
+  neighborhood: string | null;
+  propertyType: PropertyType | null;
+  operationType: OperationType | null;
+  rooms: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  expenses: number | null;
+  floor: number | null;
+  amenities: string | null;
+  orientation: AppraisalOrientation | null;
+  disposition: AppraisalDisposition | null;
+  ageYears: number | null;
+  coveredArea: number | null;
+  semiCoveredArea: number | null;
+  uncoveredArea: number | null;
+  totalArea: number | null;
+  weightedArea: number | null;
+  hasGarage: boolean | null;
+  conditionNotes: string | null;
+  valuationReason: string | null;
+  availabilityNotes: string | null;
+  additionalNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contact?: Contact;
+}
+
+export interface PublicAppraisalRequest extends Omit<AppraisalRequest, 'contactId' | 'publicToken' | 'createdAt' | 'updatedAt' | 'contact'> {
+  contactDisplayName: string;
+  isAvailable: boolean;
 }
 
 export interface Visit {
