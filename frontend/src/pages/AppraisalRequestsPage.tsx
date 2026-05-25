@@ -5,10 +5,10 @@ import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
   buildAppraisalMailtoUrl,
+  buildAppraisalWhatsappMessage,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
-  openAppraisalWhatsappShare,
 } from '../lib/appraisals';
 import { useI18n } from '../lib/i18n';
 import type { AppraisalRequest, Contact, Paginated } from '../types';
@@ -86,9 +86,12 @@ export function AppraisalRequestsPage() {
     return t('appraisals.shareMessage').replace('{name}', displayName ? ` ${displayName}` : '');
   }
 
-  function handleShareWhatsApp(appraisalRequest: AppraisalRequest) {
+  async function handleShareWhatsApp(appraisalRequest: AppraisalRequest) {
     if (!appraisalRequest.contact || !canShareAppraisalByWhatsApp(appraisalRequest.contact)) return;
-    openAppraisalWhatsappShare(appraisalRequest.contact, appraisalRequest.publicToken, getShareMessage(appraisalRequest.contact));
+    await navigator.clipboard.writeText(
+      buildAppraisalWhatsappMessage(appraisalRequest.publicToken, getShareMessage(appraisalRequest.contact)),
+    );
+    window.alert(t('common.copySuccess'));
   }
 
   function handleShareEmail(appraisalRequest: AppraisalRequest) {

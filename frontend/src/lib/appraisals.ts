@@ -1,10 +1,5 @@
 import type { AppraisalRequest, Contact } from '../types';
-import {
-  buildWhatsAppShareUrl,
-  getContactWhatsappPhone,
-  navigateWhatsAppShareWindow,
-  openWhatsAppShareWindow,
-} from './whatsapp';
+import { getContactWhatsappPhone } from './whatsapp';
 
 export function buildPublicAppraisalUrl(publicToken: string) {
   return `${window.location.origin}/tasacion/${publicToken}`;
@@ -18,20 +13,14 @@ export function canShareAppraisalByEmail(contact?: Contact | null) {
   return Boolean(contact?.email);
 }
 
-export function buildAppraisalWhatsappUrl(contact: Contact, publicToken: string, message: string) {
-  return buildWhatsAppShareUrl(contact, `${message}\n\n${buildPublicAppraisalUrl(publicToken)}`);
+export function buildAppraisalWhatsappMessage(publicToken: string, message: string) {
+  return `${message}\n\n${buildPublicAppraisalUrl(publicToken)}`;
 }
 
 export function buildAppraisalMailtoUrl(contact: Contact, publicToken: string, subject: string, body: string) {
   const email = contact.email ?? '';
   const fullBody = `${body}\n\n${buildPublicAppraisalUrl(publicToken)}`;
   return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`;
-}
-
-export function openAppraisalWhatsappShare(contact: Contact, publicToken: string, message: string) {
-  const shareWindow = openWhatsAppShareWindow();
-  const whatsappUrl = buildAppraisalWhatsappUrl(contact, publicToken, message);
-  navigateWhatsAppShareWindow(shareWindow, whatsappUrl);
 }
 
 export function getAppraisalRequestStatus(request: Pick<AppraisalRequest, 'expiresAt' | 'submittedAt'>) {

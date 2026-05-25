@@ -5,10 +5,7 @@ import { apiRequest } from '../lib/api';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
 import {
   buildPropertySearchMessage,
-  buildWhatsAppShareUrl,
   getContactWhatsappPhone,
-  navigateWhatsAppShareWindow,
-  openWhatsAppShareWindow,
 } from '../lib/whatsapp';
 import type { Activity, ActivityType, Contact, Paginated, Property } from '../types';
 
@@ -104,7 +101,7 @@ export function ActivitiesCreatePage() {
     void loadDependencies();
   }, [activityId, isEditing]);
 
-  async function saveActivity(shareNow: boolean, shareWindow: Window | null) {
+  async function saveActivity(shareNow: boolean) {
     const saved = await apiRequest<Activity>(isEditing && activityId ? `/activities/${activityId}` : '/activities', {
       method: isEditing ? 'PATCH' : 'POST',
       body: JSON.stringify(buildActivityPayload(form, linkProperty, activity)),
@@ -120,12 +117,11 @@ export function ActivitiesCreatePage() {
             whatsappComment: form.whatsappComment || undefined,
           }),
         });
-        const whatsappUrl = buildWhatsAppShareUrl(selectedContact, buildPropertySearchMessage(shared));
-        navigateWhatsAppShareWindow(shareWindow, whatsappUrl);
+        await navigator.clipboard.writeText(buildPropertySearchMessage(shared));
+        window.alert(t('common.copySuccess'));
         setActivity(shared);
         return shared;
       } catch (error) {
-        shareWindow?.close();
         throw error;
       }
     }
@@ -135,7 +131,7 @@ export function ActivitiesCreatePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const saved = await saveActivity(false, null);
+    const saved = await saveActivity(false);
     if (saved.activityType === 'APPRAISAL_REQUEST' && saved.appraisalRequestId) {
       navigate(`/appraisals/${saved.appraisalRequestId}/edit`);
       return;
@@ -146,13 +142,12 @@ export function ActivitiesCreatePage() {
   async function handleSaveAndShare() {
     if (!canShareNow) return;
 
-    const shareWindow = openWhatsAppShareWindow();
     const previousMarkShared = form.markShared;
     setForm((current) => ({ ...current, markShared: true }));
     setSavingAndSharing(true);
 
     try {
-      await saveActivity(true, shareWindow);
+      await saveActivity(true);
       navigate('/activities');
     } catch (error) {
       setForm((current) => ({ ...current, markShared: previousMarkShared }));

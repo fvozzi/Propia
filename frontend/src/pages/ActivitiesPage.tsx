@@ -6,20 +6,17 @@ import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import {
   buildAppraisalMailtoUrl,
+  buildAppraisalWhatsappMessage,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
   getAppraisalRequestStatus,
   isAppraisalRequestAvailable,
-  openAppraisalWhatsappShare,
 } from '../lib/appraisals';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
 import {
   buildPropertySearchMessage,
-  buildWhatsAppShareUrl,
   getContactWhatsappPhone,
-  navigateWhatsAppShareWindow,
-  openWhatsAppShareWindow,
 } from '../lib/whatsapp';
 import type { Activity, Contact, Paginated } from '../types';
 
@@ -107,8 +104,6 @@ export function ActivitiesPage() {
 
   async function handleShare(activity: Activity) {
     if (!activity.contact || !getContactWhatsappPhone(activity.contact) || !activity.externalUrl) return;
-
-    const shareWindow = openWhatsAppShareWindow();
     setSharingActivityId(activity.id);
 
     try {
@@ -118,13 +113,10 @@ export function ActivitiesPage() {
           whatsappComment: activity.whatsappComment || undefined,
         }),
       });
-      const whatsappUrl = buildWhatsAppShareUrl(activity.contact, buildPropertySearchMessage(shared));
-      navigateWhatsAppShareWindow(shareWindow, whatsappUrl);
+      await navigator.clipboard.writeText(buildPropertySearchMessage(shared));
+      window.alert(t('common.copySuccess'));
 
       await load(page);
-    } catch (error) {
-      shareWindow?.close();
-      throw error;
     } finally {
       setSharingActivityId(null);
     }
@@ -141,9 +133,15 @@ export function ActivitiesPage() {
     return t('appraisals.shareMessage').replace('{name}', name ? ` ${name}` : '');
   }
 
-  function handleShareAppraisalWhatsApp(activity: Activity) {
+  async function handleShareAppraisalWhatsApp(activity: Activity) {
     if (!activity.contact || !activity.appraisalRequest || !canShareAppraisalByWhatsApp(activity.contact)) return;
-    openAppraisalWhatsappShare(activity.contact, activity.appraisalRequest.publicToken, buildAppraisalShareMessage(activity.contact));
+    await navigator.clipboard.writeText(
+      buildAppraisalWhatsappMessage(
+        activity.appraisalRequest.publicToken,
+        buildAppraisalShareMessage(activity.contact),
+      ),
+    );
+    window.alert(t('common.copySuccess'));
   }
 
   function handleShareAppraisalEmail(activity: Activity) {
