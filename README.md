@@ -23,6 +23,7 @@ MVP de CRM inmobiliario personal para una agente que empieza a vender propiedade
 ## Qué incluye
 
 - CRUD para `Contacts`, `Properties`, `SearchRequirements`, `Activities` y `Visits`
+- Vista de `Mapa` para propiedades en venta y propiedades visitadas, con Google Maps opcional
 - Roles múltiples por contacto vía `ContactRole`
 - Fotos por propiedad vía `PropertyPhoto`
 - Paginación básica en listados
@@ -64,6 +65,7 @@ Copiar `frontend/.env.example` a `frontend/.env`.
 ```env
 VITE_API_URL=http://localhost:3000/api
 VITE_ENABLE_GOOGLE_AUTH=false
+VITE_GOOGLE_MAPS_API_KEY=
 ```
 
 ## Deploy en DigitalOcean App Platform

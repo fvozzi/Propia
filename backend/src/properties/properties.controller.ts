@@ -32,6 +32,11 @@ export class PropertiesController {
     return this.propertiesService.findAll(query, user);
   }
 
+  @Get('map')
+  findMapItems(@CurrentUser() user: AuthenticatedUser) {
+    return this.propertiesService.findMapItems(user);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.propertiesService.findOne(id, user);

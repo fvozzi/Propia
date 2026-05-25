@@ -9,6 +9,8 @@ import { OperationType, SearchRequirementStatus } from '../common/enums';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { calculateAppraisalAreas, summarizeAppraisalAnswers } from '../use-cases/appraisal-initial-intake.use-case';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
+import { Visit } from '../visits/visit.entity';
+import { buildPropertyMapItems } from '../use-cases/property-map.use-case';
 import { PropertyPhoto } from './property-photo.entity';
 import { Property } from './property.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
@@ -51,6 +53,8 @@ export class PropertiesService {
     private readonly requirementsRepository: Repository<SearchRequirement>,
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
+    @InjectRepository(Visit)
+    private readonly visitsRepository: Repository<Visit>,
   ) {}
 
   async create(dto: CreatePropertyDto, user: AuthenticatedUser) {
@@ -157,6 +161,37 @@ export class PropertiesService {
     }
 
     return property;
+  }
+
+  async findMapItems(user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const [properties, visits] = await Promise.all([
+      this.propertiesRepository.find({
+        where: { teamId },
+        select: {
+          id: true,
+          title: true,
+          address: true,
+          city: true,
+          neighborhood: true,
+          operationType: true,
+          propertyType: true,
+          status: true,
+          price: true,
+          currency: true,
+        },
+      }),
+      this.visitsRepository.find({
+        where: { teamId },
+        select: {
+          propertyId: true,
+          scheduledAt: true,
+          status: true,
+        },
+      }),
+    ]);
+
+    return buildPropertyMapItems(properties, visits);
   }
 
   async update(id: number, dto: UpdatePropertyDto, user: AuthenticatedUser) {

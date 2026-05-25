@@ -78,6 +78,7 @@ export type AppraisalOrientation = 'EAST' | 'NORTH' | 'SOUTH' | 'WEST';
 export type AppraisalDisposition = 'FRONT' | 'BACK';
 export type AppUserRole = 'ADMIN' | 'USER';
 export type TeamMembershipRole = 'OWNER' | 'MEMBER';
+export type PropertyMapCategory = 'SALE' | 'VISITED';
 
 export interface SessionTeam {
   id: number;
@@ -285,6 +286,22 @@ export interface Visit {
   updatedAt: string;
   contact?: Contact;
   property?: Property;
+}
+
+export interface PropertyMapItem {
+  propertyId: number;
+  title: string;
+  address: string;
+  city: string;
+  neighborhood: string | null;
+  operationType: OperationType;
+  propertyType: string;
+  status: string;
+  price: number | null;
+  currency: string;
+  categories: PropertyMapCategory[];
+  visitCount: number;
+  lastVisitedAt: string | null;
 }
 
 export interface DashboardData {

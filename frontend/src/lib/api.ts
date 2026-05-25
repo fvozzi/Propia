@@ -46,10 +46,21 @@ export async function apiRequest<T>(
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const requestUrl = `${API_URL}${path}`;
+  const requestInit: RequestInit = {
     ...init,
     headers,
-  });
+    cache: init.cache ?? (init.method && init.method !== 'GET' ? init.cache : 'no-store'),
+  };
+
+  let response = await fetch(requestUrl, requestInit);
+
+  if (response.status === 304) {
+    response = await fetch(requestUrl, {
+      ...requestInit,
+      cache: 'reload',
+    });
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

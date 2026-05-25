@@ -650,6 +650,96 @@ label {
   margin-top: 1.5rem;
 }
 
+.map-filter-group {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.map-filter-chip {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.75rem 1rem;
+}
+
+.map-filter-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.map-page-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.property-map-canvas {
+  min-height: 480px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(248, 238, 225, 0.85), rgba(255, 255, 255, 0.95));
+  border: 1px solid rgba(182, 77, 27, 0.12);
+}
+
+.map-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.map-list-item {
+  border-top: 1px solid rgba(21, 32, 34, 0.08);
+  padding-top: 1rem;
+}
+
+.map-list-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.map-list-item-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.map-list-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+  text-align: right;
+}
+
+.map-category-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.map-category {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.map-category.sale {
+  background: rgba(182, 77, 27, 0.12);
+  color: #9a3412;
+}
+
+.map-category.visited {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
 .dashboard-operation-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -893,7 +983,9 @@ label {
   .list-item-actions,
   .pagination,
   .calendar-selected-header,
-  .modal-header {
+  .modal-header,
+  .map-list-item-header,
+  .map-list-item-side {
     flex-direction: column;
     align-items: stretch;
   }
@@ -912,6 +1004,14 @@ label {
 
   .calendar-layout {
     grid-template-columns: 1fr;
+  }
+
+  .map-page-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .map-category-row {
+    justify-content: flex-start;
   }
 
   .calendar-toolbar {

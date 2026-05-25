@@ -155,6 +155,43 @@
   - pipeline de compra/alquiler con criterios y propiedades compartidas
   - agrupacion por tipo de operacion y conteo de completitud
 
+## UC7. Navegacion por mapa
+
+- Objetivo: permitir que la usuaria vea en un mapa la actividad vinculada a propiedades y filtre entre propiedades en venta y propiedades ya visitadas en busquedas para clientes.
+- Actor principal: usuaria comercial.
+- Entidad principal propuesta: `Property` con clasificacion calculada para mapa.
+
+### Flujo esperado
+
+1. La usuaria entra al modulo de mapa.
+2. El sistema muestra en Google Maps todas las propiedades que apliquen a alguna de las dos categorias iniciales.
+3. La usuaria puede filtrar por `En venta`, `Visitadas` o ambas.
+4. Cada marcador debe mostrar la ficha resumida de la propiedad y acceso rapido al detalle.
+5. Si Google Maps no esta configurado, el sistema igual debe mostrar el listado filtrado para no bloquear el trabajo.
+
+### Primera version implementada
+
+- `En venta`: propiedades cuya operacion es `Venta`.
+- `Visitadas`: propiedades con al menos una visita en estado `DONE`.
+- Una propiedad puede pertenecer a ambas categorias.
+- El mapa usa Google Maps en frontend si existe `VITE_GOOGLE_MAPS_API_KEY`.
+- Si no hay API key, la vista sigue funcionando como tablero/listado filtrado.
+
+### Criterios de aceptacion
+
+- Debe existir una vista dedicada de mapa.
+- Debe poder filtrarse por `Venta` y `Visitadas` sin recargar la pagina.
+- La clasificacion no debe depender de la UI; debe existir una regla de negocio reutilizable.
+- La ausencia de configuracion de Google Maps no debe dejar la funcionalidad inutilizable.
+
+### Cobertura unitaria
+
+- Archivo: `backend/src/use-cases/property-map.use-case.spec.ts`
+- Reglas cubiertas:
+  - inclusion de propiedades en venta sin visitas
+  - inclusion de propiedades visitadas con visitas completadas
+  - coexistencia de ambas categorias y descarte de visitas no completadas
+
 ## Nota
 
 Estos casos de uso quedan documentados y testeados a nivel de reglas de negocio. La implementacion funcional completa en entidades, endpoints, dashboard y UI puede construirse iterativamente sobre esta base.
