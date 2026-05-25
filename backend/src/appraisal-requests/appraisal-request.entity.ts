@@ -5,11 +5,13 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { AppraisalDisposition, AppraisalOrientation, OperationType, PropertyType } from '../common/enums';
 import { Contact } from '../contacts/contact.entity';
+import { Property } from '../properties/property.entity';
 
 @Entity('appraisal_requests')
 @Index(['teamId'])
@@ -114,6 +116,9 @@ export class AppraisalRequest {
 
   @Column({ type: 'text', nullable: true })
   additionalNotes: string | null;
+
+  @OneToMany(() => Property, (property) => property.appraisalRequest)
+  properties: Property[];
 
   @CreateDateColumn()
   createdAt: Date;

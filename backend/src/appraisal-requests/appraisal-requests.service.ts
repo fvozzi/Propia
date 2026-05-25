@@ -55,6 +55,7 @@ export class AppraisalRequestsService {
     const qb = this.appraisalRequestsRepository
       .createQueryBuilder('appraisalRequest')
       .leftJoinAndSelect('appraisalRequest.contact', 'contact')
+      .leftJoinAndSelect('appraisalRequest.properties', 'properties')
       .where('appraisalRequest.teamId = :teamId', { teamId })
       .orderBy('appraisalRequest.updatedAt', 'DESC');
 
@@ -83,7 +84,7 @@ export class AppraisalRequestsService {
     const teamId = requireActiveTeamId(user);
     const request = await this.appraisalRequestsRepository.findOne({
       where: { id, teamId },
-      relations: { contact: true },
+      relations: { contact: true, properties: true },
     });
 
     if (!request) {

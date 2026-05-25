@@ -22,6 +22,7 @@ type ActivityFormState = {
   nextFollowUpDate: string;
   title: string;
   description: string;
+  appraisalPropertyAddress: string;
   externalUrl: string;
   whatsappComment: string;
   markShared: boolean;
@@ -36,6 +37,7 @@ const initialForm: ActivityFormState = {
   nextFollowUpDate: '',
   title: '',
   description: '',
+  appraisalPropertyAddress: '',
   externalUrl: '',
   whatsappComment: '',
   markShared: false,
@@ -83,6 +85,7 @@ export function ActivitiesCreatePage() {
           nextFollowUpDate: toDateTimeLocalValue(activityData.nextFollowUpDate),
           title: activityData.title,
           description: activityData.description ?? '',
+          appraisalPropertyAddress: activityData.appraisalRequest?.propertyAddress ?? '',
           externalUrl: activityData.externalUrl ?? '',
           whatsappComment: activityData.whatsappComment ?? '',
           markShared: Boolean(activityData.whatsappSharedAt),
@@ -223,23 +226,36 @@ export function ActivitiesCreatePage() {
               ))}
             </select>
           </label>
-          <label>
-            {t('activities.activityDate')}
-            <input
-              type="datetime-local"
-              value={form.activityDate}
-              onChange={(event) => setForm((current) => ({ ...current, activityDate: event.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            {t('activities.nextFollowUp')}
-            <input
-              type="datetime-local"
-              value={form.nextFollowUpDate}
-              onChange={(event) => setForm((current) => ({ ...current, nextFollowUpDate: event.target.value }))}
-            />
-          </label>
+          {isAppraisalRequest ? (
+            <label>
+              {t('appraisals.propertyAddress')}
+              <input
+                value={form.appraisalPropertyAddress}
+                onChange={(event) => setForm((current) => ({ ...current, appraisalPropertyAddress: event.target.value }))}
+                required
+              />
+            </label>
+          ) : (
+            <>
+              <label>
+                {t('activities.activityDate')}
+                <input
+                  type="datetime-local"
+                  value={form.activityDate}
+                  onChange={(event) => setForm((current) => ({ ...current, activityDate: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                {t('activities.nextFollowUp')}
+                <input
+                  type="datetime-local"
+                  value={form.nextFollowUpDate}
+                  onChange={(event) => setForm((current) => ({ ...current, nextFollowUpDate: event.target.value }))}
+                />
+              </label>
+            </>
+          )}
           {!isAppraisalRequest ? (
             <div className="full-span stack-gap">
               <label className="checkbox-item">
@@ -323,15 +339,6 @@ export function ActivitiesCreatePage() {
                 />
               </label>
             </>
-          ) : isAppraisalRequest ? (
-            <label className="full-span">
-              {t('activities.internalNotes')}
-              <textarea
-                value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                rows={3}
-              />
-            </label>
           ) : (
             <label className="full-span">
               {t('common.description')}
@@ -368,13 +375,18 @@ function buildActivityPayload(
 ) {
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
+  const activityDate =
+    isAppraisalRequest
+      ? activity?.activityDate ?? new Date().toISOString()
+      : form.activityDate;
 
   return {
     contactId: form.contactId ? Number(form.contactId) : null,
     propertyId: !isAppraisalRequest && linkProperty && form.propertyId ? Number(form.propertyId) : null,
     activityType: form.activityType,
     title: isAppraisalRequest ? 'Solicitud de tasacion' : form.title,
-    description: form.description || null,
+    description: isAppraisalRequest ? null : form.description || null,
+    appraisalPropertyAddress: isAppraisalRequest ? form.appraisalPropertyAddress || null : null,
     externalUrl: isPropertySearch ? form.externalUrl || null : null,
     whatsappComment: isPropertySearch ? form.whatsappComment || null : null,
     whatsappSharedAt:
@@ -391,8 +403,8 @@ function buildActivityPayload(
           : form.propertySearchFeedback === 'DISLIKED'
             ? false
             : null,
-    activityDate: form.activityDate,
-    nextFollowUpDate: form.nextFollowUpDate || null,
+    activityDate,
+    nextFollowUpDate: isAppraisalRequest ? null : form.nextFollowUpDate || null,
   };
 }
 

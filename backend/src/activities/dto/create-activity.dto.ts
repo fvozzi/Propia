@@ -37,6 +37,10 @@ export class CreateActivityDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  appraisalPropertyAddress?: string;
+
+  @IsOptional()
   @IsUrl({
     require_protocol: true,
   })

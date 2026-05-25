@@ -141,13 +141,24 @@ export interface Property {
   bathrooms: number | null;
   rooms: number | null;
   coveredArea: number | null;
+  semiCoveredArea: number | null;
+  uncoveredArea: number | null;
   totalArea: number | null;
+  weightedArea: number | null;
+  floor: number | null;
+  amenities: string | null;
+  orientation: AppraisalOrientation | null;
+  disposition: AppraisalDisposition | null;
+  ageYears: number | null;
+  hasGarage: boolean | null;
   ownerContactId: number | null;
+  appraisalRequestId: number | null;
   privateNotes: string | null;
   createdAt: string;
   updatedAt: string;
   photos: PropertyPhoto[];
   ownerContact?: Contact | null;
+  appraisalRequest?: AppraisalRequest | null;
   activities?: Activity[];
   visits?: Visit[];
 }
@@ -251,6 +262,7 @@ export interface AppraisalRequest {
   createdAt: string;
   updatedAt: string;
   contact?: Contact;
+  properties?: Property[];
 }
 
 export interface PublicAppraisalRequest extends Omit<AppraisalRequest, 'contactId' | 'publicToken' | 'createdAt' | 'updatedAt' | 'contact'> {
@@ -283,6 +295,39 @@ export interface DashboardData {
   activeSearchRequirementsCount: number;
   pendingBuyerPropertySharesCount: number;
   pendingBuyerPropertyShares: Activity[];
+  requirementPipelineGroups: DashboardRequirementPipelineGroup[];
+}
+
+export interface DashboardRequirementPipelineStep {
+  key:
+    | 'CONTACT_LINKED'
+    | 'CRITERIA_DEFINED'
+    | 'PROPERTIES_SHARED'
+    | 'PROPERTY_LINKED'
+    | 'APPRAISAL_REQUEST_SENT'
+    | 'APPRAISAL_REQUEST_COMPLETED';
+  completed: boolean;
+}
+
+export interface DashboardRequirementPipelineItem {
+  requirementId: number;
+  contactId: number;
+  contactDisplayName: string;
+  operationType: OperationType;
+  propertyType: PropertyType;
+  status: SearchRequirementStatus;
+  propertyId: number | null;
+  propertyTitle: string | null;
+  completedStepsCount: number;
+  totalStepsCount: number;
+  steps: DashboardRequirementPipelineStep[];
+}
+
+export interface DashboardRequirementPipelineGroup {
+  operationType: OperationType;
+  total: number;
+  fullyCompleted: number;
+  items: DashboardRequirementPipelineItem[];
 }
 
 export interface LoginResponse {

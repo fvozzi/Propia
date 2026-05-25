@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Activity } from '../activities/activity.entity';
 import { ActivityType, PropertyStatus, SearchRequirementStatus } from '../common/enums';
+import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
+import { buildRequirementPipelineGroups } from '../use-cases/requirement-pipeline.use-case';
 import { Visit } from '../visits/visit.entity';
 
 @Injectable()
@@ -19,6 +21,8 @@ export class DashboardService {
     private readonly propertiesRepository: Repository<Property>,
     @InjectRepository(SearchRequirement)
     private readonly requirementsRepository: Repository<SearchRequirement>,
+    @InjectRepository(AppraisalRequest)
+    private readonly appraisalRequestsRepository: Repository<AppraisalRequest>,
   ) {}
 
   async getToday(user: AuthenticatedUser) {
@@ -35,6 +39,7 @@ export class DashboardService {
       activePropertiesCount,
       activeSearchRequirementsCount,
       pendingBuyerPropertyShares,
+      activeRequirements,
     ] =
       await Promise.all([
         this.activitiesRepository
@@ -84,7 +89,46 @@ export class DashboardService {
           .andWhere('activity.whatsappSharedAt IS NULL')
           .orderBy('activity.activityDate', 'DESC')
           .getMany(),
+        this.requirementsRepository.find({
+          where: {
+            status: SearchRequirementStatus.ACTIVE,
+            teamId,
+          },
+          relations: {
+            contact: true,
+            property: true,
+          },
+          order: {
+            updatedAt: 'DESC',
+          },
+        }),
       ]);
+
+    const requirementContactIds = [...new Set(activeRequirements.map((requirement) => requirement.contactId))];
+    const [propertySearchActivities, appraisalRequests] =
+      requirementContactIds.length > 0
+        ? await Promise.all([
+            this.activitiesRepository.find({
+              where: {
+                teamId,
+                activityType: ActivityType.PROPERTY_SEARCH,
+                contactId: In(requirementContactIds),
+              },
+            }),
+            this.appraisalRequestsRepository.find({
+              where: {
+                teamId,
+                contactId: In(requirementContactIds),
+              },
+            }),
+          ])
+        : [[], []];
+
+    const requirementPipelineGroups = buildRequirementPipelineGroups(
+      activeRequirements,
+      propertySearchActivities,
+      appraisalRequests,
+    );
 
     return {
       followUpsDueToday,
@@ -94,6 +138,7 @@ export class DashboardService {
       activeSearchRequirementsCount,
       pendingBuyerPropertySharesCount: pendingBuyerPropertyShares.length,
       pendingBuyerPropertyShares,
+      requirementPipelineGroups,
     };
   }
 }

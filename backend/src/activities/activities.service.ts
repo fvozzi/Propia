@@ -42,12 +42,16 @@ export class ActivitiesService {
       if (!dto.contactId) {
         throw new BadRequestException('La actividad de solicitud de tasacion requiere un contacto');
       }
+      if (!dto.appraisalPropertyAddress?.trim()) {
+        throw new BadRequestException('La actividad de solicitud de tasacion requiere direccion de la propiedad');
+      }
 
       const request = await this.appraisalRequestsRepository.save(
         this.appraisalRequestsRepository.create({
           teamId,
           ownerUserId: user.sub,
           contactId: dto.contactId,
+          propertyAddress: dto.appraisalPropertyAddress.trim(),
           publicToken: createPublicFormToken(),
           expiresAt: createAppraisalRequestExpiration(),
           submittedAt: null,
@@ -67,7 +71,7 @@ export class ActivitiesService {
       appraisalRequestId,
       title:
         dto.activityType === ActivityType.APPRAISAL_REQUEST
-          ? buildAppraisalRequestActivityTitle(null)
+          ? buildAppraisalRequestActivityTitle(dto.appraisalPropertyAddress ?? null)
           : dto.title,
       externalUrl: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.externalUrl?.trim() || null : null,
       whatsappComment: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.whatsappComment?.trim() || null : null,
@@ -178,6 +182,13 @@ export class ActivitiesService {
 
       if (activity.appraisalRequest) {
         activity.appraisalRequest.contactId = nextContactId;
+        if (dto.appraisalPropertyAddress !== undefined) {
+          const propertyAddress = dto.appraisalPropertyAddress.trim();
+          if (!propertyAddress) {
+            throw new BadRequestException('La actividad de solicitud de tasacion requiere direccion de la propiedad');
+          }
+          activity.appraisalRequest.propertyAddress = propertyAddress;
+        }
         await this.appraisalRequestsRepository.save(activity.appraisalRequest);
       }
     }

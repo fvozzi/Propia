@@ -1,6 +1,7 @@
 import type { Activity, Contact } from '../types';
 
 const WHATSAPP_SHARE_TARGET = 'propia-whatsapp-share';
+let whatsappShareWindow: Window | null = null;
 
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
 
@@ -14,21 +15,40 @@ export function getContactWhatsappPhone(contact: ShareableContact) {
 
 export function buildWhatsAppShareUrl(contact: ShareableContact, message: string) {
   const normalizedPhone = getContactWhatsappPhone(contact).replace(/\D/g, '');
-  const base = normalizedPhone ? `https://wa.me/${normalizedPhone}` : 'https://wa.me/';
-  return `${base}?text=${encodeURIComponent(message)}`;
+  const params = new URLSearchParams({
+    text: message,
+  });
+
+  if (normalizedPhone) {
+    params.set('phone', normalizedPhone);
+  }
+
+  params.set('type', 'phone_number');
+  params.set('app_absent', '0');
+
+  return `https://web.whatsapp.com/send?${params.toString()}`;
 }
 
 export function openWhatsAppShareWindow() {
-  return window.open('', WHATSAPP_SHARE_TARGET);
+  if (whatsappShareWindow && !whatsappShareWindow.closed) {
+    return whatsappShareWindow;
+  }
+
+  whatsappShareWindow = window.open('', WHATSAPP_SHARE_TARGET);
+  return whatsappShareWindow;
 }
 
 export function navigateWhatsAppShareWindow(shareWindow: Window | null, whatsappUrl: string) {
-  if (shareWindow && !shareWindow.closed) {
-    shareWindow.location.href = whatsappUrl;
-    shareWindow.focus();
+  const targetWindow = shareWindow && !shareWindow.closed ? shareWindow : whatsappShareWindow;
+
+  if (targetWindow && !targetWindow.closed) {
+    targetWindow.location.replace(whatsappUrl);
+    targetWindow.focus();
+    whatsappShareWindow = targetWindow;
     return;
   }
 
   const nextWindow = window.open(whatsappUrl, WHATSAPP_SHARE_TARGET);
+  whatsappShareWindow = nextWindow;
   nextWindow?.focus();
 }

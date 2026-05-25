@@ -3,92 +3,30 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
-  calculateAppraisalAreas,
   buildAppraisalMailtoUrl,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
   openAppraisalWhatsappShare,
-  parseNullableNumber,
 } from '../lib/appraisals';
-import {
-  appraisalDispositionOptions,
-  appraisalOrientationOptions,
-  operationTypeOptions,
-  propertyTypeOptions,
-  useI18n,
-} from '../lib/i18n';
-import type {
-  AppraisalDisposition,
-  AppraisalOrientation,
-  AppraisalRequest,
-  Contact,
-  OperationType,
-  Paginated,
-  PropertyType,
-} from '../types';
+import { useI18n } from '../lib/i18n';
+import type { AppraisalRequest, Contact, Paginated } from '../types';
 
 type AppraisalFormState = {
   contactId: string;
   propertyAddress: string;
-  city: string;
-  neighborhood: string;
-  propertyType: PropertyType | '';
-  operationType: OperationType | '';
-  rooms: string;
-  bedrooms: string;
-  bathrooms: string;
-  expenses: string;
-  floor: string;
-  amenities: string;
-  orientation: AppraisalOrientation | '';
-  disposition: AppraisalDisposition | '';
-  ageYears: string;
-  coveredArea: string;
-  semiCoveredArea: string;
-  uncoveredArea: string;
-  totalArea: string;
-  weightedArea: string;
-  hasGarage: boolean;
-  conditionNotes: string;
-  valuationReason: string;
-  availabilityNotes: string;
-  additionalNotes: string;
 };
 
 const initialForm: AppraisalFormState = {
   contactId: '',
   propertyAddress: '',
-  city: '',
-  neighborhood: '',
-  propertyType: '',
-  operationType: 'SALE',
-  rooms: '',
-  bedrooms: '',
-  bathrooms: '',
-  expenses: '',
-  floor: '',
-  amenities: '',
-  orientation: '',
-  disposition: '',
-  ageYears: '',
-  coveredArea: '',
-  semiCoveredArea: '',
-  uncoveredArea: '',
-  totalArea: '',
-  weightedArea: '',
-  hasGarage: false,
-  conditionNotes: '',
-  valuationReason: '',
-  availabilityNotes: '',
-  additionalNotes: '',
 };
 
 export function AppraisalRequestFormPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { t, translateEnum } = useI18n();
+  const { t, translateEnum, formatDateTime } = useI18n();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [form, setForm] = useState<AppraisalFormState>(() => ({
     ...initialForm,
@@ -114,29 +52,6 @@ export function AppraisalRequestFormPage() {
         setForm({
           contactId: String(requestData.contactId),
           propertyAddress: requestData.propertyAddress ?? '',
-          city: requestData.city ?? '',
-          neighborhood: requestData.neighborhood ?? '',
-          propertyType: requestData.propertyType ?? '',
-          operationType: requestData.operationType ?? '',
-          rooms: requestData.rooms ? String(requestData.rooms) : '',
-          bedrooms: requestData.bedrooms ? String(requestData.bedrooms) : '',
-          bathrooms: requestData.bathrooms ? String(requestData.bathrooms) : '',
-          expenses: requestData.expenses ? String(requestData.expenses) : '',
-          floor: requestData.floor ? String(requestData.floor) : '',
-          amenities: requestData.amenities ?? '',
-          orientation: requestData.orientation ?? '',
-          disposition: requestData.disposition ?? '',
-          ageYears: requestData.ageYears ? String(requestData.ageYears) : '',
-          coveredArea: requestData.coveredArea ? String(requestData.coveredArea) : '',
-          semiCoveredArea: requestData.semiCoveredArea ? String(requestData.semiCoveredArea) : '',
-          uncoveredArea: requestData.uncoveredArea ? String(requestData.uncoveredArea) : '',
-          totalArea: requestData.totalArea ? String(requestData.totalArea) : '',
-          weightedArea: requestData.weightedArea ? String(requestData.weightedArea) : '',
-          hasGarage: Boolean(requestData.hasGarage),
-          conditionNotes: requestData.conditionNotes ?? '',
-          valuationReason: requestData.valuationReason ?? '',
-          availabilityNotes: requestData.availabilityNotes ?? '',
-          additionalNotes: requestData.additionalNotes ?? '',
         });
       }
     }
@@ -153,12 +68,6 @@ export function AppraisalRequestFormPage() {
 
     navigate(`/appraisals/${saved.id}/edit`);
   }
-
-  const computedAreas = calculateAppraisalAreas({
-    coveredArea: parseNullableNumber(form.coveredArea),
-    semiCoveredArea: parseNullableNumber(form.semiCoveredArea),
-    uncoveredArea: parseNullableNumber(form.uncoveredArea),
-  });
 
   async function handleCopyLink() {
     if (!request) return;
@@ -220,6 +129,7 @@ export function AppraisalRequestFormPage() {
             </a>
           </div>
         ) : null}
+
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             {t('common.contact')}
@@ -245,165 +155,41 @@ export function AppraisalRequestFormPage() {
               required
             />
           </label>
-          <label>
-            {t('common.city')}
-            <input value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
-          </label>
-          <label>
-            {t('common.neighborhood')}
-            <input
-              value={form.neighborhood}
-              onChange={(event) => setForm((current) => ({ ...current, neighborhood: event.target.value }))}
-            />
-          </label>
-          <label>
-            {t('common.type')}
-            <select
-              value={form.propertyType}
-              onChange={(event) => setForm((current) => ({ ...current, propertyType: event.target.value as PropertyType | '' }))}
-            >
-              <option value="">{t('common.select')}</option>
-              {propertyTypeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {translateEnum('propertyType', option)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('common.operation')}
-            <select
-              value={form.operationType}
-              onChange={(event) => setForm((current) => ({ ...current, operationType: event.target.value as OperationType | '' }))}
-            >
-              <option value="">{t('common.select')}</option>
-              {operationTypeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {translateEnum('operationType', option)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('appraisals.rooms')}
-            <input type="number" min="0" value={form.rooms} onChange={(event) => setForm((current) => ({ ...current, rooms: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.bedrooms')}
-            <input type="number" min="0" value={form.bedrooms} onChange={(event) => setForm((current) => ({ ...current, bedrooms: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.bathrooms')}
-            <input type="number" min="0" value={form.bathrooms} onChange={(event) => setForm((current) => ({ ...current, bathrooms: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.expenses')}
-            <input type="number" min="0" step="0.01" value={form.expenses} onChange={(event) => setForm((current) => ({ ...current, expenses: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.floor')}
-            <input type="number" min="0" value={form.floor} onChange={(event) => setForm((current) => ({ ...current, floor: event.target.value }))} />
-          </label>
-          <label className="full-span">
-            {t('appraisals.amenitiesText')}
-            <input value={form.amenities} onChange={(event) => setForm((current) => ({ ...current, amenities: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.orientation')}
-            <select
-              value={form.orientation}
-              onChange={(event) => setForm((current) => ({ ...current, orientation: event.target.value as AppraisalOrientation | '' }))}
-            >
-              <option value="">{t('common.select')}</option>
-              {appraisalOrientationOptions.map((option) => (
-                <option key={option} value={option}>
-                  {translateEnum('appraisalOrientation', option)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('appraisals.disposition')}
-            <select
-              value={form.disposition}
-              onChange={(event) => setForm((current) => ({ ...current, disposition: event.target.value as AppraisalDisposition | '' }))}
-            >
-              <option value="">{t('common.select')}</option>
-              {appraisalDispositionOptions.map((option) => (
-                <option key={option} value={option}>
-                  {translateEnum('appraisalDisposition', option)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('appraisals.ageYears')}
-            <input type="number" min="0" value={form.ageYears} onChange={(event) => setForm((current) => ({ ...current, ageYears: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.coveredArea')}
-            <input type="number" min="0" step="0.01" value={form.coveredArea} onChange={(event) => setForm((current) => ({ ...current, coveredArea: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.semiCoveredArea')}
-            <input type="number" min="0" step="0.01" value={form.semiCoveredArea} onChange={(event) => setForm((current) => ({ ...current, semiCoveredArea: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.uncoveredArea')}
-            <input type="number" min="0" step="0.01" value={form.uncoveredArea} onChange={(event) => setForm((current) => ({ ...current, uncoveredArea: event.target.value }))} />
-          </label>
-          <label>
-            {t('appraisals.totalArea')}
-            <input value={computedAreas.totalArea ?? ''} disabled />
-          </label>
-          <label>
-            {t('appraisals.weightedArea')}
-            <input value={computedAreas.weightedArea ?? ''} disabled />
-          </label>
-          <label className="checkbox-item">
-            <input
-              type="checkbox"
-              checked={form.hasGarage}
-              onChange={(event) => setForm((current) => ({ ...current, hasGarage: event.target.checked }))}
-            />
-            <span>{t('appraisals.hasGarage')}</span>
-          </label>
-          <label className="full-span">
-            {t('appraisals.valuationReason')}
-            <textarea
-              rows={3}
-              value={form.valuationReason}
-              onChange={(event) => setForm((current) => ({ ...current, valuationReason: event.target.value }))}
-            />
-          </label>
-          <label className="full-span">
-            {t('appraisals.conditionNotes')}
-            <textarea
-              rows={3}
-              value={form.conditionNotes}
-              onChange={(event) => setForm((current) => ({ ...current, conditionNotes: event.target.value }))}
-            />
-          </label>
-          <label className="full-span">
-            {t('appraisals.availabilityNotes')}
-            <textarea
-              rows={3}
-              value={form.availabilityNotes}
-              onChange={(event) => setForm((current) => ({ ...current, availabilityNotes: event.target.value }))}
-            />
-          </label>
-          <label className="full-span">
-            {t('appraisals.additionalNotes')}
-            <textarea
-              rows={3}
-              value={form.additionalNotes}
-              onChange={(event) => setForm((current) => ({ ...current, additionalNotes: event.target.value }))}
-            />
-          </label>
           <button type="submit" className="full-span">
             {t('appraisals.save')}
           </button>
         </form>
+
+        {request?.submittedAt ? (
+          <section className="card appraisal-response-card">
+            <h3>{t('appraisals.submittedAt')}: {formatDateTime(request.submittedAt)}</h3>
+            <div className="stack-gap">
+              {request.city ? <p className="muted">{t('common.city')}: {request.city}</p> : null}
+              {request.neighborhood ? <p className="muted">{t('common.neighborhood')}: {request.neighborhood}</p> : null}
+              {request.propertyType ? <p className="muted">{t('common.type')}: {translateEnum('propertyType', request.propertyType)}</p> : null}
+              {request.operationType ? <p className="muted">{t('common.operation')}: {translateEnum('operationType', request.operationType)}</p> : null}
+              {request.rooms !== null ? <p className="muted">{t('appraisals.rooms')}: {request.rooms}</p> : null}
+              {request.bedrooms !== null ? <p className="muted">{t('appraisals.bedrooms')}: {request.bedrooms}</p> : null}
+              {request.bathrooms !== null ? <p className="muted">{t('appraisals.bathrooms')}: {request.bathrooms}</p> : null}
+              {request.expenses !== null ? <p className="muted">{t('appraisals.expenses')}: {request.expenses}</p> : null}
+              {request.floor !== null ? <p className="muted">{t('appraisals.floor')}: {request.floor}</p> : null}
+              {request.amenities ? <p className="muted">{t('appraisals.amenitiesText')}: {request.amenities}</p> : null}
+              {request.orientation ? <p className="muted">{t('appraisals.orientation')}: {translateEnum('appraisalOrientation', request.orientation)}</p> : null}
+              {request.disposition ? <p className="muted">{t('appraisals.disposition')}: {translateEnum('appraisalDisposition', request.disposition)}</p> : null}
+              {request.ageYears !== null ? <p className="muted">{t('appraisals.ageYears')}: {request.ageYears}</p> : null}
+              {request.coveredArea !== null ? <p className="muted">{t('appraisals.coveredArea')}: {request.coveredArea}</p> : null}
+              {request.semiCoveredArea !== null ? <p className="muted">{t('appraisals.semiCoveredArea')}: {request.semiCoveredArea}</p> : null}
+              {request.uncoveredArea !== null ? <p className="muted">{t('appraisals.uncoveredArea')}: {request.uncoveredArea}</p> : null}
+              {request.totalArea !== null ? <p className="muted">{t('appraisals.totalArea')}: {request.totalArea}</p> : null}
+              {request.weightedArea !== null ? <p className="muted">{t('appraisals.weightedArea')}: {request.weightedArea}</p> : null}
+              {request.hasGarage !== null ? <p className="muted">{t('appraisals.hasGarage')}: {request.hasGarage ? 'Si' : 'No'}</p> : null}
+              {request.valuationReason ? <p className="muted">{t('appraisals.valuationReason')}: {request.valuationReason}</p> : null}
+              {request.conditionNotes ? <p className="muted">{t('appraisals.conditionNotes')}: {request.conditionNotes}</p> : null}
+              {request.availabilityNotes ? <p className="muted">{t('appraisals.availabilityNotes')}: {request.availabilityNotes}</p> : null}
+              {request.additionalNotes ? <p className="muted">{t('appraisals.additionalNotes')}: {request.additionalNotes}</p> : null}
+            </div>
+          </section>
+        ) : null}
       </section>
     </div>
   );
@@ -413,26 +199,5 @@ function buildPayload(form: AppraisalFormState) {
   return {
     contactId: Number(form.contactId),
     propertyAddress: form.propertyAddress,
-    city: form.city || undefined,
-    neighborhood: form.neighborhood || undefined,
-    propertyType: form.propertyType || undefined,
-    operationType: form.operationType || undefined,
-    rooms: form.rooms ? Number(form.rooms) : undefined,
-    bedrooms: form.bedrooms ? Number(form.bedrooms) : undefined,
-    bathrooms: form.bathrooms ? Number(form.bathrooms) : undefined,
-    expenses: form.expenses ? Number(form.expenses) : undefined,
-    floor: form.floor ? Number(form.floor) : undefined,
-    amenities: form.amenities || undefined,
-    orientation: form.orientation || undefined,
-    disposition: form.disposition || undefined,
-    ageYears: form.ageYears ? Number(form.ageYears) : undefined,
-    coveredArea: form.coveredArea ? Number(form.coveredArea) : undefined,
-    semiCoveredArea: form.semiCoveredArea ? Number(form.semiCoveredArea) : undefined,
-    uncoveredArea: form.uncoveredArea ? Number(form.uncoveredArea) : undefined,
-    hasGarage: form.hasGarage,
-    conditionNotes: form.conditionNotes || undefined,
-    valuationReason: form.valuationReason || undefined,
-    availabilityNotes: form.availabilityNotes || undefined,
-    additionalNotes: form.additionalNotes || undefined,
   };
 }

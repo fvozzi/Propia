@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsArray,
   IsEnum,
   IsInt,
@@ -13,6 +14,8 @@ import {
   OperationType,
   PropertyStatus,
   PropertyType,
+  AppraisalDisposition,
+  AppraisalOrientation,
 } from '../../common/enums';
 
 class PropertyPhotoInput {
@@ -100,8 +103,54 @@ export class CreatePropertyDto {
 
   @IsOptional()
   @Type(() => Number)
+  @IsNumber()
+  semiCoveredArea?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  uncoveredArea?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  weightedArea?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  floor?: number;
+
+  @IsOptional()
+  @IsString()
+  amenities?: string;
+
+  @IsOptional()
+  @IsEnum(AppraisalOrientation)
+  orientation?: AppraisalOrientation;
+
+  @IsOptional()
+  @IsEnum(AppraisalDisposition)
+  disposition?: AppraisalDisposition;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  ageYears?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  hasGarage?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   ownerContactId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  appraisalRequestId?: number;
 
   @IsOptional()
   @IsString()

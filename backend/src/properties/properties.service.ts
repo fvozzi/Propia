@@ -1,14 +1,40 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Activity } from '../activities/activity.entity';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { paginate } from '../common/pagination';
 import { Contact } from '../contacts/contact.entity';
+import { OperationType, SearchRequirementStatus } from '../common/enums';
+import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
+import { calculateAppraisalAreas, summarizeAppraisalAnswers } from '../use-cases/appraisal-initial-intake.use-case';
+import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { PropertyPhoto } from './property-photo.entity';
 import { Property } from './property.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { QueryPropertiesDto } from './dto/query-properties.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
+
+type PropertyDraftPayload = Partial<CreatePropertyDto> & {
+  description?: string | null;
+  neighborhood?: string | null;
+  expenses?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  rooms?: number | null;
+  coveredArea?: number | null;
+  semiCoveredArea?: number | null;
+  uncoveredArea?: number | null;
+  totalArea?: number | null;
+  weightedArea?: number | null;
+  floor?: number | null;
+  amenities?: string | null;
+  ageYears?: number | null;
+  hasGarage?: boolean | null;
+  ownerContactId?: number | null;
+  appraisalRequestId?: number | null;
+  privateNotes?: string | null;
+};
 
 @Injectable()
 export class PropertiesService {
@@ -19,21 +45,36 @@ export class PropertiesService {
     private readonly photosRepository: Repository<PropertyPhoto>,
     @InjectRepository(Contact)
     private readonly contactsRepository: Repository<Contact>,
+    @InjectRepository(AppraisalRequest)
+    private readonly appraisalRequestsRepository: Repository<AppraisalRequest>,
+    @InjectRepository(SearchRequirement)
+    private readonly requirementsRepository: Repository<SearchRequirement>,
+    @InjectRepository(Activity)
+    private readonly activitiesRepository: Repository<Activity>,
   ) {}
 
   async create(dto: CreatePropertyDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    await this.assertOwnerContact(dto.ownerContactId ?? null, teamId);
+    const appraisalRequest = dto.appraisalRequestId
+      ? await this.assertScopedAppraisalRequest(dto.appraisalRequestId, teamId)
+      : null;
+    const draft = this.applyAppraisalDefaults(dto, appraisalRequest);
+    this.assertAppraisalOwnerConsistency(draft.ownerContactId ?? null, appraisalRequest);
+    await this.assertOwnerContact(draft.ownerContactId ?? null, teamId);
 
     const property = this.propertiesRepository.create({
-      ...dto,
+      ...draft,
       teamId,
       ownerUserId: user.sub,
-      ownerContactId: dto.ownerContactId ?? null,
-      photos: (dto.photos ?? []).map((photo) => this.photosRepository.create(photo)),
+      ownerContactId: draft.ownerContactId ?? null,
+      appraisalRequestId: appraisalRequest?.id ?? draft.appraisalRequestId ?? null,
+      photos: (draft.photos ?? []).map((photo) => this.photosRepository.create(photo)),
     });
 
-    return this.propertiesRepository.save(property);
+    const saved = await this.propertiesRepository.save(property);
+    await this.syncAppraisalActivity(saved.id, saved.appraisalRequestId ?? null, teamId);
+    await this.linkSaleRequirement(saved, teamId);
+    return this.findOne(saved.id, user);
   }
 
   async findAll(query: QueryPropertiesDto, user: AuthenticatedUser) {
@@ -42,6 +83,7 @@ export class PropertiesService {
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.photos', 'photos')
       .leftJoinAndSelect('property.ownerContact', 'ownerContact')
+      .leftJoinAndSelect('property.appraisalRequest', 'appraisalRequest')
       .where('property.teamId = :teamId', { teamId })
       .orderBy('property.updatedAt', 'DESC');
 
@@ -87,6 +129,9 @@ export class PropertiesService {
         ownerContact: {
           roles: true,
         },
+        appraisalRequest: {
+          contact: true,
+        },
         activities: {
           contact: true,
         },
@@ -118,20 +163,35 @@ export class PropertiesService {
     const teamId = requireActiveTeamId(user);
     const property = await this.propertiesRepository.findOne({
       where: { id, teamId },
+      relations: { appraisalRequest: true },
     });
 
     if (!property) {
       throw new NotFoundException('Propiedad no encontrada');
     }
 
-    const nextOwnerContactId =
-      dto.ownerContactId === undefined ? property.ownerContactId : dto.ownerContactId;
+    const nextAppraisalRequestId =
+      dto.appraisalRequestId === undefined ? property.appraisalRequestId : dto.appraisalRequestId;
+    const appraisalRequest = nextAppraisalRequestId
+      ? await this.assertScopedAppraisalRequest(nextAppraisalRequestId, teamId, property.id)
+      : null;
+    const draftSource = {
+      ...property,
+      ...dto,
+      appraisalRequestId: nextAppraisalRequestId ?? undefined,
+      photos: dto.photos,
+    } as PropertyDraftPayload;
+    const draft = this.applyAppraisalDefaults(draftSource, appraisalRequest);
+    const nextOwnerContactId = draft.ownerContactId ?? null;
+    this.assertAppraisalOwnerConsistency(nextOwnerContactId, appraisalRequest);
     await this.assertOwnerContact(nextOwnerContactId ?? null, teamId);
 
     const { photos, ...rest } = dto;
     Object.assign(property, {
       ...rest,
+      ...draft,
       ownerContactId: nextOwnerContactId ?? null,
+      appraisalRequestId: appraisalRequest?.id ?? nextAppraisalRequestId ?? null,
     });
     await this.propertiesRepository.save(property);
 
@@ -155,6 +215,8 @@ export class PropertiesService {
       }
     }
 
+    await this.syncAppraisalActivity(property.id, property.appraisalRequestId ?? null, teamId);
+    await this.linkSaleRequirement(property, teamId);
     return this.findOne(id, user);
   }
 
@@ -184,5 +246,157 @@ export class PropertiesService {
     if (!contact) {
       throw new NotFoundException('Contacto propietario no encontrado');
     }
+  }
+
+  private async assertScopedAppraisalRequest(appraisalRequestId: number, teamId: number, propertyId?: number) {
+    const appraisalRequest = await this.appraisalRequestsRepository.findOne({
+      where: { id: appraisalRequestId, teamId },
+      relations: { properties: true },
+    });
+
+    if (!appraisalRequest) {
+      throw new NotFoundException('Solicitud de tasacion no encontrada');
+    }
+
+    if (!appraisalRequest.submittedAt) {
+      throw new BadRequestException('La solicitud de tasacion seleccionada todavia no fue respondida');
+    }
+
+    const linkedProperty = appraisalRequest.properties.find((item) => item.id !== propertyId);
+    if (linkedProperty) {
+      throw new BadRequestException('La solicitud de tasacion seleccionada ya esta vinculada a otra propiedad');
+    }
+
+    return appraisalRequest;
+  }
+
+  private assertAppraisalOwnerConsistency(ownerContactId: number | null, appraisalRequest: AppraisalRequest | null) {
+    if (!appraisalRequest || !ownerContactId) {
+      return;
+    }
+
+    if (ownerContactId !== appraisalRequest.contactId) {
+      throw new BadRequestException('La propiedad vinculada a una tasacion debe conservar el mismo contacto propietario');
+    }
+  }
+
+  private applyAppraisalDefaults(dto: PropertyDraftPayload, appraisalRequest: AppraisalRequest | null) {
+    const coveredArea = dto.coveredArea ?? appraisalRequest?.coveredArea ?? null;
+    const semiCoveredArea = dto.semiCoveredArea ?? appraisalRequest?.semiCoveredArea ?? null;
+    const uncoveredArea = dto.uncoveredArea ?? appraisalRequest?.uncoveredArea ?? null;
+    const computedAreas = calculateAppraisalAreas({
+      coveredArea,
+      semiCoveredArea,
+      uncoveredArea,
+    });
+    const privateNotes =
+      dto.privateNotes !== undefined
+        ? dto.privateNotes
+        : appraisalRequest
+          ? this.buildPropertyPrivateNotes(appraisalRequest)
+          : undefined;
+
+    return {
+      ...dto,
+      address: dto.address ?? appraisalRequest?.propertyAddress ?? undefined,
+      city: dto.city ?? appraisalRequest?.city ?? undefined,
+      neighborhood: dto.neighborhood ?? appraisalRequest?.neighborhood ?? undefined,
+      operationType: dto.operationType ?? appraisalRequest?.operationType ?? undefined,
+      propertyType: dto.propertyType ?? appraisalRequest?.propertyType ?? undefined,
+      expenses: dto.expenses ?? appraisalRequest?.expenses ?? undefined,
+      bedrooms: dto.bedrooms ?? appraisalRequest?.bedrooms ?? undefined,
+      bathrooms: dto.bathrooms ?? appraisalRequest?.bathrooms ?? undefined,
+      rooms: dto.rooms ?? appraisalRequest?.rooms ?? undefined,
+      coveredArea: coveredArea ?? undefined,
+      semiCoveredArea: semiCoveredArea ?? undefined,
+      uncoveredArea: uncoveredArea ?? undefined,
+      totalArea: dto.totalArea ?? appraisalRequest?.totalArea ?? computedAreas.totalArea ?? undefined,
+      weightedArea: dto.weightedArea ?? appraisalRequest?.weightedArea ?? computedAreas.weightedArea ?? undefined,
+      floor: dto.floor ?? appraisalRequest?.floor ?? undefined,
+      amenities: dto.amenities ?? appraisalRequest?.amenities ?? undefined,
+      orientation: dto.orientation ?? appraisalRequest?.orientation ?? undefined,
+      disposition: dto.disposition ?? appraisalRequest?.disposition ?? undefined,
+      ageYears: dto.ageYears ?? appraisalRequest?.ageYears ?? undefined,
+      hasGarage: dto.hasGarage ?? appraisalRequest?.hasGarage ?? undefined,
+      ownerContactId: dto.ownerContactId ?? appraisalRequest?.contactId ?? undefined,
+      privateNotes,
+      appraisalRequestId: dto.appraisalRequestId ?? appraisalRequest?.id ?? undefined,
+    };
+  }
+
+  private buildPropertyPrivateNotes(appraisalRequest: AppraisalRequest) {
+    const noteSections = [
+      appraisalRequest.conditionNotes?.trim()
+        ? `Estado y mejoras: ${appraisalRequest.conditionNotes.trim()}`
+        : null,
+      appraisalRequest.valuationReason?.trim()
+        ? `Motivo de tasacion: ${appraisalRequest.valuationReason.trim()}`
+        : null,
+      appraisalRequest.availabilityNotes?.trim()
+        ? `Disponibilidad: ${appraisalRequest.availabilityNotes.trim()}`
+        : null,
+      appraisalRequest.additionalNotes?.trim()
+        ? `Notas adicionales: ${appraisalRequest.additionalNotes.trim()}`
+        : null,
+    ].filter((value): value is string => Boolean(value));
+
+    if (noteSections.length > 0) {
+      return noteSections.join('\n\n');
+    }
+
+    const summary = summarizeAppraisalAnswers(appraisalRequest);
+    return summary.trim() || null;
+  }
+
+  private async syncAppraisalActivity(propertyId: number, appraisalRequestId: number | null, teamId: number) {
+    if (appraisalRequestId) {
+      const linkedActivity = await this.activitiesRepository.findOne({
+        where: { appraisalRequestId, teamId },
+      });
+
+      if (linkedActivity) {
+        linkedActivity.propertyId = propertyId;
+        await this.activitiesRepository.save(linkedActivity);
+      }
+    }
+
+    const orphanActivities = await this.activitiesRepository.find({
+      where: { propertyId, teamId },
+    });
+
+    const staleActivities = orphanActivities.filter(
+      (activity) => activity.appraisalRequestId !== null && activity.appraisalRequestId !== appraisalRequestId,
+    );
+
+    if (staleActivities.length > 0) {
+      staleActivities.forEach((activity) => {
+        activity.propertyId = null;
+      });
+      await this.activitiesRepository.save(staleActivities);
+    }
+  }
+
+  private async linkSaleRequirement(property: Property, teamId: number) {
+    if (!property.ownerContactId || property.operationType !== OperationType.SALE) {
+      return;
+    }
+
+    const matchingRequirements = await this.requirementsRepository.find({
+      where: {
+        teamId,
+        contactId: property.ownerContactId,
+        operationType: OperationType.SALE,
+        status: SearchRequirementStatus.ACTIVE,
+      },
+      order: { createdAt: 'ASC' },
+    });
+
+    const unlinkedRequirements = matchingRequirements.filter((requirement) => !requirement.propertyId);
+    if (unlinkedRequirements.length !== 1) {
+      return;
+    }
+
+    unlinkedRequirements[0].propertyId = property.id;
+    await this.requirementsRepository.save(unlinkedRequirements[0]);
   }
 }

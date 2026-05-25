@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { Timeline, type TimelineItem } from '../components/Timeline';
 import { apiRequest } from '../lib/api';
-import { propertyStatusOptions, useI18n } from '../lib/i18n';
+import { calculateAppraisalAreas, parseNullableNumber } from '../lib/appraisals';
+import { appraisalDispositionOptions, appraisalOrientationOptions, propertyStatusOptions, useI18n } from '../lib/i18n';
 import type { Contact, Property, PropertyStatus } from '../types';
 
 export function PropertyDetailPage() {
@@ -28,6 +29,10 @@ export function PropertyDetailPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    const coveredArea = parseNullableNumber(String(formData.get('coveredArea') ?? ''));
+    const semiCoveredArea = parseNullableNumber(String(formData.get('semiCoveredArea') ?? ''));
+    const uncoveredArea = parseNullableNumber(String(formData.get('uncoveredArea') ?? ''));
+    const computedAreas = calculateAppraisalAreas({ coveredArea, semiCoveredArea, uncoveredArea });
     await apiRequest(`/properties/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -38,15 +43,36 @@ export function PropertyDetailPage() {
         neighborhood: formData.get('neighborhood'),
         status: formData.get('status') as PropertyStatus,
         price: formData.get('price') ? Number(formData.get('price')) : null,
+        expenses: formData.get('expenses') ? Number(formData.get('expenses')) : null,
+        rooms: formData.get('rooms') ? Number(formData.get('rooms')) : null,
+        bedrooms: formData.get('bedrooms') ? Number(formData.get('bedrooms')) : null,
+        bathrooms: formData.get('bathrooms') ? Number(formData.get('bathrooms')) : null,
+        coveredArea,
+        semiCoveredArea,
+        uncoveredArea,
+        totalArea: computedAreas.totalArea,
+        weightedArea: computedAreas.weightedArea,
+        floor: formData.get('floor') ? Number(formData.get('floor')) : null,
+        amenities: formData.get('amenities'),
+        orientation: formData.get('orientation') || null,
+        disposition: formData.get('disposition') || null,
+        ageYears: formData.get('ageYears') ? Number(formData.get('ageYears')) : null,
+        hasGarage: formData.get('hasGarage') === 'on',
         ownerContactId: formData.get('ownerContactId')
           ? Number(formData.get('ownerContactId'))
-          : null,
+          : property?.ownerContactId ?? null,
         privateNotes: formData.get('privateNotes'),
         photos: property?.photos ?? [],
       }),
     });
     await load();
   }
+
+  const computedAreas = calculateAppraisalAreas({
+    coveredArea: property?.coveredArea ?? null,
+    semiCoveredArea: property?.semiCoveredArea ?? null,
+    uncoveredArea: property?.uncoveredArea ?? null,
+  });
 
   if (!property) {
     return <p>{t('common.loading')}</p>;
@@ -124,8 +150,74 @@ export function PropertyDetailPage() {
               <input name="price" defaultValue={property.price ?? ''} />
             </label>
             <label>
+              {t('appraisals.expenses')}
+              <input name="expenses" defaultValue={property.expenses ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.rooms')}
+              <input name="rooms" defaultValue={property.rooms ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.bedrooms')}
+              <input name="bedrooms" defaultValue={property.bedrooms ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.bathrooms')}
+              <input name="bathrooms" defaultValue={property.bathrooms ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.coveredArea')}
+              <input name="coveredArea" defaultValue={property.coveredArea ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.semiCoveredArea')}
+              <input name="semiCoveredArea" defaultValue={property.semiCoveredArea ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.uncoveredArea')}
+              <input name="uncoveredArea" defaultValue={property.uncoveredArea ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.totalArea')}
+              <input defaultValue={computedAreas.totalArea ?? property.totalArea ?? ''} disabled />
+            </label>
+            <label>
+              {t('appraisals.weightedArea')}
+              <input defaultValue={computedAreas.weightedArea ?? property.weightedArea ?? ''} disabled />
+            </label>
+            <label>
+              {t('appraisals.floor')}
+              <input name="floor" defaultValue={property.floor ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.ageYears')}
+              <input name="ageYears" defaultValue={property.ageYears ?? ''} />
+            </label>
+            <label>
+              {t('appraisals.orientation')}
+              <select name="orientation" defaultValue={property.orientation ?? ''}>
+                <option value="">{t('common.unassigned')}</option>
+                {appraisalOrientationOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {translateEnum('appraisalOrientation', option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t('appraisals.disposition')}
+              <select name="disposition" defaultValue={property.disposition ?? ''}>
+                <option value="">{t('common.unassigned')}</option>
+                {appraisalDispositionOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {translateEnum('appraisalDisposition', option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
               {t('common.owner')}
-              <select name="ownerContactId" defaultValue={property.ownerContactId ?? ''}>
+              <select name="ownerContactId" defaultValue={property.ownerContactId ?? ''} disabled={Boolean(property.appraisalRequestId)}>
                 <option value="">{t('common.unassigned')}</option>
                 {contacts.map((contact) => (
                   <option key={contact.id} value={contact.id}>
@@ -133,6 +225,14 @@ export function PropertyDetailPage() {
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="full-span">
+              {t('appraisals.amenitiesText')}
+              <input name="amenities" defaultValue={property.amenities ?? ''} />
+            </label>
+            <label className="checkbox-field full-span">
+              <input name="hasGarage" type="checkbox" defaultChecked={property.hasGarage ?? false} />
+              <span>{t('appraisals.hasGarage')}</span>
             </label>
             <label className="full-span">
               {t('common.description')}
@@ -151,6 +251,16 @@ export function PropertyDetailPage() {
           <StatusPill value={property.status} />
           <p className="muted">
             {t('common.owner')}: {property.ownerContact?.displayName ?? t('common.unassigned')}
+          </p>
+          <p className="muted">
+            {t('properties.linkedAppraisalSummary')}:{' '}
+            {property.appraisalRequest ? (
+              <Link to={`/appraisals/${property.appraisalRequest.id}/edit`} className="agenda-link">
+                {property.appraisalRequest.propertyAddress ?? `#${property.appraisalRequest.id}`}
+              </Link>
+            ) : (
+              t('properties.withoutAppraisal')
+            )}
           </p>
           <div className="photo-grid">
             {property.photos.map((photo) => (

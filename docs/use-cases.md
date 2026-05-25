@@ -113,6 +113,48 @@
   - disponibilidad segun expiracion o envio previo
   - resumen legible de respuestas para registrar en la linea de vida
 
+## UC4. Dashboard de requerimientos por tipo y pipeline
+
+- Objetivo: permitir que la usuaria vea en el dashboard los requerimientos activos agrupados por tipo de operacion y, al entrar en cada tipo, revisar la linea de pasos de cada requerimiento con estado completo o pendiente.
+- Actor principal: usuaria comercial.
+- Entidad principal propuesta: `SearchRequirement` con pipeline calculado.
+
+### Flujo esperado
+
+1. La usuaria entra al dashboard.
+2. El dashboard muestra los requerimientos activos agrupados por `Venta`, `Compra` y `Alquiler`.
+3. La usuaria hace click en uno de esos tipos.
+4. El sistema despliega cada requerimiento de ese grupo con su linea de pasos.
+5. Cada paso debe mostrarse como `completado` o `pendiente`.
+
+### Primera version implementada
+
+- Para `Venta`, los pasos se calculan como:
+  - contacto vinculado
+  - propiedad vinculada
+  - solicitud de tasacion enviada
+  - solicitud de tasacion respondida
+- Para `Compra` y `Alquiler`, los pasos se calculan como:
+  - contacto vinculado
+  - criterios cargados
+  - propiedades compartidas
+  - propiedad vinculada
+
+### Criterios de aceptacion
+
+- El dashboard debe mostrar conteos por tipo de operacion.
+- Debe poder seleccionarse un tipo y ver el listado de requerimientos de ese grupo.
+- Cada requerimiento debe mostrar progreso con cantidad de pasos completados y pendientes.
+- La primera version puede calcular pasos a partir de datos existentes del CRM sin crear una entidad nueva de pipeline.
+
+### Cobertura unitaria
+
+- Archivo: `backend/src/use-cases/requirement-pipeline.use-case.spec.ts`
+- Reglas cubiertas:
+  - pipeline de venta con hitos de tasacion
+  - pipeline de compra/alquiler con criterios y propiedades compartidas
+  - agrupacion por tipo de operacion y conteo de completitud
+
 ## Nota
 
 Estos casos de uso quedan documentados y testeados a nivel de reglas de negocio. La implementacion funcional completa en entidades, endpoints, dashboard y UI puede construirse iterativamente sobre esta base.

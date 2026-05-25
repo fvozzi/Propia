@@ -10,11 +10,14 @@ import {
 } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
 import {
+  AppraisalDisposition,
+  AppraisalOrientation,
   CurrencyType,
   OperationType,
   PropertyStatus,
   PropertyType,
 } from '../common/enums';
+import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { Contact } from '../contacts/contact.entity';
 import { Visit } from '../visits/visit.entity';
 import { PropertyPhoto } from './property-photo.entity';
@@ -78,12 +81,55 @@ export class Property {
   @Column({ type: 'double precision', nullable: true })
   totalArea: number | null;
 
+  @Column({ type: 'double precision', nullable: true })
+  semiCoveredArea: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  uncoveredArea: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  weightedArea: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  floor: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  amenities: string | null;
+
+  @Column({ type: 'enum', enum: AppraisalOrientation, enumName: 'appraisal_orientation', nullable: true })
+  orientation: AppraisalOrientation | null;
+
+  @Column({ type: 'enum', enum: AppraisalDisposition, enumName: 'appraisal_disposition', nullable: true })
+  disposition: AppraisalDisposition | null;
+
+  @Column({ type: 'integer', nullable: true })
+  ageYears: number | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  hasGarage: boolean | null;
+
   @ManyToOne(() => Contact, (contact) => contact.ownedProperties, { nullable: true })
   @JoinColumn({ name: 'ownerContactId' })
   ownerContact: Contact | null;
 
   @Column({ type: 'integer', nullable: true })
   ownerContactId: number | null;
+
+  @OneToMany(() => Activity, (activity) => activity.property)
+  activities: Activity[];
+
+  @OneToMany(() => Visit, (visit) => visit.property)
+  visits: Visit[];
+
+  @ManyToOne(() => AppraisalRequest, (appraisalRequest) => appraisalRequest.properties, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'appraisalRequestId' })
+  appraisalRequest: AppraisalRequest | null;
+
+  @Column({ type: 'integer', nullable: true, unique: true })
+  appraisalRequestId: number | null;
 
   @Column({ type: 'text', nullable: true })
   privateNotes: string | null;
@@ -99,10 +145,4 @@ export class Property {
     eager: true,
   })
   photos: PropertyPhoto[];
-
-  @OneToMany(() => Activity, (activity) => activity.property)
-  activities: Activity[];
-
-  @OneToMany(() => Visit, (visit) => visit.property)
-  visits: Visit[];
 }
