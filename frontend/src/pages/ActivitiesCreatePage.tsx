@@ -1,12 +1,9 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
-import {
-  buildPropertySearchMessage,
-  getContactWhatsappPhone,
-} from '../lib/whatsapp';
+import { buildPropertySearchMessage, getContactWhatsappPhone } from '../lib/whatsapp';
 import type { Activity, ActivityType, Contact, Paginated, Property } from '../types';
 
 type PropertySearchFeedback = '' | 'LIKED' | 'DISLIKED';
@@ -51,21 +48,30 @@ export function ActivitiesCreatePage() {
   const [loading, setLoading] = useState(Boolean(id));
   const [linkProperty, setLinkProperty] = useState(false);
   const [savingAndSharing, setSavingAndSharing] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState<ActivityFormState>(initialForm);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const activityId = id ? Number(id) : null;
   const isEditing = Boolean(activityId);
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
   const selectedContact = contacts.find((contact) => String(contact.id) === form.contactId) ?? null;
-  const canShareNow = Boolean(isPropertySearch && selectedContact && getContactWhatsappPhone(selectedContact) && form.externalUrl.trim());
+  const canShareNow = Boolean(
+    isPropertySearch &&
+      selectedContact &&
+      getContactWhatsappPhone(selectedContact) &&
+      form.externalUrl.trim(),
+  );
 
   useEffect(() => {
     async function loadDependencies() {
       const [contactsData, propertiesData, activityData] = await Promise.all([
         apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100'),
         apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
-        isEditing && activityId ? apiRequest<Activity>(`/activities/${activityId}`) : Promise.resolve(null),
+        isEditing && activityId
+          ? apiRequest<Activity>(`/activities/${activityId}`)
+          : Promise.resolve(null),
       ]);
 
       setContacts(contactsData.items);
@@ -102,28 +108,28 @@ export function ActivitiesCreatePage() {
   }, [activityId, isEditing]);
 
   async function saveActivity(shareNow: boolean) {
-    const saved = await apiRequest<Activity>(isEditing && activityId ? `/activities/${activityId}` : '/activities', {
-      method: isEditing ? 'PATCH' : 'POST',
-      body: JSON.stringify(buildActivityPayload(form, linkProperty, activity)),
-    });
+    const saved = await apiRequest<Activity>(
+      isEditing && activityId ? `/activities/${activityId}` : '/activities',
+      {
+        method: isEditing ? 'PATCH' : 'POST',
+        body: JSON.stringify(buildActivityPayload(form, linkProperty, activity)),
+      },
+    );
 
     setActivity(saved);
 
     if (shareNow && selectedContact) {
-      try {
-        const shared = await apiRequest<Activity>(`/activities/${saved.id}/share`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            whatsappComment: form.whatsappComment || undefined,
-          }),
-        });
-        await navigator.clipboard.writeText(buildPropertySearchMessage(shared));
-        window.alert(t('common.copySuccess'));
-        setActivity(shared);
-        return shared;
-      } catch (error) {
-        throw error;
-      }
+      const shared = await apiRequest<Activity>(`/activities/${saved.id}/share`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          whatsappComment: form.whatsappComment || undefined,
+        }),
+      });
+
+      await copyText(buildPropertySearchMessage(shared));
+      window.alert(t('common.copySuccess'));
+      setActivity(shared);
+      return shared;
     }
 
     return saved;
@@ -131,27 +137,40 @@ export function ActivitiesCreatePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const saved = await saveActivity(false);
-    if (saved.activityType === 'APPRAISAL_REQUEST' && saved.appraisalRequestId) {
-      navigate(`/appraisals/${saved.appraisalRequestId}/edit`);
-      return;
+    setError('');
+
+    try {
+      const saved = await saveActivity(false);
+      if (saved.activityType === 'APPRAISAL_REQUEST' && saved.appraisalRequestId) {
+        navigate(`/appraisals/${saved.appraisalRequestId}/edit`);
+        return;
+      }
+
+      navigate('/activities');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar la actividad');
     }
-    navigate('/activities');
   }
 
   async function handleSaveAndShare() {
     if (!canShareNow) return;
+    if (!formRef.current?.reportValidity()) return;
 
     const previousMarkShared = form.markShared;
     setForm((current) => ({ ...current, markShared: true }));
     setSavingAndSharing(true);
+    setError('');
 
     try {
       await saveActivity(true);
       navigate('/activities');
-    } catch (error) {
+    } catch (shareError) {
       setForm((current) => ({ ...current, markShared: previousMarkShared }));
-      throw error;
+      setError(
+        shareError instanceof Error
+          ? shareError.message
+          : 'No se pudo guardar y copiar el mensaje',
+      );
     } finally {
       setSavingAndSharing(false);
     }
@@ -180,8 +199,10 @@ export function ActivitiesCreatePage() {
         }
       />
 
+      {error ? <div className="card">{error}</div> : null}
+
       <section className="card">
-        <form className="form-grid" onSubmit={handleSubmit}>
+        <form ref={formRef} className="form-grid" onSubmit={handleSubmit}>
           <label>
             {t('common.type')}
             <select
@@ -191,10 +212,15 @@ export function ActivitiesCreatePage() {
                   ...current,
                   activityType: event.target.value as ActivityType,
                   propertySearchFeedback:
-                    event.target.value === 'PROPERTY_SEARCH' ? current.propertySearchFeedback : '',
-                  markShared: event.target.value === 'PROPERTY_SEARCH' ? current.markShared : false,
-                  externalUrl: event.target.value === 'PROPERTY_SEARCH' ? current.externalUrl : '',
-                  whatsappComment: event.target.value === 'PROPERTY_SEARCH' ? current.whatsappComment : '',
+                    event.target.value === 'PROPERTY_SEARCH'
+                      ? current.propertySearchFeedback
+                      : '',
+                  markShared:
+                    event.target.value === 'PROPERTY_SEARCH' ? current.markShared : false,
+                  externalUrl:
+                    event.target.value === 'PROPERTY_SEARCH' ? current.externalUrl : '',
+                  whatsappComment:
+                    event.target.value === 'PROPERTY_SEARCH' ? current.whatsappComment : '',
                 }))
               }
               disabled={isEditing && activity?.activityType === 'APPRAISAL_REQUEST'}
@@ -210,7 +236,9 @@ export function ActivitiesCreatePage() {
             {t('common.contact')}
             <select
               value={form.contactId}
-              onChange={(event) => setForm((current) => ({ ...current, contactId: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, contactId: event.target.value }))
+              }
               required={isPropertySearch || isAppraisalRequest}
             >
               <option value="">{t('activities.withoutContact')}</option>
@@ -226,7 +254,12 @@ export function ActivitiesCreatePage() {
               {t('appraisals.propertyAddress')}
               <input
                 value={form.appraisalPropertyAddress}
-                onChange={(event) => setForm((current) => ({ ...current, appraisalPropertyAddress: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    appraisalPropertyAddress: event.target.value,
+                  }))
+                }
                 required
               />
             </label>
@@ -237,7 +270,9 @@ export function ActivitiesCreatePage() {
                 <input
                   type="datetime-local"
                   value={form.activityDate}
-                  onChange={(event) => setForm((current) => ({ ...current, activityDate: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, activityDate: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -246,7 +281,12 @@ export function ActivitiesCreatePage() {
                 <input
                   type="datetime-local"
                   value={form.nextFollowUpDate}
-                  onChange={(event) => setForm((current) => ({ ...current, nextFollowUpDate: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      nextFollowUpDate: event.target.value,
+                    }))
+                  }
                 />
               </label>
             </>
@@ -254,7 +294,11 @@ export function ActivitiesCreatePage() {
           {!isAppraisalRequest ? (
             <div className="full-span stack-gap">
               <label className="checkbox-item">
-                <input type="checkbox" checked={linkProperty} onChange={(event) => setLinkProperty(event.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={linkProperty}
+                  onChange={(event) => setLinkProperty(event.target.checked)}
+                />
                 <span>{t('activities.linkProperty')}</span>
               </label>
               {linkProperty ? (
@@ -262,7 +306,9 @@ export function ActivitiesCreatePage() {
                   {t('activities.linkedProperty')}
                   <select
                     value={form.propertyId}
-                    onChange={(event) => setForm((current) => ({ ...current, propertyId: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, propertyId: event.target.value }))
+                    }
                   >
                     <option value="">{t('activities.withoutProperty')}</option>
                     {properties.map((property) => (
@@ -278,10 +324,18 @@ export function ActivitiesCreatePage() {
           {!isAppraisalRequest ? (
             <label className="full-span">
               {isPropertySearch ? t('activities.listingTitle') : t('common.title')}
-              <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
+              <input
+                value={form.title}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, title: event.target.value }))
+                }
+                required
+              />
             </label>
           ) : null}
-          {isAppraisalRequest ? <p className="muted full-span">{t('activities.appraisalRequestHint')}</p> : null}
+          {isAppraisalRequest ? (
+            <p className="muted full-span">{t('activities.appraisalRequestHint')}</p>
+          ) : null}
           {isPropertySearch ? (
             <>
               <label className="full-span">
@@ -289,7 +343,9 @@ export function ActivitiesCreatePage() {
                 <input
                   type="url"
                   value={form.externalUrl}
-                  onChange={(event) => setForm((current) => ({ ...current, externalUrl: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, externalUrl: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -314,14 +370,21 @@ export function ActivitiesCreatePage() {
                 <textarea
                   rows={3}
                   value={form.whatsappComment}
-                  onChange={(event) => setForm((current) => ({ ...current, whatsappComment: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      whatsappComment: event.target.value,
+                    }))
+                  }
                 />
               </label>
               <label className="checkbox-item full-span">
                 <input
                   type="checkbox"
                   checked={form.markShared}
-                  onChange={(event) => setForm((current) => ({ ...current, markShared: event.target.checked }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, markShared: event.target.checked }))
+                  }
                 />
                 <span>{t('activities.markShared')}</span>
               </label>
@@ -330,7 +393,9 @@ export function ActivitiesCreatePage() {
                 <textarea
                   rows={3}
                   value={form.description}
-                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, description: event.target.value }))
+                  }
                 />
               </label>
             </>
@@ -339,7 +404,9 @@ export function ActivitiesCreatePage() {
               {t('common.description')}
               <textarea
                 value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
                 rows={3}
               />
             </label>
@@ -347,12 +414,20 @@ export function ActivitiesCreatePage() {
           <div className="full-span calendar-related-actions">
             <button type="submit">{isEditing ? t('common.update') : t('activities.save')}</button>
             {isAppraisalRequest && activity?.appraisalRequestId ? (
-              <Link to={`/appraisals/${activity.appraisalRequestId}/edit`} className="ghost-button button-link">
+              <Link
+                to={`/appraisals/${activity.appraisalRequestId}/edit`}
+                className="ghost-button button-link"
+              >
                 {t('activities.openAppraisalRequest')}
               </Link>
             ) : null}
             {isPropertySearch ? (
-              <button type="button" className="ghost-button" disabled={!canShareNow || savingAndSharing} onClick={handleSaveAndShare}>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={!canShareNow || savingAndSharing}
+                onClick={handleSaveAndShare}
+              >
                 {savingAndSharing ? t('common.loading') : t('activities.saveAndShare')}
               </button>
             ) : null}
@@ -370,14 +445,14 @@ function buildActivityPayload(
 ) {
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
-  const activityDate =
-    isAppraisalRequest
-      ? activity?.activityDate ?? new Date().toISOString()
-      : form.activityDate;
+  const activityDate = isAppraisalRequest
+    ? activity?.activityDate ?? new Date().toISOString()
+    : form.activityDate;
 
   return {
     contactId: form.contactId ? Number(form.contactId) : null,
-    propertyId: !isAppraisalRequest && linkProperty && form.propertyId ? Number(form.propertyId) : null,
+    propertyId:
+      !isAppraisalRequest && linkProperty && form.propertyId ? Number(form.propertyId) : null,
     activityType: form.activityType,
     title: isAppraisalRequest ? 'Solicitud de tasacion' : form.title,
     description: isAppraisalRequest ? null : form.description || null,
@@ -423,5 +498,22 @@ function formatPropertyOptionLabel(
 
   details.push(translateEnum('propertyStatus', property.status));
 
-  return `${property.title} · ${details.filter(Boolean).join(' · ')}`;
+  return `${property.title} - ${details.filter(Boolean).join(' - ')}`;
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'absolute';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
 }

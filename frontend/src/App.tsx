@@ -52,6 +52,7 @@ export default function App() {
                 <Route path="/properties/:id" element={<PropertyDetailPage />} />
                 <Route path="/requirements" element={<SearchRequirementsPage />} />
                 <Route path="/requirements/new" element={<SearchRequirementCreatePage />} />
+                <Route path="/requirements/:id/edit" element={<SearchRequirementCreatePage />} />
                 <Route path="/activities" element={<ActivitiesPage />} />
                 <Route path="/activities/new" element={<ActivitiesCreatePage />} />
                 <Route path="/activities/:id/edit" element={<ActivitiesCreatePage />} />

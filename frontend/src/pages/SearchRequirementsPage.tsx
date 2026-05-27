@@ -92,9 +92,14 @@ export function SearchRequirementsPage() {
               ) : null}
               <StatusPill value={requirement.status} />
             </div>
-            <button type="button" className="ghost-button" onClick={() => handleDelete(requirement.id)}>
-              {t('common.delete')}
-            </button>
+            <div className="candidate-actions">
+              <Link to={`/requirements/${requirement.id}/edit`} className="ghost-button button-link">
+                {t('common.update')}
+              </Link>
+              <button type="button" className="ghost-button" onClick={() => handleDelete(requirement.id)}>
+                {t('common.delete')}
+              </button>
+            </div>
           </article>
         ))}
       </PaginatedListCard>
