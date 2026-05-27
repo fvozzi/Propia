@@ -14,10 +14,12 @@ describe('api helpers', () => {
         id: 1,
         email: 'agent@propia.local',
         name: 'Agente Demo',
+        appRole: 'ADMIN',
+        backofficeAccess: true,
+        status: 'ACTIVE',
         activeTeamId: 2,
         activeTeamName: 'Demo Team',
         teams: [],
-        appRole: 'ADMIN',
         googleCalendarConnected: false,
       },
     });
