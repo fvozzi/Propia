@@ -26,8 +26,11 @@ export class AuthController {
   ) {}
 
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto.email, dto.password);
+  login(@Body() dto: LoginDto, @Req() request: Request) {
+    return this.authService.login(dto.email, dto.password, {
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    });
   }
 
   @Get('google')
@@ -45,7 +48,10 @@ export class AuthController {
       profile: import('passport-google-oauth20').Profile;
     };
 
-    const authResult = await this.authService.loginWithGoogle(payload);
+    const authResult = await this.authService.loginWithGoogle(payload, {
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    });
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
     const redirectUrl = new URL('/auth/callback', frontendUrl);
     redirectUrl.searchParams.set('token', authResult.accessToken);

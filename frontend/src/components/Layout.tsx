@@ -20,6 +20,9 @@ export function Layout() {
     { to: '/requirements', label: t('nav.requirements') },
     { to: '/activities', label: t('nav.activities') },
     { to: '/visits', label: t('nav.visits') },
+    ...(user?.appRole === 'ADMIN' && user.backofficeAccess
+      ? [{ to: '/backoffice', label: 'Backoffice' }]
+      : []),
     ...(user?.appRole === 'ADMIN' ? [{ to: '/users', label: t('nav.users') }] : []),
   ];
 

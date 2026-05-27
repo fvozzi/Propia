@@ -192,6 +192,54 @@
   - inclusion de propiedades visitadas con visitas completadas
   - coexistencia de ambas categorias y descarte de visitas no completadas
 
+## UC8. Backoffice de cuentas, usuarios y acceso
+
+- Objetivo: permitir que un usuario especial de plataforma administre cuentas y usuarios del sistema, valide accesos, monitoree actividad y pueda suspender una cuenta cuando sea necesario.
+- Actor principal: usuaria interna de plataforma.
+- Actores secundarios: administradoras de inmobiliarias y usuarios finales del CRM.
+- Entidades principales propuestas: `Team` como cuenta administrable, `User` con estado operativo y `LoginEvent` para auditoria de acceso.
+
+### Flujo esperado
+
+1. La usuaria interna entra al backoffice con un permiso explicito distinto del admin comun del CRM.
+2. El sistema muestra metricas agregadas de cuentas, usuarios y logins exitosos.
+3. La usuaria interna revisa el listado de cuentas con su estado operativo y datos de plan.
+4. La usuaria interna puede cambiar el estado de una cuenta a `Activa`, `Trial`, `Past due`, `Suspendida` o `Cancelada`.
+5. Si una cuenta queda suspendida o cancelada, el sistema debe bloquear el acceso operativo a sus usuarios.
+6. La usuaria interna revisa el listado de usuarios, valida si estan `Activos`, `Pendientes` o `Deshabilitados`, y puede otorgar permiso de backoffice solo a usuarios especiales.
+7. En cada login exitoso, el sistema registra ultimo acceso, cantidad de accesos y evento de autenticacion.
+
+### Primera version implementada
+
+- El acceso a `/backoffice` requiere `appRole = ADMIN` y `backofficeAccess = true`.
+- Las cuentas se administran sobre `Team`.
+- Los usuarios se administran sobre `User` con estados `ACTIVE`, `PENDING` y `DISABLED`.
+- El sistema registra eventos en `LoginEvent` para logins por password y Google.
+- El backoffice muestra overview, listado de cuentas y edicion de estado, plan, fechas y cupo de usuarios.
+
+### Criterios de aceptacion
+
+- El menu y la ruta de backoffice no deben quedar visibles ni accesibles para cualquier admin comun.
+- Debe existir un permiso explicito para distinguir admins operativos de usuarios especiales de plataforma.
+- Debe existir un estado operativo de usuario que permita validar altas o deshabilitar acceso.
+- Debe existir un estado operativo de cuenta que permita suspender o cancelar una inmobiliaria completa.
+- La suspension de cuenta o deshabilitacion de usuario debe impactar efectivamente en la autenticacion y uso del sistema.
+- El sistema debe conservar ultimo login, cantidad de logins y eventos de acceso para monitoreo basico.
+- La solucion debe dejar preparada la base para futuros flujos de cobro, vencimiento y control de limites por cuenta.
+
+### Cobertura unitaria
+
+- Archivos relacionados:
+  - `backend/src/auth/user-workspace.service.spec.ts`
+  - `backend/src/auth/google-enabled.guard.spec.ts`
+- Reglas cubiertas actualmente:
+  - validacion de acceso segun configuracion y contexto autenticado
+  - soporte de infraestructura base para bloquear acceso por reglas de cuenta y usuario
+- Pendiente de ampliar:
+  - tests especificos de backoffice guard
+  - tests especificos de suspension de cuenta y deshabilitacion de usuario en login
+  - tests de agregacion de metricas de `LoginEvent`
+
 ## Nota
 
 Estos casos de uso quedan documentados y testeados a nivel de reglas de negocio. La implementacion funcional completa en entidades, endpoints, dashboard y UI puede construirse iterativamente sobre esta base.

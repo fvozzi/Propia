@@ -4,7 +4,10 @@ export interface AuthenticatedUser {
   sub: number;
   email: string;
   appRole: 'ADMIN' | 'USER';
+  backofficeAccess?: boolean;
   activeTeamId: number | null;
+  userStatus?: 'ACTIVE' | 'PENDING' | 'DISABLED';
+  activeTeamStatus?: 'ACTIVE' | 'TRIAL' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED' | null;
 }
 
 export const CurrentUser = createParamDecorator(

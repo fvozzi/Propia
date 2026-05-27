@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsInt,
@@ -7,7 +8,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { AppUserRole } from '../../common/enums';
+import { AppUserRole, UserStatus } from '../../common/enums';
 
 export class UpdateAdminUserDto {
   @IsOptional()
@@ -27,6 +28,14 @@ export class UpdateAdminUserDto {
   @IsOptional()
   @IsEnum(AppUserRole)
   appRole?: AppUserRole;
+
+  @IsOptional()
+  @IsBoolean()
+  backofficeAccess?: boolean;
+
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
 
   @IsOptional()
   @IsInt()

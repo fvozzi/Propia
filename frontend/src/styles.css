@@ -290,7 +290,16 @@ label {
   color: #444;
 }
 
+.pill-trial,
+.pill-pending,
+.pill-past_due {
+  background: rgba(214, 152, 19, 0.16);
+  color: #8a5f00;
+}
+
 .pill-lost,
+.pill-disabled,
+.pill-suspended,
 .pill-cancelled,
 .pill-archived {
   background: rgba(190, 40, 40, 0.14);

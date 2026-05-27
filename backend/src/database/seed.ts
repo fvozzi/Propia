@@ -15,6 +15,8 @@ import {
   PropertyStatus,
   PropertyType,
   SearchRequirementStatus,
+  UserStatus,
+  AccountStatus,
   TeamMembershipRole,
   VisitStatus,
 } from '../common/enums';
@@ -56,6 +58,8 @@ async function run() {
         passwordHash: demoPasswordHash,
         name: 'Agente Demo',
         appRole: AppUserRole.ADMIN,
+        backofficeAccess: true,
+        status: UserStatus.ACTIVE,
         activeTeamId: null,
       }),
     );
@@ -63,6 +67,8 @@ async function run() {
     existingUser.email = 'agent@propia.local';
     existingUser.passwordHash = demoPasswordHash;
     existingUser.appRole = AppUserRole.ADMIN;
+    existingUser.backofficeAccess = true;
+    existingUser.status = UserStatus.ACTIVE;
     if (!existingUser.name) {
       existingUser.name = 'Agente Demo';
     }
@@ -73,6 +79,8 @@ async function run() {
     const team = await teamsRepository.save(
       teamsRepository.create({
         name: `${existingUser.name} Team`,
+        status: AccountStatus.ACTIVE,
+        planName: 'Internal',
       }),
     );
 

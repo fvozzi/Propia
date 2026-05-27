@@ -8,8 +8,9 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { AppUserRole } from '../common/enums';
+import { AppUserRole, UserStatus } from '../common/enums';
 import { GoogleCalendarConnection } from './google-calendar-connection.entity';
+import { LoginEvent } from './login-event.entity';
 import { TeamMembership } from './team-membership.entity';
 import { Team } from './team.entity';
 
@@ -35,8 +36,25 @@ export class User {
   })
   appRole: AppUserRole;
 
+  @Column({ type: 'boolean', default: false })
+  backofficeAccess: boolean;
+
+  @Column({
+    type: 'enum',
+    enum: UserStatus,
+    enumName: 'user_status',
+    default: UserStatus.ACTIVE,
+  })
+  status: UserStatus;
+
   @Column({ type: 'integer', nullable: true })
   activeTeamId: number | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  lastLoginAt: Date | null;
+
+  @Column({ type: 'integer', default: 0 })
+  loginCount: number;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -47,6 +65,9 @@ export class User {
 
   @OneToMany(() => TeamMembership, (membership) => membership.user)
   memberships: TeamMembership[];
+
+  @OneToMany(() => LoginEvent, (loginEvent) => loginEvent.user)
+  loginEvents: LoginEvent[];
 
   @OneToOne(
     () => GoogleCalendarConnection,

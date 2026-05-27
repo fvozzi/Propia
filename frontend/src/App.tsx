@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AdminRoute } from './components/AdminRoute';
+import { BackofficeRoute } from './components/BackofficeRoute';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './lib/auth';
@@ -9,6 +10,7 @@ import { AppraisalRequestsPage } from './pages/AppraisalRequestsPage';
 import { ActivitiesPage } from './pages/ActivitiesPage';
 import { ActivitiesCreatePage } from './pages/ActivitiesCreatePage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
+import { BackofficePage } from './pages/BackofficePage';
 import { CalendarPage } from './pages/CalendarPage';
 import { ContactCreatePage } from './pages/ContactCreatePage';
 import { ContactDetailPage } from './pages/ContactDetailPage';
@@ -56,6 +58,9 @@ export default function App() {
                 <Route path="/visits" element={<VisitsPage />} />
                 <Route element={<AdminRoute />}>
                   <Route path="/users" element={<UsersPage />} />
+                </Route>
+                <Route element={<BackofficeRoute />}>
+                  <Route path="/backoffice" element={<BackofficePage />} />
                 </Route>
               </Route>
             </Route>

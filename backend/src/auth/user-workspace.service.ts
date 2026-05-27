@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TeamMembershipRole } from '../common/enums';
+import { getAccountAccessDenialMessage } from './access-policy';
 import { TeamMembership } from './team-membership.entity';
 import { Team } from './team.entity';
 import { User } from './user.entity';
@@ -61,10 +62,18 @@ export class UserWorkspaceService {
   async setActiveTeam(userId: number, teamId: number) {
     const membership = await this.membershipsRepository.findOne({
       where: { userId, teamId },
+      relations: {
+        team: true,
+      },
     });
 
     if (!membership) {
       throw new NotFoundException('Equipo no encontrado para este usuario');
+    }
+
+    const denialMessage = getAccountAccessDenialMessage(membership.team?.status);
+    if (denialMessage) {
+      throw new ForbiddenException(denialMessage);
     }
 
     await this.usersRepository.update({ id: userId }, { activeTeamId: teamId });

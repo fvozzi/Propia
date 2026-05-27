@@ -94,3 +94,17 @@ export enum TeamMembershipRole {
   OWNER = 'OWNER',
   MEMBER = 'MEMBER',
 }
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  PENDING = 'PENDING',
+  DISABLED = 'DISABLED',
+}
+
+export enum AccountStatus {
+  ACTIVE = 'ACTIVE',
+  TRIAL = 'TRIAL',
+  PAST_DUE = 'PAST_DUE',
+  SUSPENDED = 'SUSPENDED',
+  CANCELLED = 'CANCELLED',
+}

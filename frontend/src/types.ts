@@ -79,6 +79,8 @@ export type AppraisalDisposition = 'FRONT' | 'BACK';
 export type AppUserRole = 'ADMIN' | 'USER';
 export type TeamMembershipRole = 'OWNER' | 'MEMBER';
 export type PropertyMapCategory = 'SALE' | 'VISITED';
+export type UserStatus = 'ACTIVE' | 'PENDING' | 'DISABLED';
+export type AccountStatus = 'ACTIVE' | 'TRIAL' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED';
 
 export interface SessionTeam {
   id: number;
@@ -354,6 +356,8 @@ export interface LoginResponse {
     email: string;
     name: string;
     appRole: AppUserRole;
+    backofficeAccess: boolean;
+    status: UserStatus;
     activeTeamId: number | null;
     activeTeamName: string | null;
     googleCalendarConnected: boolean;
@@ -366,9 +370,13 @@ export interface AdminUser {
   email: string;
   name: string;
   appRole: AppUserRole;
-  activeTeamId: number;
+  backofficeAccess: boolean;
+  status: UserStatus;
+  activeTeamId: number | null;
   activeTeamName: string | null;
   googleCalendarConnected: boolean;
+  lastLoginAt: string | null;
+  loginCount: number;
   createdAt: string;
   memberships: SessionTeam[];
 }
@@ -378,4 +386,43 @@ export interface TeamSummary {
   name: string;
   memberCount: number;
   createdAt: string;
+}
+
+export interface BackofficeOverview {
+  accounts: {
+    total: number;
+    active: number;
+    trial: number;
+    pastDue: number;
+    suspended: number;
+    cancelled: number;
+  };
+  users: {
+    total: number;
+    active: number;
+    pending: number;
+    disabled: number;
+  };
+  successfulLogins: {
+    last7Days: number;
+    last30Days: number;
+  };
+}
+
+export interface BackofficeAccount {
+  id: number;
+  name: string;
+  status: AccountStatus;
+  planName: string | null;
+  trialEndsAt: string | null;
+  paidUntil: string | null;
+  maxUsers: number | null;
+  suspendedAt: string | null;
+  suspensionReason: string | null;
+  createdAt: string;
+  memberCount: number;
+  activeUsersCount: number;
+  pendingUsersCount: number;
+  disabledUsersCount: number;
+  lastLoginAt: string | null;
 }

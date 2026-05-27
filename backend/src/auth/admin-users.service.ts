@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-import { AppUserRole, TeamMembershipRole } from '../common/enums';
+import { AppUserRole, TeamMembershipRole, UserStatus } from '../common/enums';
 import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { GoogleCalendarConnection } from './google-calendar-connection.entity';
@@ -83,6 +83,8 @@ export class AdminUsersService {
         name: dto.name.trim(),
         passwordHash,
         appRole: dto.appRole,
+        backofficeAccess: dto.backofficeAccess ?? false,
+        status: dto.status ?? UserStatus.ACTIVE,
         activeTeamId: dto.activeTeamId ?? null,
       }),
     );
@@ -128,6 +130,14 @@ export class AdminUsersService {
 
     if (dto.appRole) {
       user.appRole = dto.appRole;
+    }
+
+    if (typeof dto.backofficeAccess === 'boolean') {
+      user.backofficeAccess = dto.backofficeAccess;
+    }
+
+    if (dto.status) {
+      user.status = dto.status;
     }
 
     if (dto.password) {
@@ -183,9 +193,13 @@ export class AdminUsersService {
       email: user.email,
       name: user.name,
       appRole: user.appRole ?? AppUserRole.USER,
+      backofficeAccess: Boolean(user.backofficeAccess),
+      status: user.status ?? UserStatus.ACTIVE,
       activeTeamId: user.activeTeamId,
       activeTeamName: user.activeTeam?.name ?? null,
       googleCalendarConnected,
+      lastLoginAt: user.lastLoginAt,
+      loginCount: user.loginCount ?? 0,
       createdAt: user.createdAt,
       memberships: (user.memberships ?? []).map((membership) => ({
         id: membership.team.id,

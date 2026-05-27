@@ -5,7 +5,10 @@ import * as bcrypt from 'bcrypt';
 import { Profile } from 'passport-google-oauth20';
 import { Repository } from 'typeorm';
 import { AppUserRole } from '../common/enums';
+import { UserStatus } from '../common/enums';
+import { getAccessDenialMessage } from './access-policy';
 import { GoogleCalendarConnection } from './google-calendar-connection.entity';
+import { LoginEvent, type LoginMethod } from './login-event.entity';
 import { UserWorkspaceService } from './user-workspace.service';
 import { User } from './user.entity';
 
@@ -16,33 +19,63 @@ export class AuthService {
     private readonly usersRepository: Repository<User>,
     @InjectRepository(GoogleCalendarConnection)
     private readonly googleConnectionsRepository: Repository<GoogleCalendarConnection>,
+    @InjectRepository(LoginEvent)
+    private readonly loginEventsRepository: Repository<LoginEvent>,
     private readonly jwtService: JwtService,
     private readonly userWorkspaceService: UserWorkspaceService,
   ) {}
 
-  async login(email: string, password: string) {
-    let user = await this.usersRepository.findOne({ where: { email } });
+  async login(
+    email: string,
+    password: string,
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
+    const normalizedEmail = normalizeEmail(email);
+    let user = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
 
     if (!user || !user.passwordHash) {
+      await this.recordLoginEvent({
+        email: normalizedEmail,
+        success: false,
+        authMethod: 'PASSWORD',
+        failureReason: 'INVALID_CREDENTIALS',
+        ...context,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
 
     if (!isValidPassword) {
+      await this.recordLoginEvent({
+        email: normalizedEmail,
+        userId: user.id,
+        teamId: user.activeTeamId,
+        success: false,
+        authMethod: 'PASSWORD',
+        failureReason: 'INVALID_CREDENTIALS',
+        ...context,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     user = await this.userWorkspaceService.ensurePersonalTeam(user);
-    return this.buildAuthResponse(user);
+    const response = await this.buildAuthResponse(user);
+    await this.recordSuccessfulLogin(user, 'PASSWORD', context);
+    return response;
   }
 
-  async loginWithGoogle(params: {
-    accessToken: string;
-    refreshToken?: string;
-    profile: Profile;
-  }) {
-    const primaryEmail = params.profile.emails?.[0]?.value;
+  async loginWithGoogle(
+    params: {
+      accessToken: string;
+      refreshToken?: string;
+      profile: Profile;
+    },
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
+    const primaryEmail = params.profile.emails?.[0]?.value
+      ? normalizeEmail(params.profile.emails[0].value)
+      : null;
 
     if (!primaryEmail) {
       throw new UnauthorizedException('Google account has no email');
@@ -58,6 +91,8 @@ export class AuthService {
           email: primaryEmail,
           name: params.profile.displayName || primaryEmail,
           passwordHash: null,
+          backofficeAccess: false,
+          status: UserStatus.ACTIVE,
         }),
       );
     } else if (params.profile.displayName && user.name !== params.profile.displayName) {
@@ -95,7 +130,9 @@ export class AuthService {
 
     await this.googleConnectionsRepository.save(connection);
 
-    return this.buildAuthResponse(user);
+    const response = await this.buildAuthResponse(user);
+    await this.recordSuccessfulLogin(user, 'GOOGLE', context);
+    return response;
   }
 
   async getGoogleConnectionStatus(userId: number) {
@@ -127,6 +164,14 @@ export class AuthService {
       }),
     ]);
 
+    const denialMessage = getAccessDenialMessage({
+      userStatus: hydratedUser.status ?? UserStatus.ACTIVE,
+      accountStatus: hydratedUser.activeTeam?.status ?? null,
+    });
+    if (denialMessage) {
+      throw new UnauthorizedException(denialMessage);
+    }
+
     const appRole = hydratedUser.appRole ?? AppUserRole.USER;
 
     return {
@@ -134,6 +179,7 @@ export class AuthService {
         sub: hydratedUser.id,
         email: hydratedUser.email,
         appRole,
+        backofficeAccess: Boolean(hydratedUser.backofficeAccess),
         activeTeamId: hydratedUser.activeTeamId,
       }),
       user: {
@@ -141,6 +187,8 @@ export class AuthService {
         email: hydratedUser.email,
         name: hydratedUser.name,
         appRole,
+        backofficeAccess: Boolean(hydratedUser.backofficeAccess),
+        status: hydratedUser.status ?? UserStatus.ACTIVE,
         activeTeamId: hydratedUser.activeTeamId,
         activeTeamName: hydratedUser.activeTeam?.name ?? null,
         googleCalendarConnected: Boolean(googleConnection),
@@ -152,4 +200,51 @@ export class AuthService {
       },
     };
   }
+
+  private async recordSuccessfulLogin(
+    user: User,
+    authMethod: LoginMethod,
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
+    user.lastLoginAt = new Date();
+    user.loginCount = (user.loginCount ?? 0) + 1;
+    await this.usersRepository.save(user);
+
+    await this.recordLoginEvent({
+      email: user.email,
+      userId: user.id,
+      teamId: user.activeTeamId,
+      success: true,
+      authMethod,
+      ...context,
+    });
+  }
+
+  private async recordLoginEvent(params: {
+    email: string;
+    userId?: number | null;
+    teamId?: number | null;
+    success: boolean;
+    authMethod: LoginMethod;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    failureReason?: string | null;
+  }) {
+    await this.loginEventsRepository.save(
+      this.loginEventsRepository.create({
+        email: params.email,
+        userId: params.userId ?? null,
+        teamId: params.teamId ?? null,
+        success: params.success,
+        authMethod: params.authMethod,
+        ipAddress: params.ipAddress ?? null,
+        userAgent: params.userAgent ?? null,
+        failureReason: params.failureReason ?? null,
+      }),
+    );
+  }
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
 }

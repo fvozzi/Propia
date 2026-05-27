@@ -1,13 +1,15 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../lib/i18n';
-import type { AdminUser, AppUserRole, TeamSummary } from '../types';
+import type { AdminUser, AppUserRole, TeamSummary, UserStatus } from '../types';
 
 const initialCreateForm = {
   email: '',
   name: '',
   password: '',
   appRole: 'USER' as AppUserRole,
+  backofficeAccess: false,
+  status: 'ACTIVE' as UserStatus,
   activeTeamId: '',
 };
 
@@ -16,6 +18,8 @@ type UserDraft = {
   email: string;
   password: string;
   appRole: AppUserRole;
+  backofficeAccess: boolean;
+  status: UserStatus;
   activeTeamId: string;
 };
 
@@ -49,7 +53,9 @@ export function UsersPage() {
               email: user.email,
               password: '',
               appRole: user.appRole,
-              activeTeamId: String(user.activeTeamId),
+              backofficeAccess: user.backofficeAccess,
+              status: user.status,
+              activeTeamId: user.activeTeamId ? String(user.activeTeamId) : '',
             },
           ]),
         ),
@@ -74,6 +80,8 @@ export function UsersPage() {
         method: 'POST',
         body: JSON.stringify({
           ...createForm,
+          backofficeAccess: createForm.backofficeAccess,
+          status: createForm.status,
           activeTeamId: createForm.activeTeamId ? Number(createForm.activeTeamId) : undefined,
         }),
       });
@@ -100,6 +108,8 @@ export function UsersPage() {
           name: draft.name,
           email: draft.email,
           appRole: draft.appRole,
+          backofficeAccess: draft.backofficeAccess,
+          status: draft.status,
           activeTeamId: draft.activeTeamId ? Number(draft.activeTeamId) : undefined,
           password: draft.password || undefined,
         }),
@@ -161,6 +171,32 @@ export function UsersPage() {
                 <option value="ADMIN">{t('users.roleAdmin')}</option>
               </select>
             </label>
+            <label>
+              Estado
+              <select
+                value={createForm.status}
+                onChange={(event) =>
+                  setCreateForm({ ...createForm, status: event.target.value as UserStatus })
+                }
+              >
+                <option value="ACTIVE">Activo</option>
+                <option value="PENDING">Pendiente</option>
+                <option value="DISABLED">Deshabilitado</option>
+              </select>
+            </label>
+            <label className="checkbox-item">
+              <input
+                type="checkbox"
+                checked={createForm.backofficeAccess}
+                onChange={(event) =>
+                  setCreateForm({
+                    ...createForm,
+                    backofficeAccess: event.target.checked,
+                  })
+                }
+              />
+              Acceso a backoffice
+            </label>
             <label className="full-span">
               {t('users.teamAssignment')}
               <select
@@ -196,7 +232,10 @@ export function UsersPage() {
                   <div>
                     <strong>{user.name}</strong>
                     <p className="muted">
-                      {user.email} · {user.activeTeamName ?? t('common.noData')}
+                      {user.email} - {user.activeTeamName ?? t('common.noData')}
+                    </p>
+                    <p className="muted">
+                      Ultimo acceso: {formatDateTime(user.lastLoginAt)} - {user.loginCount} logins
                     </p>
                   </div>
                   <button type="button" onClick={() => handleUpdate(user.id)}>
@@ -205,7 +244,13 @@ export function UsersPage() {
                 </div>
 
                 <div className="pill-row">
-                  <span className="pill">{user.appRole === 'ADMIN' ? t('users.roleAdmin') : t('users.roleUser')}</span>
+                  <span className="pill">
+                    {user.appRole === 'ADMIN' ? t('users.roleAdmin') : t('users.roleUser')}
+                  </span>
+                  <span className={`pill ${userStatusClass(user.status)}`}>
+                    {userStatusLabel(user.status)}
+                  </span>
+                  {user.backofficeAccess ? <span className="pill pill-past_due">Backoffice</span> : null}
                   {user.googleCalendarConnected ? <span className="pill pill-active">Google</span> : null}
                   {user.memberships.map((membership) => (
                     <span key={`${user.id}-${membership.id}`} className="pill">
@@ -258,6 +303,41 @@ export function UsersPage() {
                     </select>
                   </label>
                   <label>
+                    Estado
+                    <select
+                      value={draft.status}
+                      onChange={(event) =>
+                        setDrafts({
+                          ...drafts,
+                          [user.id]: {
+                            ...draft,
+                            status: event.target.value as UserStatus,
+                          },
+                        })
+                      }
+                    >
+                      <option value="ACTIVE">Activo</option>
+                      <option value="PENDING">Pendiente</option>
+                      <option value="DISABLED">Deshabilitado</option>
+                    </select>
+                  </label>
+                  <label className="checkbox-item">
+                    <input
+                      type="checkbox"
+                      checked={draft.backofficeAccess}
+                      onChange={(event) =>
+                        setDrafts({
+                          ...drafts,
+                          [user.id]: {
+                            ...draft,
+                            backofficeAccess: event.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    Acceso a backoffice
+                  </label>
+                  <label>
                     {t('common.team')}
                     <select
                       value={draft.activeTeamId}
@@ -268,6 +348,7 @@ export function UsersPage() {
                         })
                       }
                     >
+                      <option value="">{t('users.privateTeam')}</option>
                       {teams.map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.name}
@@ -296,4 +377,41 @@ export function UsersPage() {
       </div>
     </div>
   );
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return 'sin registros';
+  }
+
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function userStatusLabel(status: UserStatus) {
+  switch (status) {
+    case 'ACTIVE':
+      return 'Activo';
+    case 'PENDING':
+      return 'Pendiente';
+    case 'DISABLED':
+      return 'Deshabilitado';
+    default:
+      return status;
+  }
+}
+
+function userStatusClass(status: UserStatus) {
+  switch (status) {
+    case 'ACTIVE':
+      return 'pill-active';
+    case 'PENDING':
+      return 'pill-pending';
+    case 'DISABLED':
+      return 'pill-disabled';
+    default:
+      return '';
+  }
 }

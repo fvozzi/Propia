@@ -4,6 +4,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CalendarModule } from '../calendar/calendar.module';
+import { BackofficeAdminController } from './backoffice-admin.controller';
+import { BackofficeGuard } from './backoffice.guard';
+import { BackofficeAdminService } from './backoffice-admin.service';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminUsersService } from './admin-users.service';
 import { AdminGuard } from './admin.guard';
@@ -13,6 +16,7 @@ import { GoogleCalendarConnection } from './google-calendar-connection.entity';
 import { GoogleEnabledGuard } from './google-enabled.guard';
 import { GoogleStrategy } from './google.strategy';
 import { JwtStrategy } from './jwt.strategy';
+import { LoginEvent } from './login-event.entity';
 import { TeamMembership } from './team-membership.entity';
 import { Team } from './team.entity';
 import { UserWorkspaceService } from './user-workspace.service';
@@ -20,7 +24,7 @@ import { User } from './user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, GoogleCalendarConnection, Team, TeamMembership]),
+    TypeOrmModule.forFeature([User, GoogleCalendarConnection, Team, TeamMembership, LoginEvent]),
     PassportModule,
     CalendarModule,
     JwtModule.registerAsync({
@@ -34,10 +38,11 @@ import { User } from './user.entity';
       }),
     }),
   ],
-  controllers: [AuthController, AdminUsersController],
+  controllers: [AuthController, AdminUsersController, BackofficeAdminController],
   providers: [
     AuthService,
     AdminUsersService,
+    BackofficeAdminService,
     UserWorkspaceService,
     JwtStrategy,
     {
@@ -57,6 +62,7 @@ import { User } from './user.entity';
     },
     GoogleEnabledGuard,
     AdminGuard,
+    BackofficeGuard,
   ],
   exports: [AuthService, UserWorkspaceService],
 })
