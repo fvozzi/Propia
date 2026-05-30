@@ -23,16 +23,14 @@ export function SearchRequirementMatchesPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busyMatchId, setBusyMatchId] = useState<number | null>(null);
+  const [runsExpanded, setRunsExpanded] = useState(false);
 
   const requirementId = Number(id);
 
+  const enabledConfigs = useMemo(() => configs.filter((config) => config.enabled), [configs]);
   const canRunSearch = useMemo(
-    () => requirement?.operationType === 'BUY' && configs.some((config) => config.enabled),
-    [configs, requirement],
-  );
-  const enabledConfigs = useMemo(
-    () => configs.filter((config) => config.enabled),
-    [configs],
+    () => requirement?.operationType === 'BUY' && enabledConfigs.length > 0,
+    [enabledConfigs.length, requirement],
   );
   const runSearchBlockedReason = useMemo(() => {
     if (!requirement) {
@@ -218,8 +216,8 @@ export function SearchRequirementMatchesPage() {
         <section className="card">
           <strong>{requirement.contact?.displayName}</strong>
           <p className="muted">
-            {translateEnum('operationType', requirement.operationType)} ·{' '}
-            {translateEnum('propertyType', requirement.propertyType)} ·{' '}
+            {translateEnum('operationType', requirement.operationType)} -{' '}
+            {translateEnum('propertyType', requirement.propertyType)} -{' '}
             {requirement.neighborhoods.join(', ') || t('common.noData')}
           </p>
           {!canRunSearch && runSearchBlockedReason ? (
@@ -245,35 +243,12 @@ export function SearchRequirementMatchesPage() {
           {enabledConfigs.length > 0 ? (
             enabledConfigs.map((config) => (
               <span key={config.id} className="pill pill-active">
-                {providerLabel(config.providerKey)} · {config.maxResultsPerRun} avisos
+                {providerLabel(config.providerKey)} - {config.maxResultsPerRun} avisos
               </span>
             ))
           ) : (
             <span className="pill">Sin fuentes activas</span>
           )}
-        </div>
-      </section>
-
-      <section className="card">
-        <h3>{t('requirements.portalRuns')}</h3>
-        {runs.length === 0 ? <p className="muted">{t('common.noData')}</p> : null}
-        <div className="stack-gap">
-          {runs.map((run) => (
-            <article key={run.id} className="list-item">
-              <strong>{providerLabel(run.providerKey)}</strong>
-              <p className="muted">
-                {run.status} · {run.fetchedCount} brutas · {run.matchedCount} sugeridas
-              </p>
-              <p className="muted">
-                {formatDateTime(run.startedAt)}
-                {run.finishedAt ? ` · ${formatDateTime(run.finishedAt)}` : ''}
-              </p>
-              {getRunSearchUrl(run) ? (
-                <p className="muted run-search-url">URL: {getRunSearchUrl(run)}</p>
-              ) : null}
-              {run.errorMessage ? <p className="muted">{run.errorMessage}</p> : null}
-            </article>
-          ))}
         </div>
       </section>
 
@@ -296,15 +271,15 @@ export function SearchRequirementMatchesPage() {
                 ) : null}
                 <strong>{match.externalListing.title}</strong>
                 <p className="muted">
-                  {providerLabel(match.externalListing.providerKey)} ·{' '}
-                  {match.externalListing.neighborhood ?? t('common.noData')} ·{' '}
+                  {providerLabel(match.externalListing.providerKey)} -{' '}
+                  {match.externalListing.neighborhood ?? t('common.noData')} -{' '}
                   {formatMoney(match.externalListing.price, match.externalListing.currency)}
                 </p>
                 <p className="muted">
                   {t('requirements.matchScore')}: {match.score}
                 </p>
                 <p className="muted">
-                  {t('requirements.matchReasons')}: {match.matchReasons.join(' · ')}
+                  {t('requirements.matchReasons')}: {match.matchReasons.join(' - ')}
                 </p>
                 {match.dismissed ? (
                   <p className="muted">
@@ -312,12 +287,16 @@ export function SearchRequirementMatchesPage() {
                   </p>
                 ) : null}
                 <div className="pill-row">
-                  <span className="pill">{translateEnum('propertyType', match.externalListing.propertyType)}</span>
+                  <span className="pill">
+                    {translateEnum('propertyType', match.externalListing.propertyType)}
+                  </span>
                   <span className="pill">{match.externalListing.rooms ?? '-'} amb.</span>
                   {match.buyerPropertyCandidateId ? (
                     <span className="pill pill-active">Candidata creada</span>
                   ) : null}
-                  {match.activityId ? <span className="pill pill-active">Actividad creada</span> : null}
+                  {match.activityId ? (
+                    <span className="pill pill-active">Actividad creada</span>
+                  ) : null}
                 </div>
               </div>
               <div className="candidate-actions">
@@ -401,6 +380,47 @@ export function SearchRequirementMatchesPage() {
           ))}
         </div>
       </section>
+
+      <section className="card">
+        <div className="list-item-actions">
+          <div>
+            <h3>{t('requirements.portalRuns')}</h3>
+            <p className="muted">{summarizePortalRuns(runs, t('common.noData'))}</p>
+          </div>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => setRunsExpanded((current) => !current)}
+          >
+            {runsExpanded ? t('requirements.hidePortalRuns') : t('requirements.showPortalRuns')}
+          </button>
+        </div>
+
+        {runsExpanded ? (
+          runs.length === 0 ? (
+            <p className="muted">{t('common.noData')}</p>
+          ) : (
+            <div className="stack-gap">
+              {runs.map((run) => (
+                <article key={run.id} className="list-item">
+                  <strong>{providerLabel(run.providerKey)}</strong>
+                  <p className="muted">
+                    {run.status} - {run.fetchedCount} brutas - {run.matchedCount} sugeridas
+                  </p>
+                  <p className="muted">
+                    {formatDateTime(run.startedAt)}
+                    {run.finishedAt ? ` - ${formatDateTime(run.finishedAt)}` : ''}
+                  </p>
+                  {getRunSearchUrl(run) ? (
+                    <p className="muted run-search-url">URL: {getRunSearchUrl(run)}</p>
+                  ) : null}
+                  {run.errorMessage ? <p className="muted">{run.errorMessage}</p> : null}
+                </article>
+              ))}
+            </div>
+          )
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -436,4 +456,17 @@ function getExternalListingImageUrl(listing: RequirementPortalMatch['externalLis
 function getRunSearchUrl(run: PortalSearchRun) {
   const value = run.requestSnapshot?.searchUrl;
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function summarizePortalRuns(runs: PortalSearchRun[], emptyLabel: string) {
+  if (runs.length === 0) {
+    return emptyLabel;
+  }
+
+  const successCount = runs.filter((run) => run.status === 'SUCCESS').length;
+  const failedCount = runs.filter((run) => run.status === 'FAILED').length;
+  const totalFetched = runs.reduce((sum, run) => sum + run.fetchedCount, 0);
+  const totalMatched = runs.reduce((sum, run) => sum + run.matchedCount, 0);
+
+  return `${runs.length} corridas - ${successCount} ok - ${failedCount} con error - ${totalFetched} brutas - ${totalMatched} sugeridas`;
 }
