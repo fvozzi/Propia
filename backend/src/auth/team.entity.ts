@@ -43,6 +43,42 @@ export class Team {
   @Column({ type: 'varchar', nullable: true })
   suspensionReason: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  whatsappEnabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappPhoneNumberId: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappBusinessAccountId: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappBusinessNumber: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappDisplayName: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  whatsappAccessToken: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappTemplateLanguageCode: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappPropertySearchTemplateName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappPropertySearchImageTemplateName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappAppraisalTemplateName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  whatsappQualityRating: string | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  whatsappConnectedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

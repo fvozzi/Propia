@@ -224,9 +224,19 @@ export function SearchRequirementCreatePage() {
         eyebrow={t('requirements.eyebrow')}
         title={isEditing ? t('requirements.editRequirement') : t('requirements.newRequirement')}
         actions={
-          <Link to="/requirements" className="ghost-button button-link">
-            {t('requirements.backToList')}
-          </Link>
+          <>
+            {isEditing && form.operationType === 'BUY' ? (
+              <Link
+                to={`/requirements/${requirementId}/suggestions`}
+                className="ghost-button button-link"
+              >
+                Buscar en portales
+              </Link>
+            ) : null}
+            <Link to="/requirements" className="ghost-button button-link">
+              {t('requirements.backToList')}
+            </Link>
+          </>
         }
       />
 

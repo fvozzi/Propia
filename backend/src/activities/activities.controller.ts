@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
@@ -21,7 +22,10 @@ import { UpdateActivityDto } from './dto/update-activity.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('activities')
 export class ActivitiesController {
-  constructor(private readonly activitiesService: ActivitiesService) {}
+  constructor(
+    private readonly activitiesService: ActivitiesService,
+    private readonly whatsappService: WhatsappService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateActivityDto, @CurrentUser() user: AuthenticatedUser) {
@@ -54,6 +58,14 @@ export class ActivitiesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.activitiesService.share(id, dto, user);
+  }
+
+  @Post(':id/send-whatsapp')
+  sendWhatsapp(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.whatsappService.sendActivityMessage(id, user);
   }
 
   @Delete(':id')

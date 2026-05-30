@@ -108,3 +108,37 @@ export enum AccountStatus {
   SUSPENDED = 'SUSPENDED',
   CANCELLED = 'CANCELLED',
 }
+
+export enum WhatsappMessageDirection {
+  OUTBOUND = 'OUTBOUND',
+  INBOUND = 'INBOUND',
+}
+
+export enum WhatsappMessageStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  DELIVERED = 'DELIVERED',
+  READ = 'READ',
+  FAILED = 'FAILED',
+}
+
+export enum PortalProviderKey {
+  ARGENPROP = 'ARGENPROP',
+  ZONAPROP = 'ZONAPROP',
+  MERCADOLIBRE = 'MERCADOLIBRE',
+  MOCK = 'MOCK',
+}
+
+export enum ExternalListingStatus {
+  ACTIVE = 'ACTIVE',
+  MISSING = 'MISSING',
+  DUPLICATED = 'DUPLICATED',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum PortalSearchRunStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+}

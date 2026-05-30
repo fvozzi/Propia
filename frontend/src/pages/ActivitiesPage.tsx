@@ -6,7 +6,6 @@ import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import {
   buildAppraisalMailtoUrl,
-  buildAppraisalWhatsappMessage,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
@@ -14,10 +13,7 @@ import {
   isAppraisalRequestAvailable,
 } from '../lib/appraisals';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
-import {
-  buildPropertySearchMessage,
-  getContactWhatsappPhone,
-} from '../lib/whatsapp';
+import { getContactWhatsappPhone } from '../lib/whatsapp';
 import type { Activity, Contact, Paginated } from '../types';
 
 export function ActivitiesPage() {
@@ -31,6 +27,7 @@ export function ActivitiesPage() {
   const [activityType, setActivityType] = useState('');
   const [propertySearchFeedback, setPropertySearchFeedback] = useState('');
   const [sharingActivityId, setSharingActivityId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState('');
 
   async function load(
     nextPage = page,
@@ -102,21 +99,20 @@ export function ActivitiesPage() {
     await load(page);
   }
 
-  async function handleShare(activity: Activity) {
-    if (!activity.contact || !getContactWhatsappPhone(activity.contact) || !activity.externalUrl) return;
+  async function handleSendWhatsapp(activity: Activity) {
     setSharingActivityId(activity.id);
+    setActionError('');
 
     try {
-      const shared = await apiRequest<Activity>(`/activities/${activity.id}/share`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          whatsappComment: activity.whatsappComment || undefined,
-        }),
+      await apiRequest<Activity>(`/activities/${activity.id}/send-whatsapp`, {
+        method: 'POST',
       });
-      await navigator.clipboard.writeText(buildPropertySearchMessage(shared));
-      window.alert(t('common.copySuccess'));
-
+      window.alert(t('common.whatsappSent'));
       await load(page);
+    } catch (sendError) {
+      setActionError(
+        sendError instanceof Error ? sendError.message : t('common.whatsappSendFailed'),
+      );
     } finally {
       setSharingActivityId(null);
     }
@@ -131,17 +127,6 @@ export function ActivitiesPage() {
   function buildAppraisalShareMessage(contact: Contact) {
     const name = contact.firstName || contact.displayName;
     return t('appraisals.shareMessage').replace('{name}', name ? ` ${name}` : '');
-  }
-
-  async function handleShareAppraisalWhatsApp(activity: Activity) {
-    if (!activity.contact || !activity.appraisalRequest || !canShareAppraisalByWhatsApp(activity.contact)) return;
-    await navigator.clipboard.writeText(
-      buildAppraisalWhatsappMessage(
-        activity.appraisalRequest.publicToken,
-        buildAppraisalShareMessage(activity.contact),
-      ),
-    );
-    window.alert(t('common.copySuccess'));
   }
 
   function handleShareAppraisalEmail(activity: Activity) {
@@ -229,6 +214,8 @@ export function ActivitiesPage() {
         </section>
       ) : null}
 
+      {actionError ? <div className="card">{actionError}</div> : null}
+
       <PaginatedListCard
         title={t('activities.listTitle')}
         page={response?.meta.page ?? 1}
@@ -277,6 +264,9 @@ export function ActivitiesPage() {
                 {activity.whatsappComment ? <p className="muted">{activity.whatsappComment}</p> : null}
                 {activity.description ? <p className="muted">{activity.description}</p> : null}
                 {activity.activityType === 'PROPERTY_SEARCH' ? (
+                  <ActivityPreviewCard activity={activity} title={t('activities.listingPreview')} />
+                ) : null}
+                {activity.activityType === 'PROPERTY_SEARCH' ? (
                   <p className="muted">
                     {activity.whatsappSharedAt
                       ? `${t('activities.sharedAt')}: ${formatDateTime(activity.whatsappSharedAt)}`
@@ -309,7 +299,7 @@ export function ActivitiesPage() {
                   <button
                     type="button"
                     className="ghost-button"
-                    onClick={() => handleShare(activity)}
+                    onClick={() => handleSendWhatsapp(activity)}
                     disabled={sharingActivityId === activity.id}
                   >
                     {sharingActivityId === activity.id ? t('common.loading') : t('activities.shareNow')}
@@ -321,8 +311,15 @@ export function ActivitiesPage() {
                   </button>
                 ) : null}
                 {canShareAppraisal && activity.contact && canShareAppraisalByWhatsApp(activity.contact) ? (
-                  <button type="button" className="ghost-button" onClick={() => handleShareAppraisalWhatsApp(activity)}>
-                    {t('appraisals.shareWhatsApp')}
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => handleSendWhatsapp(activity)}
+                    disabled={sharingActivityId === activity.id}
+                  >
+                    {sharingActivityId === activity.id
+                      ? t('common.loading')
+                      : t('appraisals.shareWhatsApp')}
                   </button>
                 ) : null}
                 {canShareAppraisal && activity.contact && canShareAppraisalByEmail(activity.contact) ? (
@@ -338,6 +335,35 @@ export function ActivitiesPage() {
           );
         })}
       </PaginatedListCard>
+    </div>
+  );
+}
+
+function ActivityPreviewCard({
+  activity,
+  title,
+}: {
+  activity: Activity;
+  title: string;
+}) {
+  const previewTitle = activity.externalPreviewTitle ?? activity.title;
+  const previewDescription = activity.externalPreviewDescription;
+  const previewDomain = activity.externalPreviewDomain;
+  const previewImageUrl = activity.externalPreviewImageUrl;
+
+  if (!previewTitle && !previewDescription && !previewImageUrl && !previewDomain) {
+    return null;
+  }
+
+  return (
+    <div className="activity-preview-card">
+      {previewImageUrl ? <img src={previewImageUrl} alt={previewTitle ?? title} className="activity-preview-image" /> : null}
+      <div className="activity-preview-copy">
+        <p className="eyebrow activity-preview-eyebrow">{title}</p>
+        {previewTitle ? <strong>{previewTitle}</strong> : null}
+        {previewDescription ? <p className="muted">{previewDescription}</p> : null}
+        {previewDomain ? <p className="muted">{previewDomain}</p> : null}
+      </div>
     </div>
   );
 }

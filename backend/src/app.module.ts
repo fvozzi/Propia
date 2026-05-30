@@ -10,9 +10,11 @@ import { CalendarModule } from './calendar/calendar.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { buildDataSourceOptions } from './database/typeorm.config';
+import { ExternalSearchModule } from './external-search/external-search.module';
 import { PropertiesModule } from './properties/properties.module';
 import { SearchRequirementsModule } from './search-requirements/search-requirements.module';
 import { VisitsModule } from './visits/visits.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -30,9 +32,11 @@ import { VisitsModule } from './visits/visits.module';
     ContactsModule,
     PropertiesModule,
     SearchRequirementsModule,
+    ExternalSearchModule,
     ActivitiesModule,
     VisitsModule,
     DashboardModule,
+    WhatsappModule,
   ],
   controllers: [AppController],
 })

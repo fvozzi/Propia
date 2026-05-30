@@ -81,6 +81,9 @@ export type TeamMembershipRole = 'OWNER' | 'MEMBER';
 export type PropertyMapCategory = 'SALE' | 'VISITED';
 export type UserStatus = 'ACTIVE' | 'PENDING' | 'DISABLED';
 export type AccountStatus = 'ACTIVE' | 'TRIAL' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED';
+export type PortalProviderKey = 'ARGENPROP' | 'ZONAPROP' | 'MERCADOLIBRE' | 'MOCK';
+export type ExternalListingStatus = 'ACTIVE' | 'MISSING' | 'DUPLICATED' | 'ARCHIVED';
+export type PortalSearchRunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
 
 export interface SessionTeam {
   id: number;
@@ -195,6 +198,89 @@ export interface SearchRequirement {
   property?: Property | null;
 }
 
+export interface PortalSourceConfig {
+  id: number;
+  teamId: number;
+  providerKey: PortalProviderKey;
+  enabled: boolean;
+  priority: number;
+  baseUrl: string | null;
+  rateLimitPerHour: number | null;
+  maxResultsPerRun: number | null;
+  requiresAuth: boolean;
+  authConfig: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExternalListing {
+  id: number;
+  teamId: number;
+  providerKey: PortalProviderKey;
+  externalListingId: string | null;
+  canonicalUrl: string;
+  urlHash: string;
+  title: string;
+  description: string | null;
+  operationType: OperationType;
+  propertyType: PropertyType;
+  price: number | null;
+  currency: CurrencyType;
+  expenses: number | null;
+  address: string | null;
+  city: string | null;
+  neighborhood: string | null;
+  rooms: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  hasGarage: boolean | null;
+  coveredArea: number | null;
+  totalArea: number | null;
+  sourcePublishedAt: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  rawPayload: Record<string, unknown> | null;
+  status: ExternalListingStatus;
+}
+
+export interface RequirementPortalMatch {
+  id: number;
+  teamId: number;
+  searchRequirementId: number;
+  externalListingId: number;
+  score: number;
+  scoreBreakdown: Record<string, number>;
+  matchReasons: string[];
+  dismissed: boolean;
+  dismissedReason: string | null;
+  dismissedAt: string | null;
+  buyerPropertyCandidateId: number | null;
+  convertedToCandidateAt: string | null;
+  activityId: number | null;
+  createdActivityAt: string | null;
+  lastEvaluatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  externalListing: ExternalListing;
+}
+
+export interface PortalSearchRun {
+  id: number;
+  teamId: number;
+  providerKey: PortalProviderKey;
+  searchRequirementId: number;
+  status: PortalSearchRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  fetchedCount: number;
+  normalizedCount: number;
+  matchedCount: number;
+  errorMessage: string | null;
+  requestSnapshot: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BuyerPropertyCandidate {
   id: number;
   contactId: number;
@@ -221,6 +307,11 @@ export interface Activity {
   title: string;
   description: string | null;
   externalUrl: string | null;
+  externalPreviewImageUrl: string | null;
+  externalPreviewTitle: string | null;
+  externalPreviewDescription: string | null;
+  externalPreviewDomain: string | null;
+  externalPreviewFetchedAt: string | null;
   whatsappComment: string | null;
   whatsappSharedAt: string | null;
   propertySearchLiked: boolean | null;
@@ -425,4 +516,16 @@ export interface BackofficeAccount {
   pendingUsersCount: number;
   disabledUsersCount: number;
   lastLoginAt: string | null;
+  whatsappEnabled: boolean;
+  whatsappPhoneNumberId: string | null;
+  whatsappBusinessAccountId: string | null;
+  whatsappBusinessNumber: string | null;
+  whatsappDisplayName: string | null;
+  whatsappAccessToken: string | null;
+  whatsappTemplateLanguageCode: string | null;
+  whatsappPropertySearchTemplateName: string | null;
+  whatsappPropertySearchImageTemplateName: string | null;
+  whatsappAppraisalTemplateName: string | null;
+  whatsappQualityRating: string | null;
+  whatsappConnectedAt: string | null;
 }

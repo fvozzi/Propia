@@ -5,7 +5,6 @@ import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
   buildAppraisalMailtoUrl,
-  buildAppraisalWhatsappMessage,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
@@ -22,6 +21,8 @@ export function AppraisalRequestsPage() {
   const [page, setPage] = useState(1);
   const [contactId, setContactId] = useState('');
   const [status, setStatus] = useState<AppraisalStatusFilter>('');
+  const [sharingRequestId, setSharingRequestId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState('');
 
   async function load(
     nextPage = page,
@@ -81,17 +82,29 @@ export function AppraisalRequestsPage() {
     window.alert(t('appraisals.copySuccess'));
   }
 
+  async function handleShareWhatsApp(appraisalRequest: AppraisalRequest) {
+    if (!appraisalRequest.contact || !canShareAppraisalByWhatsApp(appraisalRequest.contact)) return;
+    setSharingRequestId(appraisalRequest.id);
+    setActionError('');
+
+    try {
+      await apiRequest(`/appraisal-requests/${appraisalRequest.id}/send-whatsapp`, {
+        method: 'POST',
+      });
+      window.alert(t('common.whatsappSent'));
+      await load(page);
+    } catch (sendError) {
+      setActionError(
+        sendError instanceof Error ? sendError.message : t('common.whatsappSendFailed'),
+      );
+    } finally {
+      setSharingRequestId(null);
+    }
+  }
+
   function getShareMessage(contact?: Contact) {
     const displayName = contact?.firstName || contact?.displayName || '';
     return t('appraisals.shareMessage').replace('{name}', displayName ? ` ${displayName}` : '');
-  }
-
-  async function handleShareWhatsApp(appraisalRequest: AppraisalRequest) {
-    if (!appraisalRequest.contact || !canShareAppraisalByWhatsApp(appraisalRequest.contact)) return;
-    await navigator.clipboard.writeText(
-      buildAppraisalWhatsappMessage(appraisalRequest.publicToken, getShareMessage(appraisalRequest.contact)),
-    );
-    window.alert(t('common.copySuccess'));
   }
 
   function handleShareEmail(appraisalRequest: AppraisalRequest) {
@@ -137,6 +150,8 @@ export function AppraisalRequestsPage() {
           </>
         }
       />
+
+      {actionError ? <div className="card">{actionError}</div> : null}
 
       <PaginatedListCard
         title={t('appraisals.listTitle')}
@@ -185,8 +200,15 @@ export function AppraisalRequestsPage() {
                   {t('appraisals.copyLink')}
                 </button>
                 {canShareAppraisalByWhatsApp(appraisalRequest.contact) ? (
-                  <button type="button" className="ghost-button" onClick={() => handleShareWhatsApp(appraisalRequest)}>
-                    {t('appraisals.shareWhatsApp')}
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => handleShareWhatsApp(appraisalRequest)}
+                    disabled={sharingRequestId === appraisalRequest.id}
+                  >
+                    {sharingRequestId === appraisalRequest.id
+                      ? t('common.loading')
+                      : t('appraisals.shareWhatsApp')}
                   </button>
                 ) : null}
                 {canShareAppraisalByEmail(appraisalRequest.contact) ? (

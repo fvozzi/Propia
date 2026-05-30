@@ -47,6 +47,14 @@ export class AppraisalRequestsController {
     return this.appraisalRequestsService.update(id, dto, user);
   }
 
+  @Post(':id/send-whatsapp')
+  sendWhatsapp(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.appraisalRequestsService.sendWhatsapp(id, user);
+  }
+
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.appraisalRequestsService.remove(id, user);

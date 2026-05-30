@@ -240,6 +240,299 @@
   - tests especificos de suspension de cuenta y deshabilitacion de usuario en login
   - tests de agregacion de metricas de `LoginEvent`
 
+## UC9. Busqueda automatica y preseleccion de propiedades desde portales externos
+
+- Objetivo: permitir que el sistema busque automaticamente propiedades publicadas en portales externos para requerimientos de compra, evalúe si encajan con los criterios del cliente y entregue una preseleccion util para revision comercial.
+- Actor principal: usuaria comercial.
+- Actores secundarios: administradora de cuenta que configura fuentes externas.
+- Entidades principales propuestas: `SearchRequirement`, una configuracion de fuentes externas por cuenta y una entidad de resultados candidatos importados o sincronizados.
+
+### Flujo esperado
+
+1. La usuaria carga o actualiza un requerimiento de compra para un contacto.
+2. El sistema toma ese requerimiento y consulta una o varias fuentes externas configuradas, por ejemplo `Argenprop`, `Zonaprop` u otras.
+3. La configuracion de fuentes debe poder activarse o desactivarse por cuenta, incluyendo prioridad, zonas y reglas de consulta por portal.
+4. El sistema normaliza los resultados obtenidos desde distintas plataformas a un formato comun del CRM.
+5. El sistema calcula una preseleccion segun coincidencia con presupuesto, ubicacion, tipo de propiedad, ambientes, dormitorios, banos, cochera y otros filtros relevantes del requerimiento.
+6. La usuaria revisa el listado preseleccionado, descarta opciones irrelevantes y confirma cuales se convierten en actividades de `Busqueda de propiedad` o candidatas para compartir.
+7. El sistema evita duplicados cuando la misma propiedad aparece varias veces o cuando ya fue evaluada previamente para ese requerimiento.
+
+### Primera version esperada
+
+- La automatizacion aplica inicialmente a requerimientos de `Compra`.
+- Las fuentes externas deben ser configurables y no quedar hardcodeadas a un solo portal.
+- La preseleccion puede basarse primero en reglas deterministicas y score simple, sin depender desde el dia uno de IA o ranking estadistico.
+- Los resultados importados deben quedar separados de las propiedades propias del inventario interno del CRM.
+- La usuaria debe poder convertir manualmente un resultado preseleccionado en una actividad `PROPERTY_SEARCH` antes de compartirlo.
+
+### Criterios de aceptacion
+
+- Debe existir una configuracion por cuenta para definir que portales se consultan y con que parametros base.
+- El sistema debe poder normalizar datos minimos comunes entre portales: titulo, URL, portal origen, barrio o zona, precio, moneda, tipo de propiedad, ambientes, dormitorios, banos y cochera si estuviera disponible.
+- La preseleccion debe explicar por que una opcion fue sugerida, por ejemplo `cumple barrio`, `entra en presupuesto` o `supera ambientes minimos`.
+- Debe existir una forma de descartar resultados no relevantes y evitar que reaparezcan inmediatamente para el mismo requerimiento.
+- Debe evitarse la duplicacion por URL exacta y, cuando sea posible, por heuristicas de coincidencia fuerte entre titulo, portal y ubicacion.
+- La funcionalidad no debe depender de una sola plataforma; el alta o baja de fuentes debe poder administrarse sin reescribir el caso de uso.
+- La automatizacion debe respetar limites tecnicos y operativos configurables, por ejemplo cantidad maxima de resultados por corrida, frecuencia de busqueda y prioridad por portal.
+
+### Cobertura unitaria
+
+- Pendiente de implementar.
+- Reglas candidatas a cubrir:
+  - normalizacion de resultados externos a un formato comun
+  - scoring o matching contra requerimientos de compra
+  - deduplicacion de candidatos externos
+  - explicacion de coincidencias y motivos de descarte
+  - aplicacion de configuracion por cuenta y por portal
+
+### Diseno tecnico propuesto
+
+- Mantener `SearchRequirement` como disparador funcional del caso de uso.
+- Mantener `BuyerPropertyCandidate` como shortlist curada por la usuaria, no como tabla cruda de scraping o sincronizacion.
+- Incorporar una capa intermedia de resultados externos normalizados para separar:
+  - lo que el sistema encontro automaticamente
+  - lo que la usuaria decidio conservar o compartir
+
+### Entidades nuevas propuestas
+
+- `PortalSourceConfig`
+  - alcance: `team`
+  - campos base:
+    - `id`
+    - `teamId`
+    - `providerKey` por ejemplo `ARGENPROP`, `ZONAPROP`
+    - `enabled`
+    - `priority`
+    - `baseUrl`
+    - `defaultOperationType`
+    - `defaultPropertyTypes`
+    - `defaultNeighborhoods`
+    - `rateLimitPerHour`
+    - `maxResultsPerRun`
+    - `requiresAuth`
+    - `authConfig` JSON opcional
+    - `createdAt`, `updatedAt`
+
+- `ExternalListing`
+  - alcance: repositorio normalizado de avisos externos por cuenta
+  - campos base:
+    - `id`
+    - `teamId`
+    - `providerKey`
+    - `externalListingId` si el portal lo expone
+    - `canonicalUrl`
+    - `urlHash`
+    - `title`
+    - `description`
+    - `operationType`
+    - `propertyType`
+    - `price`
+    - `currency`
+    - `expenses`
+    - `address`
+    - `city`
+    - `neighborhood`
+    - `rooms`
+    - `bedrooms`
+    - `bathrooms`
+    - `hasGarage`
+    - `coveredArea`
+    - `totalArea`
+    - `sourcePublishedAt`
+    - `firstSeenAt`
+    - `lastSeenAt`
+    - `rawPayload` JSON
+    - `status` por ejemplo `ACTIVE`, `MISSING`, `DUPLICATED`, `ARCHIVED`
+
+- `RequirementPortalMatch`
+  - alcance: relacion entre un requerimiento y un aviso externo evaluado
+  - campos base:
+    - `id`
+    - `teamId`
+    - `searchRequirementId`
+    - `externalListingId`
+    - `score`
+    - `scoreBreakdown` JSON
+    - `matchReasons` text array
+    - `dismissed`
+    - `dismissedReason`
+    - `dismissedAt`
+    - `convertedToCandidateAt`
+    - `lastEvaluatedAt`
+
+- `PortalSearchRun`
+  - alcance: auditoria y scheduler
+  - campos base:
+    - `id`
+    - `teamId`
+    - `providerKey`
+    - `searchRequirementId`
+    - `status` por ejemplo `PENDING`, `RUNNING`, `SUCCESS`, `FAILED`
+    - `startedAt`
+    - `finishedAt`
+    - `fetchedCount`
+    - `normalizedCount`
+    - `matchedCount`
+    - `errorMessage`
+    - `requestSnapshot` JSON
+
+### Reuso de entidades actuales
+
+- `SearchRequirement`
+  - ya representa correctamente los criterios del cliente y no conviene duplicarlo.
+- `BuyerPropertyCandidate`
+  - debe seguir siendo la entidad de trabajo comercial humano.
+  - propuesta: solo crear `BuyerPropertyCandidate` cuando la usuaria confirme una sugerencia o cuando una regla automatica aprobada la promueva explicitamente.
+- `Activity` con tipo `PROPERTY_SEARCH`
+  - debe seguir siendo el registro historico de lo efectivamente compartido o trabajado con el cliente.
+  - no conviene usar `Activity` como almacenamiento crudo de resultados encontrados.
+
+### Endpoints propuestos
+
+- Configuracion de fuentes por cuenta
+  - `GET /portal-source-configs`
+  - `POST /portal-source-configs`
+  - `PATCH /portal-source-configs/:id`
+  - `DELETE /portal-source-configs/:id`
+
+- Ejecucion de busqueda
+  - `POST /search-requirements/:id/run-external-search`
+  - fuerza una corrida manual para un requerimiento puntual
+
+- Lectura de sugerencias
+  - `GET /search-requirements/:id/external-matches`
+  - filtros sugeridos:
+    - `providerKey`
+    - `minScore`
+    - `dismissed`
+    - `converted`
+
+- Acciones sobre sugerencias
+  - `POST /external-matches/:id/dismiss`
+  - `POST /external-matches/:id/restore`
+  - `POST /external-matches/:id/convert-to-candidate`
+  - `POST /external-matches/:id/create-activity`
+
+- Auditoria
+  - `GET /search-requirements/:id/search-runs`
+
+### Scheduler y procesos batch
+
+- Incorporar `ScheduleModule` de Nest para una primera version simple.
+- Regla sugerida:
+  - cron cada 2 horas para requerimientos `ACTIVE` de `Compra`
+  - corrida inmediata cuando:
+    - se crea un requerimiento
+    - cambia precio, barrios, tipo de propiedad o ambientes
+    - se habilita una fuente nueva
+- Limites operativos iniciales:
+  - maximo de 20 requerimientos por lote
+  - maximo de 50 resultados crudos por portal y por corrida
+  - backoff automatico si un portal devuelve errores repetidos
+- Si el volumen crece:
+  - mover la ejecucion a cola asincronica con workers dedicados
+
+### Estrategia de integracion con portales
+
+- Implementar un contrato unico:
+  - `PortalProvider.search(requirement, config): Promise<ExternalListingInput[]>`
+- Proveedores iniciales:
+  - `ArgenpropProvider`
+  - `ZonapropProvider`
+  - `MockProvider` para desarrollo y tests
+- Servicios internos:
+  - `ExternalSearchService`
+  - `ExternalListingNormalizerService`
+  - `RequirementMatchingService`
+  - `ExternalListingDedupService`
+- Regla de arquitectura:
+  - ningun selector, parser o detalle especifico de portal debe filtrarse a controladores o entidades de negocio
+
+### Matching y scoring inicial
+
+- Score base sobre 100 puntos.
+- Reglas sugeridas:
+  - `+25` si coincide barrio o zona
+  - `+20` si entra en rango de precio
+  - `+15` si coincide tipo de propiedad
+  - `+10` si cumple ambientes minimos
+  - `+10` si cumple dormitorios minimos
+  - `+10` si cumple banos minimos
+  - `+10` si cumple cochera cuando es obligatoria
+- Penalizaciones sugeridas:
+  - `-20` si supera presupuesto maximo
+  - `-15` si no coincide zona prioritaria
+  - `-15` si no cumple cochera requerida
+- Umbrales iniciales:
+  - `>= 70`: preseleccion fuerte
+  - `50-69`: candidata dudosa
+  - `< 50`: no sugerir por defecto
+
+### Deduplicacion
+
+- Nivel 1: `canonicalUrl` exacta.
+- Nivel 2: mismo `providerKey + externalListingId`.
+- Nivel 3: heuristica fuerte:
+  - mismo titulo normalizado
+  - mismo barrio
+  - mismo precio
+  - misma cantidad de ambientes
+- Si dos avisos parecen duplicados:
+  - conservar uno como principal
+  - marcar el otro como `DUPLICATED`
+  - no volver a sugerir ambos al mismo requerimiento
+
+### UI propuesta
+
+- En `Requerimientos`
+  - boton `Buscar en portales`
+  - tab `Sugerencias externas`
+  - filtros por portal, score y estado
+
+- En cada sugerencia
+  - portal origen
+  - titulo
+  - precio
+  - barrio
+  - score
+  - razones del match
+  - acciones:
+    - `Descartar`
+    - `Guardar como candidata`
+    - `Crear actividad`
+    - `Abrir publicacion`
+
+- En configuracion por cuenta
+  - listado de portales habilitados
+  - prioridad
+  - limites por portal
+  - credenciales o configuracion tecnica si alguna integracion las requiere
+
+### Fases recomendadas
+
+1. Fase 1
+  - configuracion de portales por cuenta
+  - modelo `ExternalListing`, `RequirementPortalMatch`, `PortalSearchRun`
+  - `MockProvider`
+  - matching y deduplicacion
+  - UI de sugerencias para requerimientos
+
+2. Fase 2
+  - primer provider real
+  - corrida manual por requerimiento
+  - conversion a `BuyerPropertyCandidate`
+
+3. Fase 3
+  - scheduler automatico
+  - multiples providers
+  - reglas de descarte persistente
+  - metricas por portal
+
+4. Fase 4
+  - ranking ajustable
+  - feedback loop desde acciones de usuaria
+  - recomendaciones mas finas segun historial de descarte o compartidos
+
 ## Nota
 
 Estos casos de uso quedan documentados y testeados a nivel de reglas de negocio. La implementacion funcional completa en entidades, endpoints, dashboard y UI puede construirse iterativamente sobre esta base.

@@ -4,7 +4,6 @@ import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
   buildAppraisalMailtoUrl,
-  buildAppraisalWhatsappMessage,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
@@ -33,6 +32,8 @@ export function AppraisalRequestFormPage() {
     contactId: searchParams.get('contactId') ?? '',
   }));
   const [request, setRequest] = useState<AppraisalRequest | null>(null);
+  const [sharingWhatsapp, setSharingWhatsapp] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const requestId = id ? Number(id) : null;
   const isEditing = Boolean(requestId);
@@ -82,8 +83,21 @@ export function AppraisalRequestFormPage() {
 
   async function handleShareWhatsApp() {
     if (!request || !selectedContact || !canShareAppraisalByWhatsApp(selectedContact)) return;
-    await navigator.clipboard.writeText(buildAppraisalWhatsappMessage(request.publicToken, getShareMessage()));
-    window.alert(t('common.copySuccess'));
+    setSharingWhatsapp(true);
+    setActionError('');
+
+    try {
+      await apiRequest(`/appraisal-requests/${request.id}/send-whatsapp`, {
+        method: 'POST',
+      });
+      window.alert(t('common.whatsappSent'));
+    } catch (sendError) {
+      setActionError(
+        sendError instanceof Error ? sendError.message : t('common.whatsappSendFailed'),
+      );
+    } finally {
+      setSharingWhatsapp(false);
+    }
   }
 
   function handleShareEmail() {
@@ -109,6 +123,7 @@ export function AppraisalRequestFormPage() {
       />
 
       <section className="card">
+        {actionError ? <div className="card">{actionError}</div> : null}
         {!request ? <p className="muted appraisal-share-hint">{t('appraisals.createBeforeShare')}</p> : null}
         {request ? (
           <div className="candidate-actions appraisal-request-actions">
@@ -116,8 +131,8 @@ export function AppraisalRequestFormPage() {
               {t('appraisals.copyLink')}
             </button>
             {canShareAppraisalByWhatsApp(selectedContact) ? (
-              <button type="button" className="ghost-button" onClick={handleShareWhatsApp}>
-                {t('appraisals.shareWhatsApp')}
+              <button type="button" className="ghost-button" onClick={handleShareWhatsApp} disabled={sharingWhatsapp}>
+                {sharingWhatsapp ? t('common.loading') : t('appraisals.shareWhatsApp')}
               </button>
             ) : null}
             {canShareAppraisalByEmail(selectedContact) ? (

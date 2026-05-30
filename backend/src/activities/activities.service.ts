@@ -1,6 +1,7 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { chromium } from 'playwright';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Contact } from '../contacts/contact.entity';
 import { paginate } from '../common/pagination';
@@ -13,6 +14,7 @@ import {
   createPublicFormToken,
 } from '../use-cases/appraisal-initial-intake.use-case';
 import { ActivityCalendarSyncService } from './activity-calendar-sync.service';
+import { extractDomain, parseActivityPreviewMetadata } from './activity-preview.utils';
 import { Activity } from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
@@ -37,6 +39,14 @@ export class ActivitiesService {
     const teamId = requireActiveTeamId(user);
     await this.assertScopedRelations(dto.contactId ?? null, dto.propertyId ?? null, dto.appraisalRequestId ?? null, teamId);
     this.assertPropertySearchPayload(dto.activityType, dto.externalUrl);
+    const nextTitle =
+      dto.activityType === ActivityType.APPRAISAL_REQUEST
+        ? buildAppraisalRequestActivityTitle(dto.appraisalPropertyAddress ?? null)
+        : dto.title;
+    const preview =
+      dto.activityType === ActivityType.PROPERTY_SEARCH
+        ? await this.resolvePropertySearchPreview(dto.externalUrl?.trim() || null, nextTitle, null)
+        : createEmptyActivityPreview();
 
     let appraisalRequestId = dto.appraisalRequestId ?? null;
 
@@ -75,11 +85,13 @@ export class ActivitiesService {
       contactId: dto.contactId ?? null,
       propertyId: dto.propertyId ?? null,
       appraisalRequestId,
-      title:
-        dto.activityType === ActivityType.APPRAISAL_REQUEST
-          ? buildAppraisalRequestActivityTitle(dto.appraisalPropertyAddress ?? null)
-          : dto.title,
+      title: nextTitle,
       externalUrl: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.externalUrl?.trim() || null : null,
+      externalPreviewImageUrl: preview.imageUrl,
+      externalPreviewTitle: preview.title,
+      externalPreviewDescription: preview.description,
+      externalPreviewDomain: preview.domain,
+      externalPreviewFetchedAt: preview.fetchedAt,
       whatsappComment: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.whatsappComment?.trim() || null : null,
       whatsappSharedAt: dto.whatsappSharedAt ? new Date(dto.whatsappSharedAt) : null,
       propertySearchLiked: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.propertySearchLiked ?? null : null,
@@ -182,6 +194,22 @@ export class ActivitiesService {
     const nextAppraisalRequestId = activity.appraisalRequestId;
     await this.assertScopedRelations(nextContactId ?? null, nextPropertyId ?? null, nextAppraisalRequestId ?? null, teamId);
     this.assertPropertySearchPayload(nextActivityType, dto.externalUrl ?? activity.externalUrl ?? undefined);
+    const nextTitle =
+      nextActivityType === ActivityType.APPRAISAL_REQUEST
+        ? buildAppraisalRequestActivityTitle(
+            dto.appraisalPropertyAddress ?? activity.appraisalRequest?.propertyAddress ?? null,
+          )
+        : dto.title ?? activity.title;
+    const nextExternalUrl =
+      nextActivityType === ActivityType.PROPERTY_SEARCH
+        ? dto.externalUrl === undefined
+          ? activity.externalUrl
+          : dto.externalUrl?.trim() || null
+        : null;
+    const preview =
+      nextActivityType === ActivityType.PROPERTY_SEARCH
+        ? await this.resolvePropertySearchPreview(nextExternalUrl, nextTitle, activity)
+        : createEmptyActivityPreview();
 
     if (nextActivityType === ActivityType.APPRAISAL_REQUEST) {
       if (!nextContactId) {
@@ -213,16 +241,13 @@ export class ActivitiesService {
       contactId: nextContactId,
       propertyId: nextPropertyId,
       appraisalRequestId: nextAppraisalRequestId ?? null,
-      title:
-        nextActivityType === ActivityType.APPRAISAL_REQUEST
-          ? buildAppraisalRequestActivityTitle(activity.appraisalRequest?.propertyAddress ?? null)
-          : dto.title ?? activity.title,
-      externalUrl:
-        nextActivityType === ActivityType.PROPERTY_SEARCH
-          ? dto.externalUrl === undefined
-            ? activity.externalUrl
-            : dto.externalUrl?.trim() || null
-          : null,
+      title: nextTitle,
+      externalUrl: nextExternalUrl,
+      externalPreviewImageUrl: preview.imageUrl,
+      externalPreviewTitle: preview.title,
+      externalPreviewDescription: preview.description,
+      externalPreviewDomain: preview.domain,
+      externalPreviewFetchedAt: preview.fetchedAt,
       whatsappComment:
         nextActivityType === ActivityType.PROPERTY_SEARCH
           ? dto.whatsappComment === undefined
@@ -344,4 +369,191 @@ export class ActivitiesService {
       throw new BadRequestException('La actividad de busqueda de propiedad requiere un link');
     }
   }
+
+  private async resolvePropertySearchPreview(
+    externalUrl: string | null,
+    fallbackTitle: string | null,
+    currentActivity: Activity | null,
+  ): Promise<ActivityPreviewSnapshot> {
+    if (!externalUrl) {
+      return createEmptyActivityPreview();
+    }
+
+    const hasSameUrl = currentActivity?.externalUrl?.trim() === externalUrl;
+    const fallback = {
+      imageUrl: null,
+      title: fallbackTitle?.trim() || (hasSameUrl ? currentActivity?.externalPreviewTitle : null) || null,
+      description: hasSameUrl ? currentActivity?.externalPreviewDescription ?? null : null,
+      domain: extractDomain(externalUrl),
+      fetchedAt: hasSameUrl ? currentActivity?.externalPreviewFetchedAt ?? null : null,
+    } satisfies ActivityPreviewSnapshot;
+
+    if (
+      hasSameUrl &&
+      (currentActivity.externalPreviewImageUrl ||
+        currentActivity.externalPreviewTitle ||
+        currentActivity.externalPreviewDescription ||
+        currentActivity.externalPreviewDomain)
+    ) {
+      return {
+        imageUrl: currentActivity.externalPreviewImageUrl,
+        title: currentActivity.externalPreviewTitle ?? fallback.title,
+        description: currentActivity.externalPreviewDescription,
+        domain: currentActivity.externalPreviewDomain ?? fallback.domain,
+        fetchedAt: currentActivity.externalPreviewFetchedAt,
+      };
+    }
+
+    try {
+      const html = await fetchActivityPreviewHtml(externalUrl);
+      const parsed = parseActivityPreviewMetadata(html, externalUrl);
+      const fetchedAt =
+        parsed.imageUrl || parsed.title || parsed.description ? new Date() : fallback.fetchedAt;
+
+      return {
+        imageUrl: parsed.imageUrl,
+        title: parsed.title ?? fallback.title,
+        description: parsed.description ?? null,
+        domain: parsed.domain ?? fallback.domain,
+        fetchedAt,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+}
+
+type ActivityPreviewSnapshot = {
+  imageUrl: string | null;
+  title: string | null;
+  description: string | null;
+  domain: string | null;
+  fetchedAt: Date | null;
+};
+
+function createEmptyActivityPreview(): ActivityPreviewSnapshot {
+  return {
+    imageUrl: null,
+    title: null,
+    description: null,
+    domain: null,
+    fetchedAt: null,
+  };
+}
+
+async function fetchActivityPreviewHtml(url: string) {
+  try {
+    return await fetchActivityPreviewHtmlWithFetch(url);
+  } catch (error) {
+    if (!requiresBrowserPreview(url, error)) {
+      throw error;
+    }
+
+    return fetchActivityPreviewHtmlWithBrowser(url);
+  }
+}
+
+async function fetchActivityPreviewHtmlWithFetch(url: string) {
+  const normalizedUrl = normalizeActivityPreviewRequestUrl(url);
+  const requestOrigin = new URL(normalizedUrl).origin;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(normalizedUrl, {
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+        Referer: `${requestOrigin}/`,
+        Origin: requestOrigin,
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`preview-fetch:${response.status}:${normalizedUrl}`);
+    }
+
+    return response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchActivityPreviewHtmlWithBrowser(url: string) {
+  const normalizedUrl = normalizeActivityPreviewRequestUrl(url);
+  const requestOrigin = new URL(normalizedUrl).origin;
+  const timeout = Number.parseInt(process.env.PORTAL_BROWSER_TIMEOUT_MS ?? '25000', 10);
+  const browser = await chromium.launch({
+    headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
+    executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
+
+  try {
+    const context = await browser.newContext({
+      locale: 'es-AR',
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+      viewport: { width: 1440, height: 1600 },
+      extraHTTPHeaders: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+        Referer: `${requestOrigin}/`,
+        Origin: requestOrigin,
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
+
+    if (/mercadolibre\.com\.ar/i.test(normalizedUrl)) {
+      await context.addCookies([
+        {
+          name: '_bm_skipml',
+          value: 'true',
+          domain: '.mercadolibre.com.ar',
+          path: '/',
+          expires: Math.floor(Date.now() / 1000) + 300,
+        },
+      ]);
+    }
+
+    const page = await context.newPage();
+    const response = await page.goto(normalizedUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout,
+    });
+
+    if (response && !response.ok()) {
+      throw new Error(`preview-browser:${response.status()}:${normalizedUrl}`);
+    }
+
+    await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 10000) }).catch(() => {});
+    const html = await page.content();
+    await context.close();
+    return html;
+  } finally {
+    await browser.close();
+  }
+}
+
+function normalizeActivityPreviewRequestUrl(url: string) {
+  return url.replace('://www.zonaprop.com.ar', '://zonaprop.com.ar');
+}
+
+function requiresBrowserPreview(url: string, error: unknown) {
+  if (url.includes('zonaprop.com.ar') || url.includes('mercadolibre.com.ar')) {
+    return true;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /preview-fetch:403:|preview-fetch:429:|preview-fetch:503:/i.test(error.message);
 }

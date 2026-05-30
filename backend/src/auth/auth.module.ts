@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CalendarModule } from '../calendar/calendar.module';
+import { PortalSourceConfig } from '../external-search/portal-source-config.entity';
 import { BackofficeAdminController } from './backoffice-admin.controller';
 import { BackofficeGuard } from './backoffice.guard';
 import { BackofficeAdminService } from './backoffice-admin.service';
@@ -24,7 +25,14 @@ import { User } from './user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, GoogleCalendarConnection, Team, TeamMembership, LoginEvent]),
+    TypeOrmModule.forFeature([
+      User,
+      GoogleCalendarConnection,
+      Team,
+      TeamMembership,
+      LoginEvent,
+      PortalSourceConfig,
+    ]),
     PassportModule,
     CalendarModule,
     JwtModule.registerAsync({

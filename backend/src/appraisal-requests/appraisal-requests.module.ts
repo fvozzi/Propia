@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { Activity } from '../activities/activity.entity';
 import { Contact } from '../contacts/contact.entity';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import {
   AppraisalRequestsController,
   PublicAppraisalRequestsController,
@@ -11,7 +12,11 @@ import { AppraisalRequest } from './appraisal-request.entity';
 import { AppraisalRequestsService } from './appraisal-requests.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AppraisalRequest, Contact, Activity]), ActivitiesModule],
+  imports: [
+    TypeOrmModule.forFeature([AppraisalRequest, Contact, Activity]),
+    ActivitiesModule,
+    WhatsappModule,
+  ],
   providers: [AppraisalRequestsService],
   controllers: [AppraisalRequestsController, PublicAppraisalRequestsController],
   exports: [AppraisalRequestsService, TypeOrmModule],

@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -42,4 +43,57 @@ export class UpdateAdminAccountDto {
   @IsString()
   @MaxLength(200)
   suspensionReason?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  whatsappEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  whatsappPhoneNumberId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  whatsappBusinessAccountId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  whatsappBusinessNumber?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  whatsappDisplayName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  whatsappAccessToken?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  whatsappTemplateLanguageCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  whatsappPropertySearchTemplateName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  whatsappPropertySearchImageTemplateName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  whatsappAppraisalTemplateName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  whatsappQualityRating?: string | null;
 }

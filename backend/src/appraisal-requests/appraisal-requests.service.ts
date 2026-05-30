@@ -7,6 +7,7 @@ import { Activity } from '../activities/activity.entity';
 import { ActivityType } from '../common/enums';
 import { Contact } from '../contacts/contact.entity';
 import { paginate } from '../common/pagination';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   buildAppraisalRequestActivityTitle,
   calculateAppraisalAreas,
@@ -31,6 +32,7 @@ export class AppraisalRequestsService {
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
     private readonly activityCalendarSyncService: ActivityCalendarSyncService,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   async create(dto: CreateAppraisalRequestDto, user: AuthenticatedUser) {
@@ -112,6 +114,19 @@ export class AppraisalRequestsService {
     await this.appraisalRequestsRepository.save(request);
     await this.syncActivityForRequest(request);
     return this.findOne(id, user);
+  }
+
+  async sendWhatsapp(id: number, user: AuthenticatedUser) {
+    const request = await this.findOne(id, user);
+    const linkedActivity = await this.activitiesRepository.findOne({
+      where: { appraisalRequestId: request.id, teamId: request.teamId },
+    });
+
+    if (!linkedActivity) {
+      throw new NotFoundException('La solicitud de tasacion no tiene una actividad asociada');
+    }
+
+    return this.whatsappService.sendActivityMessage(linkedActivity.id, user);
   }
 
   async remove(id: number, user: AuthenticatedUser) {

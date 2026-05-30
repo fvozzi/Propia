@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
-import { buildPropertySearchMessage, getContactWhatsappPhone } from '../lib/whatsapp';
+import { getContactWhatsappPhone } from '../lib/whatsapp';
 import type { Activity, ActivityType, Contact, Paginated, Property } from '../types';
 
 type PropertySearchFeedback = '' | 'LIKED' | 'DISLIKED';
@@ -57,6 +57,16 @@ export function ActivitiesCreatePage() {
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
   const selectedContact = contacts.find((contact) => String(contact.id) === form.contactId) ?? null;
+  const showSavedPreview =
+    isPropertySearch &&
+    activity &&
+    form.externalUrl.trim() === (activity.externalUrl ?? '').trim() &&
+    Boolean(
+      activity.externalPreviewImageUrl ||
+        activity.externalPreviewTitle ||
+        activity.externalPreviewDescription ||
+        activity.externalPreviewDomain,
+    );
   const canShareNow = Boolean(
     isPropertySearch &&
       selectedContact &&
@@ -119,15 +129,10 @@ export function ActivitiesCreatePage() {
     setActivity(saved);
 
     if (shareNow && selectedContact) {
-      const shared = await apiRequest<Activity>(`/activities/${saved.id}/share`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          whatsappComment: form.whatsappComment || undefined,
-        }),
+      const shared = await apiRequest<Activity>(`/activities/${saved.id}/send-whatsapp`, {
+        method: 'POST',
       });
-
-      await copyText(buildPropertySearchMessage(shared));
-      window.alert(t('common.copySuccess'));
+      window.alert(t('common.whatsappSent'));
       setActivity(shared);
       return shared;
     }
@@ -156,8 +161,6 @@ export function ActivitiesCreatePage() {
     if (!canShareNow) return;
     if (!formRef.current?.reportValidity()) return;
 
-    const previousMarkShared = form.markShared;
-    setForm((current) => ({ ...current, markShared: true }));
     setSavingAndSharing(true);
     setError('');
 
@@ -165,11 +168,10 @@ export function ActivitiesCreatePage() {
       await saveActivity(true);
       navigate('/activities');
     } catch (shareError) {
-      setForm((current) => ({ ...current, markShared: previousMarkShared }));
       setError(
         shareError instanceof Error
           ? shareError.message
-          : 'No se pudo guardar y copiar el mensaje',
+          : 'No se pudo guardar y enviar el mensaje por WhatsApp',
       );
     } finally {
       setSavingAndSharing(false);
@@ -349,6 +351,11 @@ export function ActivitiesCreatePage() {
                   required
                 />
               </label>
+              {showSavedPreview ? (
+                <div className="full-span">
+                  <ActivityPreviewCard activity={activity} title={t('activities.listingPreview')} />
+                </div>
+              ) : null}
               <label className="full-span">
                 {t('activities.buyerFeedback')}
                 <select
@@ -501,19 +508,33 @@ function formatPropertyOptionLabel(
   return `${property.title} - ${details.filter(Boolean).join(' - ')}`;
 }
 
-async function copyText(value: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+function ActivityPreviewCard({
+  activity,
+  title,
+}: {
+  activity: Activity;
+  title: string;
+}) {
+  const previewTitle = activity.externalPreviewTitle ?? activity.title;
+  const previewDescription = activity.externalPreviewDescription;
+  const previewDomain = activity.externalPreviewDomain;
+  const previewImageUrl = activity.externalPreviewImageUrl;
+
+  if (!previewTitle && !previewDescription && !previewImageUrl && !previewDomain) {
+    return null;
   }
 
-  const textarea = document.createElement('textarea');
-  textarea.value = value;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'absolute';
-  textarea.style.left = '-9999px';
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
+  return (
+    <div className="activity-preview-card">
+      {previewImageUrl ? (
+        <img src={previewImageUrl} alt={previewTitle ?? title} className="activity-preview-image" />
+      ) : null}
+      <div className="activity-preview-copy">
+        <p className="eyebrow activity-preview-eyebrow">{title}</p>
+        {previewTitle ? <strong>{previewTitle}</strong> : null}
+        {previewDescription ? <p className="muted">{previewDescription}</p> : null}
+        {previewDomain ? <p className="muted">{previewDomain}</p> : null}
+      </div>
+    </div>
+  );
 }

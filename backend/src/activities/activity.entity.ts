@@ -64,6 +64,21 @@ export class Activity {
   @Column({ type: 'varchar', nullable: true })
   externalUrl: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  externalPreviewImageUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  externalPreviewTitle: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  externalPreviewDescription: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  externalPreviewDomain: string | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  externalPreviewFetchedAt: Date | null;
+
   @Column({ type: 'text', nullable: true })
   whatsappComment: string | null;
 

@@ -93,6 +93,12 @@ export function SearchRequirementsPage() {
               <StatusPill value={requirement.status} />
             </div>
             <div className="candidate-actions">
+              <Link
+                to={`/requirements/${requirement.id}/suggestions`}
+                className="ghost-button button-link"
+              >
+                Buscar en portales
+              </Link>
               <Link to={`/requirements/${requirement.id}/edit`} className="ghost-button button-link">
                 {t('common.update')}
               </Link>

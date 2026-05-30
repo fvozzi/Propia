@@ -330,6 +330,22 @@ label {
   gap: 0.8rem;
 }
 
+.portal-config-panel {
+  margin-top: 1rem;
+}
+
+.portal-config-row {
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.portal-config-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
 .filters-panel {
   display: grid;
   gap: 1rem;
@@ -382,6 +398,53 @@ label {
   aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: 18px;
+}
+
+.external-listing-thumb {
+  width: min(280px, 100%);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 18px;
+  margin-bottom: 0.9rem;
+  border: 1px solid rgba(21, 32, 34, 0.08);
+}
+
+.activity-preview-card {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 0.9rem;
+  margin: 0.8rem 0;
+  border: 1px solid rgba(21, 32, 34, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.activity-preview-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgba(21, 32, 34, 0.08);
+}
+
+.activity-preview-copy {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.activity-preview-copy strong {
+  font-size: 1rem;
+}
+
+.activity-preview-eyebrow {
+  margin: 0;
+}
+
+.run-search-url {
+  word-break: break-all;
 }
 
 .timeline {
@@ -994,9 +1057,14 @@ label {
   .calendar-selected-header,
   .modal-header,
   .map-list-item-header,
-  .map-list-item-side {
+  .map-list-item-side,
+   .portal-config-summary {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .activity-preview-card {
+    grid-template-columns: 1fr;
   }
 
   .form-grid {

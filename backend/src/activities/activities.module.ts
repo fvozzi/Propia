@@ -4,13 +4,18 @@ import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity
 import { CalendarModule } from '../calendar/calendar.module';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { ActivityCalendarSyncService } from './activity-calendar-sync.service';
 import { Activity } from './activity.entity';
 import { ActivitiesController } from './activities.controller';
 import { ActivitiesService } from './activities.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Activity, Contact, Property, AppraisalRequest]), CalendarModule],
+  imports: [
+    TypeOrmModule.forFeature([Activity, Contact, Property, AppraisalRequest]),
+    CalendarModule,
+    WhatsappModule,
+  ],
   controllers: [ActivitiesController],
   providers: [ActivitiesService, ActivityCalendarSyncService],
   exports: [ActivitiesService, ActivityCalendarSyncService, TypeOrmModule],
