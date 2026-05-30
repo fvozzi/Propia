@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import type {
   PortalProviderKey,
@@ -11,8 +12,17 @@ import type {
   SearchRequirement,
 } from '../types';
 
+type PortalConfigDraft = {
+  providerKey: PortalProviderKey;
+  enabled: boolean;
+  priority: string;
+  baseUrl: string;
+  maxResultsPerRun: string;
+};
+
 export function SearchRequirementMatchesPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const { t, translateEnum, formatDateTime } = useI18n();
   const [requirement, setRequirement] = useState<SearchRequirement | null>(null);
   const [configs, setConfigs] = useState<PortalSourceConfig[]>([]);
@@ -24,6 +34,11 @@ export function SearchRequirementMatchesPage() {
   const [notice, setNotice] = useState('');
   const [busyMatchId, setBusyMatchId] = useState<number | null>(null);
   const [runsExpanded, setRunsExpanded] = useState(false);
+  const [portalConfigsExpanded, setPortalConfigsExpanded] = useState(false);
+  const [portalDrafts, setPortalDrafts] = useState<Record<number, PortalConfigDraft>>({});
+  const [newPortalConfig, setNewPortalConfig] = useState<PortalConfigDraft>(
+    createInitialPortalDraft('ARGENPROP'),
+  );
 
   const requirementId = Number(id);
 
@@ -70,6 +85,8 @@ export function SearchRequirementMatchesPage() {
         setConfigs(configsResponse);
         setMatches(matchesResponse);
         setRuns(runsResponse);
+        setPortalDrafts(buildPortalDraftMap(configsResponse));
+        setPortalConfigsExpanded(configsResponse.length === 0);
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -98,6 +115,8 @@ export function SearchRequirementMatchesPage() {
     setConfigs(configsResponse);
     setMatches(matchesResponse);
     setRuns(runsResponse);
+    setPortalDrafts(buildPortalDraftMap(configsResponse));
+    setPortalConfigsExpanded((current) => current || configsResponse.length === 0);
 
     return {
       configs: configsResponse,
@@ -161,6 +180,103 @@ export function SearchRequirementMatchesPage() {
       );
     } finally {
       setBusyMatchId(null);
+    }
+  }
+
+  function updatePortalDraft(configId: number, patch: Partial<PortalConfigDraft>) {
+    setPortalDrafts((current) => ({
+      ...current,
+      [configId]: {
+        ...current[configId],
+        ...patch,
+      },
+    }));
+  }
+
+  function updateNewPortalConfig(patch: Partial<PortalConfigDraft>) {
+    setNewPortalConfig((current) => ({
+      ...current,
+      ...patch,
+    }));
+  }
+
+  async function handleCreatePortalConfig() {
+    setError('');
+    setNotice('');
+
+    try {
+      await apiRequest('/portal-source-configs', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerKey: newPortalConfig.providerKey,
+          enabled: newPortalConfig.enabled,
+          priority: Number(newPortalConfig.priority),
+          baseUrl: newPortalConfig.baseUrl || undefined,
+          maxResultsPerRun: Number(newPortalConfig.maxResultsPerRun),
+        }),
+      });
+
+      setNotice('Fuente externa agregada.');
+      setNewPortalConfig(createInitialPortalDraft('ARGENPROP'));
+      await reload();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'No se pudo agregar la fuente externa',
+      );
+    }
+  }
+
+  async function handleSavePortalConfig(configId: number) {
+    const draft = portalDrafts[configId];
+    if (!draft) {
+      return;
+    }
+
+    setError('');
+    setNotice('');
+
+    try {
+      await apiRequest(`/portal-source-configs/${configId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          providerKey: draft.providerKey,
+          enabled: draft.enabled,
+          priority: Number(draft.priority),
+          baseUrl: draft.baseUrl || undefined,
+          maxResultsPerRun: Number(draft.maxResultsPerRun),
+        }),
+      });
+
+      setNotice('Fuente externa actualizada.');
+      await reload();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'No se pudo guardar la fuente externa',
+      );
+    }
+  }
+
+  async function handleDeletePortalConfig(configId: number) {
+    setError('');
+    setNotice('');
+
+    try {
+      await apiRequest(`/portal-source-configs/${configId}`, {
+        method: 'DELETE',
+      });
+
+      setNotice('Fuente externa eliminada.');
+      await reload();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'No se pudo eliminar la fuente externa',
+      );
     }
   }
 
@@ -231,12 +347,23 @@ export function SearchRequirementMatchesPage() {
           <div>
             <h3>{t('requirements.portalSources')}</h3>
             <p className="muted">
-              La configuracion de proveedores externos se administra a nivel general por cuenta/team.
+              La configuracion de proveedores externos se guarda a nivel cuenta/team y aplica a todos los usuarios.
             </p>
           </div>
-          <Link to="/backoffice" className="ghost-button button-link">
-            Abrir backoffice
-          </Link>
+          <div className="candidate-actions">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setPortalConfigsExpanded((current) => !current)}
+            >
+              {portalConfigsExpanded ? 'Ocultar configuracion' : 'Configurar fuentes'}
+            </button>
+            {user?.appRole === 'ADMIN' && user.backofficeAccess ? (
+              <Link to="/backoffice" className="ghost-button button-link">
+                Abrir backoffice
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <div className="pill-row">
@@ -250,6 +377,191 @@ export function SearchRequirementMatchesPage() {
             <span className="pill">Sin fuentes activas</span>
           )}
         </div>
+
+        {portalConfigsExpanded ? (
+          <div className="stack-gap portal-config-panel">
+            {configs.length === 0 ? (
+              <p className="muted">Todavia no hay fuentes configuradas para este team.</p>
+            ) : null}
+
+            {configs.map((config) => {
+              const draft = portalDrafts[config.id];
+              if (!draft) {
+                return null;
+              }
+
+              return (
+                <div key={config.id} className="list-item portal-config-row">
+                  <div className="list-item-actions">
+                    <div className="pill-row">
+                      <span className={`pill ${draft.enabled ? 'pill-active' : ''}`}>
+                        {providerLabel(draft.providerKey)}
+                      </span>
+                      <span className="pill">Prioridad {draft.priority}</span>
+                      <span className="pill">{draft.maxResultsPerRun} avisos por corrida</span>
+                    </div>
+                    <div className="candidate-actions">
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => void handleSavePortalConfig(config.id)}
+                      >
+                        Guardar fuente
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => void handleDeletePortalConfig(config.id)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-grid">
+                    <label>
+                      Proveedor
+                      <select
+                        value={draft.providerKey}
+                        onChange={(event) => {
+                          const providerKey = event.target.value as PortalProviderKey;
+                          updatePortalDraft(config.id, {
+                            providerKey,
+                            baseUrl: defaultPortalBaseUrlByProvider[providerKey],
+                          });
+                        }}
+                      >
+                        {portalProviderOptions.map((providerKey) => (
+                          <option key={providerKey} value={providerKey}>
+                            {providerLabel(providerKey)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Prioridad
+                      <input
+                        type="number"
+                        min="1"
+                        value={draft.priority}
+                        onChange={(event) =>
+                          updatePortalDraft(config.id, { priority: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      URL base
+                      <input
+                        value={draft.baseUrl}
+                        onChange={(event) =>
+                          updatePortalDraft(config.id, { baseUrl: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Max resultados por corrida
+                      <input
+                        type="number"
+                        min="1"
+                        value={draft.maxResultsPerRun}
+                        onChange={(event) =>
+                          updatePortalDraft(config.id, {
+                            maxResultsPerRun: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label className="checkbox-item full-span">
+                      <input
+                        type="checkbox"
+                        checked={draft.enabled}
+                        onChange={(event) =>
+                          updatePortalDraft(config.id, { enabled: event.target.checked })
+                        }
+                      />
+                      <span>Fuente habilitada</span>
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="list-item portal-config-row">
+              <div className="list-item-actions">
+                <div>
+                  <strong>Nueva fuente</strong>
+                  <p className="muted">Alta general para todo el team actual.</p>
+                </div>
+                <button type="button" onClick={() => void handleCreatePortalConfig()}>
+                  Agregar fuente
+                </button>
+              </div>
+
+              <div className="form-grid">
+                <label>
+                  Proveedor
+                  <select
+                    value={newPortalConfig.providerKey}
+                    onChange={(event) => {
+                      const providerKey = event.target.value as PortalProviderKey;
+                      updateNewPortalConfig({
+                        providerKey,
+                        baseUrl: defaultPortalBaseUrlByProvider[providerKey],
+                      });
+                    }}
+                  >
+                    {portalProviderOptions.map((providerKey) => (
+                      <option key={providerKey} value={providerKey}>
+                        {providerLabel(providerKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Prioridad
+                  <input
+                    type="number"
+                    min="1"
+                    value={newPortalConfig.priority}
+                    onChange={(event) =>
+                      updateNewPortalConfig({ priority: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  URL base
+                  <input
+                    value={newPortalConfig.baseUrl}
+                    onChange={(event) =>
+                      updateNewPortalConfig({ baseUrl: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  Max resultados por corrida
+                  <input
+                    type="number"
+                    min="1"
+                    value={newPortalConfig.maxResultsPerRun}
+                    onChange={(event) =>
+                      updateNewPortalConfig({ maxResultsPerRun: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="checkbox-item full-span">
+                  <input
+                    type="checkbox"
+                    checked={newPortalConfig.enabled}
+                    onChange={(event) =>
+                      updateNewPortalConfig({ enabled: event.target.checked })
+                    }
+                  />
+                  <span>Fuente habilitada</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="card">
@@ -470,3 +782,44 @@ function summarizePortalRuns(runs: PortalSearchRun[], emptyLabel: string) {
 
   return `${runs.length} corridas - ${successCount} ok - ${failedCount} con error - ${totalFetched} brutas - ${totalMatched} sugeridas`;
 }
+
+function buildPortalDraftMap(configs: PortalSourceConfig[]) {
+  return Object.fromEntries(
+    configs.map((config) => [
+      config.id,
+      {
+        providerKey: config.providerKey,
+        enabled: config.enabled,
+        priority: String(config.priority),
+        baseUrl: config.baseUrl ?? defaultPortalBaseUrlByProvider[config.providerKey],
+        maxResultsPerRun: config.maxResultsPerRun
+          ? String(config.maxResultsPerRun)
+          : '20',
+      },
+    ]),
+  ) as Record<number, PortalConfigDraft>;
+}
+
+function createInitialPortalDraft(providerKey: PortalProviderKey): PortalConfigDraft {
+  return {
+    providerKey,
+    enabled: true,
+    priority: '100',
+    baseUrl: defaultPortalBaseUrlByProvider[providerKey],
+    maxResultsPerRun: '20',
+  };
+}
+
+const portalProviderOptions: PortalProviderKey[] = [
+  'ARGENPROP',
+  'ZONAPROP',
+  'MERCADOLIBRE',
+  'MOCK',
+];
+
+const defaultPortalBaseUrlByProvider: Record<PortalProviderKey, string> = {
+  ARGENPROP: 'https://www.argenprop.com',
+  ZONAPROP: 'https://zonaprop.com.ar',
+  MERCADOLIBRE: 'https://inmuebles.mercadolibre.com.ar',
+  MOCK: 'https://mock.propia.local',
+};
