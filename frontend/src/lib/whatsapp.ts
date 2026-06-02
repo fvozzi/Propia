@@ -12,16 +12,15 @@ export function getContactWhatsappPhone(contact: ShareableContact) {
 
 export function buildWhatsAppShareUrl(contact: ShareableContact, message: string) {
   const normalizedPhone = getContactWhatsappPhone(contact).replace(/\D/g, '');
-  const params = new URLSearchParams({
-    text: message,
-  });
+  const params = new URLSearchParams({ text: message });
+  const baseUrl = normalizedPhone ? `https://wa.me/${normalizedPhone}` : 'https://wa.me/';
+  return `${baseUrl}?${params.toString()}`;
+}
 
-  if (normalizedPhone) {
-    params.set('phone', normalizedPhone);
+export function openWhatsAppShareUrl(url: string) {
+  const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+
+  if (!openedWindow) {
+    window.location.href = url;
   }
-
-  params.set('type', 'phone_number');
-  params.set('app_absent', '0');
-
-  return `https://web.whatsapp.com/send?${params.toString()}`;
 }

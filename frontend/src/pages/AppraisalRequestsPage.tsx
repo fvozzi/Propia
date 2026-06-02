@@ -5,11 +5,13 @@ import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
   buildAppraisalMailtoUrl,
+  buildAppraisalWhatsappMessage,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
 } from '../lib/appraisals';
 import { useI18n } from '../lib/i18n';
+import { buildWhatsAppShareUrl, openWhatsAppShareUrl } from '../lib/whatsapp';
 import type { AppraisalRequest, Contact, Paginated } from '../types';
 
 type AppraisalStatusFilter = '' | 'OPEN' | 'COMPLETED' | 'EXPIRED';
@@ -88,11 +90,12 @@ export function AppraisalRequestsPage() {
     setActionError('');
 
     try {
-      await apiRequest(`/appraisal-requests/${appraisalRequest.id}/send-whatsapp`, {
-        method: 'POST',
-      });
+      const message = buildAppraisalWhatsappMessage(
+        appraisalRequest.publicToken,
+        getShareMessage(appraisalRequest.contact),
+      );
+      openWhatsAppShareUrl(buildWhatsAppShareUrl(appraisalRequest.contact, message));
       window.alert(t('common.whatsappSent'));
-      await load(page);
     } catch (sendError) {
       setActionError(
         sendError instanceof Error ? sendError.message : t('common.whatsappSendFailed'),

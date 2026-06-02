@@ -2,8 +2,8 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
+import { buildPropertySearchMessage, buildWhatsAppShareUrl, getContactWhatsappPhone, openWhatsAppShareUrl } from '../lib/whatsapp';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
-import { getContactWhatsappPhone } from '../lib/whatsapp';
 import type { Activity, ActivityType, Contact, Paginated, Property } from '../types';
 
 type PropertySearchFeedback = '' | 'LIKED' | 'DISLIKED';
@@ -129,8 +129,13 @@ export function ActivitiesCreatePage() {
     setActivity(saved);
 
     if (shareNow && selectedContact) {
-      const shared = await apiRequest<Activity>(`/activities/${saved.id}/send-whatsapp`, {
-        method: 'POST',
+      const message = buildPropertySearchMessage(saved);
+      openWhatsAppShareUrl(buildWhatsAppShareUrl(selectedContact, message));
+      const shared = await apiRequest<Activity>(`/activities/${saved.id}/share`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          whatsappComment: saved.whatsappComment ?? undefined,
+        }),
       });
       window.alert(t('common.whatsappSent'));
       setActivity(shared);

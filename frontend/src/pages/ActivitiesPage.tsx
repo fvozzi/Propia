@@ -6,6 +6,7 @@ import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import {
   buildAppraisalMailtoUrl,
+  buildAppraisalWhatsappMessage,
   buildPublicAppraisalUrl,
   canShareAppraisalByEmail,
   canShareAppraisalByWhatsApp,
@@ -13,7 +14,12 @@ import {
   isAppraisalRequestAvailable,
 } from '../lib/appraisals';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
-import { getContactWhatsappPhone } from '../lib/whatsapp';
+import {
+  buildPropertySearchMessage,
+  buildWhatsAppShareUrl,
+  getContactWhatsappPhone,
+  openWhatsAppShareUrl,
+} from '../lib/whatsapp';
 import type { Activity, Contact, Paginated } from '../types';
 
 export function ActivitiesPage() {
@@ -104,11 +110,31 @@ export function ActivitiesPage() {
     setActionError('');
 
     try {
-      await apiRequest<Activity>(`/activities/${activity.id}/send-whatsapp`, {
-        method: 'POST',
-      });
+      if (activity.activityType === 'PROPERTY_SEARCH' && activity.contact && activity.externalUrl) {
+        const message = buildPropertySearchMessage(activity);
+        openWhatsAppShareUrl(buildWhatsAppShareUrl(activity.contact, message));
+        await apiRequest<Activity>(`/activities/${activity.id}/share`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            whatsappComment: activity.whatsappComment ?? undefined,
+          }),
+        });
+        await load(page);
+      } else if (
+        activity.activityType === 'APPRAISAL_REQUEST' &&
+        activity.contact &&
+        activity.appraisalRequest
+      ) {
+        const message = buildAppraisalWhatsappMessage(
+          activity.appraisalRequest.publicToken,
+          buildAppraisalShareMessage(activity.contact),
+        );
+        openWhatsAppShareUrl(buildWhatsAppShareUrl(activity.contact, message));
+      } else {
+        throw new Error(t('common.whatsappSendFailed'));
+      }
+
       window.alert(t('common.whatsappSent'));
-      await load(page);
     } catch (sendError) {
       setActionError(
         sendError instanceof Error ? sendError.message : t('common.whatsappSendFailed'),

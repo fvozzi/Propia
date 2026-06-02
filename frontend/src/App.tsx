@@ -25,6 +25,7 @@ import { PropertyDetailPage } from './pages/PropertyDetailPage';
 import { SearchRequirementCreatePage } from './pages/SearchRequirementCreatePage';
 import { SearchRequirementMatchesPage } from './pages/SearchRequirementMatchesPage';
 import { SearchRequirementsPage } from './pages/SearchRequirementsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { UsersPage } from './pages/UsersPage';
 import { VisitsPage } from './pages/VisitsPage';
 
@@ -55,6 +56,7 @@ export default function App() {
                 <Route path="/requirements/new" element={<SearchRequirementCreatePage />} />
                 <Route path="/requirements/:id/edit" element={<SearchRequirementCreatePage />} />
                 <Route path="/requirements/:id/suggestions" element={<SearchRequirementMatchesPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/activities" element={<ActivitiesPage />} />
                 <Route path="/activities/new" element={<ActivitiesCreatePage />} />
                 <Route path="/activities/:id/edit" element={<ActivitiesCreatePage />} />
