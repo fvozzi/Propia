@@ -11,14 +11,14 @@ export function getContactWhatsappPhone(contact: ShareableContact) {
 }
 
 export function buildWhatsAppShareUrl(contact: ShareableContact, message: string) {
-  const normalizedPhone = normalizeWhatsAppSharePhone(getContactWhatsappPhone(contact));
+  const rawPhone = getContactWhatsappPhone(contact).trim();
   const params = new URLSearchParams({ text: message });
-  if (normalizedPhone) {
-    params.set('phone', normalizedPhone);
+  if (rawPhone) {
+    params.set('phone', rawPhone);
   }
 
   const baseUrl = isMobileWhatsAppShareTarget()
-    ? 'https://api.whatsapp.com/send/'
+    ? 'whatsapp://send'
     : 'https://web.whatsapp.com/send/';
 
   return `${baseUrl}?${params.toString()}`;
@@ -33,39 +33,6 @@ export function openWhatsAppShareUrl(url: string) {
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
-}
-
-function normalizeWhatsAppSharePhone(rawPhone: string) {
-  const trimmed = rawPhone.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  const compact = trimmed.replace(/[\s()./-]/g, '');
-
-  if (compact.startsWith('+')) {
-    return compact.slice(1).replace(/\D/g, '');
-  }
-
-  if (compact.startsWith('00')) {
-    return compact.slice(2).replace(/\D/g, '');
-  }
-
-  const digits = compact.replace(/\D/g, '');
-  if (!digits) {
-    return '';
-  }
-
-  if (digits.startsWith('54')) {
-    return digits;
-  }
-
-  const localDigits = digits.startsWith('0') ? digits.slice(1) : digits;
-  if (localDigits.length >= 10 && localDigits.length <= 11) {
-    return `54${localDigits}`;
-  }
-
-  return digits;
 }
 
 function isMobileWhatsAppShareTarget() {

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { chromium } from 'playwright';
+import { chromium, type Page } from 'playwright';
 import { Repository } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
@@ -729,7 +729,11 @@ async function fetchArgenpropListings(
   }
 
   const searchUrl = buildArgenpropSearchUrl(baseUrl, requirement);
-  const html = await fetchHtml(searchUrl);
+  const html = await fetchHtmlWithBrowser(searchUrl, {
+    portalLabel: 'Argenprop',
+    waitForSelector: 'a[href*="-en-"]',
+    diagnosticSelectors: ['a[href*="-en-"]', 'a[href*="/propiedad-"]'],
+  });
   const anchors = extractGroupedAnchors(
     html,
     new URL(baseUrl).origin,
@@ -756,7 +760,9 @@ async function fetchZonapropListings(
 
   const searchUrl = buildZonapropSearchUrl(baseUrl, requirement);
   const html = await fetchHtmlWithBrowser(searchUrl, {
+    portalLabel: 'Zonaprop',
     waitForSelector: 'a[href*="/propiedades/"]',
+    diagnosticSelectors: ['a[href*="/propiedades/"]', 'a[href$=".html"]'],
   });
   const anchors = extractGroupedAnchors(
     html,
@@ -862,7 +868,9 @@ async function fetchHtml(url: string) {
 async function fetchHtmlWithBrowser(
   url: string,
   options: {
+    portalLabel?: string;
     waitForSelector?: string;
+    diagnosticSelectors?: string[];
   } = {},
 ) {
   const normalizedUrl = normalizePortalRequestUrl(url);
@@ -873,6 +881,9 @@ async function fetchHtmlWithBrowser(
     executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
+  let page: Page | null = null;
+  let responseStatus: number | null = null;
+  let responseStatusText: string | null = null;
 
   try {
     const context = await browser.newContext({
@@ -889,21 +900,45 @@ async function fetchHtmlWithBrowser(
         Pragma: 'no-cache',
       },
     });
-    const page = await context.newPage();
+    page = await context.newPage();
     const response = await page.goto(normalizedUrl, {
       waitUntil: 'domcontentloaded',
       timeout,
     });
+    responseStatus = response?.status() ?? null;
+    responseStatusText = response?.statusText() ?? null;
 
+    await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) }).catch(() => {});
     if (response && !response.ok()) {
       throw new Error(
-        `No se pudo consultar el portal externo (${response.status()} ${response.statusText()}): ${normalizedUrl}`,
+        await buildBrowserPortalErrorMessage({
+          portalLabel: options.portalLabel,
+          page,
+          normalizedUrl,
+          responseStatus,
+          responseStatusText,
+          diagnosticSelectors: options.diagnosticSelectors,
+        }),
       );
     }
-
-    await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 10000) }).catch(() => {});
     if (options.waitForSelector) {
-      await page.waitForSelector(options.waitForSelector, { timeout: Math.min(timeout, 10000) });
+      try {
+        await page.waitForSelector(options.waitForSelector, {
+          timeout: Math.min(timeout, 15000),
+        });
+      } catch (error) {
+        throw new Error(
+          await buildBrowserPortalErrorMessage({
+            portalLabel: options.portalLabel,
+            page,
+            normalizedUrl,
+            responseStatus,
+            responseStatusText,
+            diagnosticSelectors: options.diagnosticSelectors ?? [options.waitForSelector],
+            cause: error,
+          }),
+        );
+      }
     }
 
     const html = await page.content();
@@ -913,6 +948,24 @@ async function fetchHtmlWithBrowser(
     if (error instanceof Error && /Executable doesn't exist|browserType\.launch/i.test(error.message)) {
       throw new Error(
         `No se pudo iniciar Chromium para scraping. Instala el browser de Playwright o define PLAYWRIGHT_EXECUTABLE_PATH. Detalle: ${error.message}`,
+      );
+    }
+
+    if (error instanceof Error && error.message.startsWith('No se pudo consultar el portal externo')) {
+      throw error;
+    }
+
+    if (page) {
+      throw new Error(
+        await buildBrowserPortalErrorMessage({
+          portalLabel: options.portalLabel,
+          page,
+          normalizedUrl,
+          responseStatus,
+          responseStatusText,
+          diagnosticSelectors: options.diagnosticSelectors,
+          cause: error,
+        }),
       );
     }
 
@@ -931,6 +984,9 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
     executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
+  let page: Page | null = null;
+  let responseStatus: number | null = null;
+  let responseStatusText: string | null = null;
 
   try {
     const context = await browser.newContext({
@@ -958,32 +1014,69 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
       },
     ]);
 
-    const page = await context.newPage();
+    page = await context.newPage();
+    const browserPage = page;
     const visit = async () => {
-      const response = await page.goto(normalizedUrl, {
+      const response = await browserPage.goto(normalizedUrl, {
         waitUntil: 'domcontentloaded',
         timeout,
       });
+      responseStatus = response?.status() ?? null;
+      responseStatusText = response?.statusText() ?? null;
 
       if (response && !response.ok()) {
         throw new Error(
-          `No se pudo consultar el portal externo (${response.status()} ${response.statusText()}): ${normalizedUrl}`,
+          await buildBrowserPortalErrorMessage({
+            portalLabel: 'Mercado Libre',
+            page: browserPage,
+            normalizedUrl,
+            responseStatus,
+            responseStatusText,
+            diagnosticSelectors: [
+              'a.poly-component__title[href*="/MLA-"]',
+              'a.ui-search-item__group__element[href*="/MLA-"]',
+              'a[href*="/MLA-"]',
+            ],
+          }),
         );
       }
 
-      await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 10000) }).catch(() => {});
+      await browserPage
+        .waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) })
+        .catch(() => {});
     };
 
     await visit();
 
-    const resultSelector = 'a.poly-component__title[href*="/MLA-"]';
-    if ((await page.locator(resultSelector).count()) === 0) {
+    const preferredSelector = 'a.poly-component__title[href*="/MLA-"]';
+    const fallbackSelector = 'a.ui-search-item__group__element[href*="/MLA-"]';
+    const broadSelector = 'a[href*="/MLA-"]';
+
+    if (
+      (await page.locator(preferredSelector).count()) === 0 &&
+      (await page.locator(fallbackSelector).count()) === 0 &&
+      (await page.locator(broadSelector).count()) === 0
+    ) {
       await visit();
     }
 
-    await page.waitForSelector(resultSelector, { timeout: Math.min(timeout, 10000) });
+    const preferredCount = await browserPage.locator(preferredSelector).count();
+    const fallbackCount = await browserPage.locator(fallbackSelector).count();
+    const broadCount = await browserPage.locator(broadSelector).count();
+    if (preferredCount === 0 && fallbackCount === 0 && broadCount === 0) {
+      throw new Error(
+        await buildBrowserPortalErrorMessage({
+          portalLabel: 'Mercado Libre',
+          page: browserPage,
+          normalizedUrl,
+          responseStatus,
+          responseStatusText,
+          diagnosticSelectors: [preferredSelector, fallbackSelector, broadSelector],
+        }),
+      );
+    }
 
-    const html = await page.content();
+    const html = await browserPage.content();
     await context.close();
     return html;
   } catch (error) {
@@ -993,10 +1086,100 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
       );
     }
 
+    if (error instanceof Error && error.message.startsWith('No se pudo consultar el portal externo')) {
+      throw error;
+    }
+
+    if (page) {
+      throw new Error(
+        await buildBrowserPortalErrorMessage({
+          portalLabel: 'Mercado Libre',
+          page,
+          normalizedUrl,
+          responseStatus,
+          responseStatusText,
+          diagnosticSelectors: [
+            'a.poly-component__title[href*="/MLA-"]',
+            'a.ui-search-item__group__element[href*="/MLA-"]',
+            'a[href*="/MLA-"]',
+          ],
+          cause: error,
+        }),
+      );
+    }
+
     throw error;
   } finally {
     await browser.close();
   }
+}
+
+async function buildBrowserPortalErrorMessage(input: {
+  portalLabel?: string;
+  page: Page;
+  normalizedUrl: string;
+  responseStatus: number | null;
+  responseStatusText: string | null;
+  diagnosticSelectors?: string[];
+  cause?: unknown;
+}) {
+  const finalUrl = safeTruncate(input.page.url(), 220);
+  const title = safeTruncate(await safeGetPageTitle(input.page), 120);
+  const bodySnippet = safeTruncate(await safeGetBodySnippet(input.page), 280);
+  const selectorDiagnostics = await Promise.all(
+    (input.diagnosticSelectors ?? []).map(async (selector) => {
+      try {
+        const count = await input.page!.locator(selector).count();
+        return `${selector}=${count}`;
+      } catch {
+        return `${selector}=ERR`;
+      }
+    }),
+  );
+
+  const statusLabel =
+    input.responseStatus !== null
+      ? `${input.responseStatus}${input.responseStatusText ? ` ${input.responseStatusText}` : ''}`
+      : 'sin respuesta HTTP';
+  const causeLabel =
+    input.cause instanceof Error && input.cause.message
+      ? ` | detalle: ${safeTruncate(input.cause.message.replace(/\s+/g, ' ').trim(), 220)}`
+      : '';
+  const selectorsLabel =
+    selectorDiagnostics.length > 0
+      ? ` | selectores: ${selectorDiagnostics.join(', ')}`
+      : '';
+  const titleLabel = title ? ` | titulo: ${title}` : '';
+  const finalUrlLabel = finalUrl ? ` | url final: ${finalUrl}` : '';
+  const bodyLabel = bodySnippet ? ` | muestra: ${bodySnippet}` : '';
+  const portalLabel = input.portalLabel ? `${input.portalLabel} ` : '';
+
+  return `No se pudo consultar el portal externo (${portalLabel}${statusLabel}): ${input.normalizedUrl}${finalUrlLabel}${titleLabel}${selectorsLabel}${bodyLabel}${causeLabel}`;
+}
+
+async function safeGetPageTitle(page: Page) {
+  try {
+    return normalizeWhitespace(await page.title());
+  } catch {
+    return '';
+  }
+}
+
+async function safeGetBodySnippet(page: Page) {
+  try {
+    const bodyText = await page.locator('body').innerText({ timeout: 2000 });
+    return normalizeWhitespace(bodyText);
+  } catch {
+    return '';
+  }
+}
+
+function safeTruncate(value: string, maxLength: number) {
+  if (!value) {
+    return '';
+  }
+
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
 function extractGroupedAnchors(
