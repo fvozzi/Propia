@@ -19,12 +19,17 @@ export function buildWhatsAppShareUrl(contact: ShareableContact, message: string
 
   const baseUrl = isMobileWhatsAppShareTarget()
     ? 'whatsapp://send'
-    : 'https://web.whatsapp.com/send/';
+    : 'https://api.whatsapp.com/send/';
 
   return `${baseUrl}?${params.toString()}`;
 }
 
 export function openWhatsAppShareUrl(url: string) {
+  if (url.startsWith('whatsapp://')) {
+    window.location.href = url;
+    return;
+  }
+
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.target = '_blank';

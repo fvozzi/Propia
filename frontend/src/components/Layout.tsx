@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import logo from '../assests/logoTransparente.png';
 import { useAuth } from '../lib/auth';
+import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { useI18n } from '../lib/i18n';
 
 export function Layout() {
@@ -117,6 +118,10 @@ export function Layout() {
           <div>
             <strong>{user?.name}</strong>
             <p className="muted">{user?.email}</p>
+          </div>
+          <div>
+            <p className="muted">v{APP_VERSION}</p>
+            <p className="muted">build {APP_BUILD}</p>
           </div>
           <button className="ghost-button" onClick={logout}>
             {t('common.signOut')}
