@@ -763,6 +763,7 @@ async function fetchZonapropListings(
     portalLabel: 'Zonaprop',
     waitForSelector: 'a[href*="/propiedades/"]',
     diagnosticSelectors: ['a[href*="/propiedades/"]', 'a[href$=".html"]'],
+    allowHttpErrorWhenSelectorVisible: true,
   });
   const anchors = extractGroupedAnchors(
     html,
@@ -871,6 +872,7 @@ async function fetchHtmlWithBrowser(
     portalLabel?: string;
     waitForSelector?: string;
     diagnosticSelectors?: string[];
+    allowHttpErrorWhenSelectorVisible?: boolean;
   } = {},
 ) {
   const normalizedUrl = normalizePortalRequestUrl(url);
@@ -909,23 +911,13 @@ async function fetchHtmlWithBrowser(
     responseStatusText = response?.statusText() ?? null;
 
     await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) }).catch(() => {});
-    if (response && !response.ok()) {
-      throw new Error(
-        await buildBrowserPortalErrorMessage({
-          portalLabel: options.portalLabel,
-          page,
-          normalizedUrl,
-          responseStatus,
-          responseStatusText,
-          diagnosticSelectors: options.diagnosticSelectors,
-        }),
-      );
-    }
+    let selectorVisible = false;
     if (options.waitForSelector) {
       try {
         await page.waitForSelector(options.waitForSelector, {
           timeout: Math.min(timeout, 15000),
         });
+        selectorVisible = true;
       } catch (error) {
         throw new Error(
           await buildBrowserPortalErrorMessage({
@@ -939,6 +931,23 @@ async function fetchHtmlWithBrowser(
           }),
         );
       }
+    }
+
+    if (
+      response &&
+      !response.ok() &&
+      !(options.allowHttpErrorWhenSelectorVisible && selectorVisible)
+    ) {
+      throw new Error(
+        await buildBrowserPortalErrorMessage({
+          portalLabel: options.portalLabel,
+          page,
+          normalizedUrl,
+          responseStatus,
+          responseStatusText,
+          diagnosticSelectors: options.diagnosticSelectors,
+        }),
+      );
     }
 
     const html = await page.content();
