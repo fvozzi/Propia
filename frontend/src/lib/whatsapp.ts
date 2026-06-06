@@ -15,6 +15,11 @@ export function buildWhatsAppShareUrl(contact: ShareableContact, message: string
   const params = new URLSearchParams({ text: message });
   const mobileTarget = isMobileWhatsAppShareTarget();
   const phoneParam = mobileTarget ? normalizeMobileWhatsappPhone(rawPhone) : rawPhone;
+  if (mobileTarget && rawPhone && !phoneParam) {
+    throw new Error(
+      'El WhatsApp del contacto debe incluir un numero argentino valido con codigo de area para abrir la app en Android.',
+    );
+  }
   if (phoneParam) {
     params.set('phone', phoneParam);
   }
@@ -51,11 +56,11 @@ function normalizeMobileWhatsappPhone(rawPhone: string) {
     return '';
   }
 
-  if (digits.startsWith('549')) {
+  if (digits.startsWith('549') && digits.length >= 12 && digits.length <= 13) {
     return digits;
   }
 
-  if (digits.startsWith('54')) {
+  if (digits.startsWith('54') && digits.length >= 12 && digits.length <= 13) {
     return digits;
   }
 
@@ -64,5 +69,5 @@ function normalizeMobileWhatsappPhone(rawPhone: string) {
     return `549${localDigits}`;
   }
 
-  return digits;
+  return '';
 }
