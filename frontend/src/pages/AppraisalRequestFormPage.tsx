@@ -64,12 +64,11 @@ export function AppraisalRequestFormPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const saved = await apiRequest<AppraisalRequest>(isEditing && requestId ? `/appraisal-requests/${requestId}` : '/appraisal-requests', {
+    await apiRequest<AppraisalRequest>(isEditing && requestId ? `/appraisal-requests/${requestId}` : '/appraisal-requests', {
       method: isEditing ? 'PATCH' : 'POST',
       body: JSON.stringify(buildPayload(form)),
     });
-
-    navigate(`/appraisals/${saved.id}/edit`);
+    navigate('/appraisals');
   }
 
   async function handleCopyLink() {

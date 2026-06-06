@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { Timeline, type TimelineItem } from '../components/Timeline';
 import { apiRequest } from '../lib/api';
@@ -9,6 +9,7 @@ import type { Contact, Property, PropertyStatus } from '../types';
 
 export function PropertyDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { formatDateTime, t, translateEnum } = useI18n();
   const [property, setProperty] = useState<Property | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -65,7 +66,7 @@ export function PropertyDetailPage() {
         photos: property?.photos ?? [],
       }),
     });
-    await load();
+    navigate('/properties');
   }
 
   const computedAreas = calculateAppraisalAreas({

@@ -679,7 +679,7 @@ function createMockListings(
 }
 
 const defaultBaseUrlByProvider: Record<PortalProviderKey, string | undefined> = {
-  [PortalProviderKey.ARGENPROP]: 'https://www.argenprop.com',
+  [PortalProviderKey.ARGENPROP]: 'https://argenprop.com',
   [PortalProviderKey.ZONAPROP]: 'https://zonaprop.com.ar',
   [PortalProviderKey.MERCADOLIBRE]: 'https://inmuebles.mercadolibre.com.ar',
   [PortalProviderKey.MOCK]: 'https://mock.propia.local',
@@ -773,7 +773,11 @@ async function fetchZonapropListings(
   return {
     searchUrl,
     rawListings: anchors
-      .map((anchor, index) => parseZonapropAnchor(anchor, requirement, index))
+      .map(
+        (anchor, index) =>
+          parseZonapropAnchor(anchor, requirement, index) ??
+          parseZonapropFallbackAnchor(anchor, requirement, index),
+      )
       .filter(isPresent)
       .slice(0, config.maxResultsPerRun ?? 20),
   };
@@ -797,9 +801,16 @@ async function fetchMercadoLibreListings(
     }
 
     return (
-      /\/MLA-\d+/i.test(href) &&
       /mercadolibre\.com\.ar/i.test(href) &&
-      !href.includes('/_Desde_')
+      !href.includes('/_Desde_') &&
+      !href.includes('/gz/account-verification') &&
+      !href.includes('/categorias/') &&
+      !href.includes('/tienda/') &&
+      !href.includes('/perfil/') &&
+      (/\/MLA-\d+/i.test(href) ||
+        /\/p\/MLA/i.test(href) ||
+        /\/[A-Z0-9-]+_JM/i.test(href) ||
+        /\/inmuebles\/[^/?#]+/i.test(href))
     );
   });
 
@@ -1053,13 +1064,15 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
       await browserPage
         .waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) })
         .catch(() => {});
+
+      await resolveMercadoLibreInterstitial(browserPage, timeout);
     };
 
     await visit();
 
-    const preferredSelector = 'a.poly-component__title[href*="/MLA-"]';
-    const fallbackSelector = 'a.ui-search-item__group__element[href*="/MLA-"]';
-    const broadSelector = 'a[href*="/MLA-"]';
+    const preferredSelector = 'a.poly-component__title[href*="/MLA-"], a.poly-component__title[href*="/inmuebles/"]';
+    const fallbackSelector = 'a.ui-search-item__group__element[href*="/MLA-"], a.ui-search-item__group__element[href*="/inmuebles/"]';
+    const broadSelector = 'a[href*="/MLA-"], a[href*="/inmuebles/"]';
 
     if (
       (await page.locator(preferredSelector).count()) === 0 &&
@@ -1120,6 +1133,42 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
     throw error;
   } finally {
     await browser.close();
+  }
+}
+
+async function resolveMercadoLibreInterstitial(page: Page, timeout: number) {
+  const acceptSelectors = [
+    'button:has-text("Aceptar cookies")',
+    'button:has-text("Aceptar")',
+    'a:has-text("Aceptar cookies")',
+  ];
+
+  for (const selector of acceptSelectors) {
+    try {
+      const candidate = page.locator(selector).first();
+      if ((await candidate.count()) > 0) {
+        await candidate.click({ timeout: 2000 });
+        await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 8000) }).catch(() => {});
+        break;
+      }
+    } catch {
+      // Ignore and try the next selector.
+    }
+  }
+
+  if (page.url().includes('/gz/account-verification')) {
+    try {
+      const targetUrl = new URL(page.url()).searchParams.get('go');
+      if (targetUrl) {
+        await page.goto(decodeURIComponent(targetUrl), {
+          waitUntil: 'domcontentloaded',
+          timeout,
+        });
+        await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 8000) }).catch(() => {});
+      }
+    } catch {
+      // Keep current page; diagnostics will explain the failure if results still do not appear.
+    }
   }
 }
 
@@ -1529,6 +1578,115 @@ function extractZonapropExternalId(url: string) {
   return capture(url, /-([0-9]{6,})\.html(?:\?|$)/);
 }
 
+function extractZonapropListingSlug(url: string) {
+  try {
+    const pathname = new URL(url).pathname;
+    const segment = pathname.split('/').filter(Boolean).pop() ?? '';
+    return segment.replace(/\.html$/i, '');
+  } catch {
+    return '';
+  }
+}
+
+function extractTitleFromListingSlug(slug: string) {
+  if (!slug) {
+    return null;
+  }
+
+  const withoutId = slug.replace(/-\d{6,}$/i, '');
+  const withoutPrefix = withoutId
+    .replace(/^clasificado-/i, '')
+    .replace(/^[^-]+-venta-/i, '')
+    .replace(/^[^-]+-alquiler-/i, '')
+    .replace(/^[^-]+-/i, '');
+  const words = withoutPrefix
+    .split('-')
+    .filter(Boolean)
+    .filter(
+      (word) =>
+        !['en', 'de', 'del', 'con', 'sin', 'a', 'por', 'y', 'capital', 'federal'].includes(word),
+    );
+
+  if (words.length < 3) {
+    return null;
+  }
+
+  return words
+    .slice(0, 12)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function extractNeighborhoodFromListingSlug(slug: string, neighborhoods: string[]) {
+  if (!slug) {
+    return null;
+  }
+
+  const normalizedSlug = normalizeTextSimple(slug);
+  return (
+    neighborhoods.find((candidateNeighborhood) =>
+      normalizedSlug.includes(slugify(candidateNeighborhood)),
+    ) ?? null
+  );
+}
+
+function parseZonapropFallbackAnchor(
+  anchor: { href: string; text: string; html: string },
+  requirement: SearchRequirement,
+  index: number,
+) {
+  const slug = extractZonapropListingSlug(anchor.href);
+  if (!slug) {
+    return null;
+  }
+
+  const neighborhood =
+    extractNeighborhoodFromListingSlug(slug, requirement.neighborhoods) ??
+    requirement.neighborhoods[0] ??
+    null;
+  if (requirement.neighborhoods.length > 0 && !neighborhood) {
+    return null;
+  }
+
+  const title = extractTitleFromListingSlug(slug);
+  if (!title) {
+    return null;
+  }
+
+  const combinedText = `${title} ${anchor.text}`.trim();
+  const previewImageUrl = extractImageUrl(anchor.html, anchor.href);
+
+  return {
+    providerKey: PortalProviderKey.ZONAPROP,
+    externalListingId:
+      extractZonapropExternalId(anchor.href) ?? `ZONAPROP-${index + 1}`,
+    canonicalUrl: anchor.href,
+    title: truncate(deriveExternalListingTitle(combinedText, title, requirement, index), 160),
+    description: truncate(combinedText || title, 1200),
+    operationType: requirement.operationType,
+    propertyType: requirement.propertyType,
+    price: extractPrice(anchor.text),
+    currency: requirement.currency,
+    neighborhood,
+    city: 'Capital Federal',
+    rooms:
+      extractInteger(combinedText, /(\d+)\s*amb/i) ??
+      extractInteger(combinedText, /(\d+)\s*ambientes/i),
+    bedrooms: extractInteger(combinedText, /(\d+)\s*dorm/i),
+    bathrooms: extractInteger(combinedText, /(\d+)\s*baÃ±/i),
+    hasGarage: /coch/i.test(combinedText) ? true : null,
+    totalArea: extractNumber(combinedText, /(\d+(?:[.,]\d+)?)\s*mÂ²/i),
+    rawPayload: {
+      source: 'zonaprop-html-fallback',
+      anchorText: anchor.text,
+      anchorHtml: truncate(anchor.html, 3000),
+      previewImageUrl,
+      searchUrlPattern: 'category-page',
+      listingSlug: slug,
+    },
+  };
+}
+
 function extractMercadoLibreExternalId(url: string) {
   return (
     capture(url, /\/(MLA-\d+)(?:[/?]|$)/i) ??
@@ -1549,7 +1707,10 @@ function normalizePortalBaseUrl(providerKey: PortalProviderKey, value?: string |
     return null;
   }
 
-  if (providerKey !== PortalProviderKey.ZONAPROP) {
+  if (
+    providerKey !== PortalProviderKey.ZONAPROP &&
+    providerKey !== PortalProviderKey.ARGENPROP
+  ) {
     return trimTrailingSlash(value);
   }
 
@@ -1558,13 +1719,20 @@ function normalizePortalBaseUrl(providerKey: PortalProviderKey, value?: string |
     if (url.hostname === 'www.zonaprop.com.ar') {
       url.hostname = 'zonaprop.com.ar';
     }
+    if (url.hostname === 'www.argenprop.com') {
+      url.hostname = 'argenprop.com';
+    }
 
     url.pathname = '';
     url.search = '';
     url.hash = '';
     return trimTrailingSlash(url.toString());
   } catch {
-    return trimTrailingSlash(value.replace('://www.zonaprop.com.ar', '://zonaprop.com.ar'));
+    return trimTrailingSlash(
+      value
+        .replace('://www.zonaprop.com.ar', '://zonaprop.com.ar')
+        .replace('://www.argenprop.com', '://argenprop.com'),
+    );
   }
 }
 
@@ -1574,9 +1742,14 @@ function normalizePortalRequestUrl(value: string) {
     if (url.hostname === 'www.zonaprop.com.ar') {
       url.hostname = 'zonaprop.com.ar';
     }
+    if (url.hostname === 'www.argenprop.com') {
+      url.hostname = 'argenprop.com';
+    }
     return url.toString();
   } catch {
-    return value.replace('://www.zonaprop.com.ar', '://zonaprop.com.ar');
+    return value
+      .replace('://www.zonaprop.com.ar', '://zonaprop.com.ar')
+      .replace('://www.argenprop.com', '://argenprop.com');
   }
 }
 

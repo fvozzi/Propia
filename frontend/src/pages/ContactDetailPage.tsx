@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { roleOptions, useI18n } from '../lib/i18n';
@@ -8,6 +8,7 @@ import type { Contact, Role } from '../types';
 
 export function ContactDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { t, translateEnum } = useI18n();
   const [contact, setContact] = useState<Contact | null>(null);
   const [roles, setRoles] = useState<Role[]>(['BUYER']);
@@ -39,7 +40,7 @@ export function ContactDetailPage() {
         roles,
       }),
     });
-    await load();
+    navigate('/contacts');
   }
 
   function toggleRole(role: Role) {
