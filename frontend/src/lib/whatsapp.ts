@@ -13,13 +13,13 @@ export function getContactWhatsappPhone(contact: ShareableContact) {
 export function buildWhatsAppShareUrl(contact: ShareableContact, message: string) {
   const rawPhone = getContactWhatsappPhone(contact).trim();
   const params = new URLSearchParams({ text: message });
-  if (rawPhone) {
-    params.set('phone', rawPhone);
+  const mobileTarget = isMobileWhatsAppShareTarget();
+  const phoneParam = mobileTarget ? normalizeMobileWhatsappPhone(rawPhone) : rawPhone;
+  if (phoneParam) {
+    params.set('phone', phoneParam);
   }
 
-  const baseUrl = isMobileWhatsAppShareTarget()
-    ? 'whatsapp://send'
-    : 'https://api.whatsapp.com/send/';
+  const baseUrl = mobileTarget ? 'whatsapp://send' : 'https://api.whatsapp.com/send/';
 
   return `${baseUrl}?${params.toString()}`;
 }
@@ -43,4 +43,8 @@ export function openWhatsAppShareUrl(url: string) {
 function isMobileWhatsAppShareTarget() {
   const userAgent = navigator.userAgent.toLowerCase();
   return /android|iphone|ipad|ipod|mobile|tablet/.test(userAgent);
+}
+
+function normalizeMobileWhatsappPhone(rawPhone: string) {
+  return rawPhone.replace(/\D/g, '');
 }
