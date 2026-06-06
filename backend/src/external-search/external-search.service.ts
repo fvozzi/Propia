@@ -768,7 +768,7 @@ async function fetchZonapropListings(
   const anchors = extractGroupedAnchors(
     html,
     new URL(baseUrl).origin,
-    (href) => href.includes('/propiedades/') && href.endsWith('.html'),
+    (href) => href.includes('/propiedades/') && /\.html(?:[?#].*)?$/i.test(href),
   );
   return {
     searchUrl,

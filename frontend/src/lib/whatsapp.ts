@@ -46,5 +46,23 @@ function isMobileWhatsAppShareTarget() {
 }
 
 function normalizeMobileWhatsappPhone(rawPhone: string) {
-  return rawPhone.replace(/\D/g, '');
+  const digits = rawPhone.replace(/\D/g, '');
+  if (!digits) {
+    return '';
+  }
+
+  if (digits.startsWith('549')) {
+    return digits;
+  }
+
+  if (digits.startsWith('54')) {
+    return digits;
+  }
+
+  const localDigits = digits.startsWith('0') ? digits.slice(1) : digits;
+  if (localDigits.length >= 10 && localDigits.length <= 11) {
+    return `549${localDigits}`;
+  }
+
+  return digits;
 }
