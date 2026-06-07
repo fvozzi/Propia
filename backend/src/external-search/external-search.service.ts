@@ -892,27 +892,14 @@ async function fetchHtmlWithBrowser(
   const browser = await chromium.launch({
     headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
     executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    args: buildPortalBrowserArgs(),
   });
   let page: Page | null = null;
   let responseStatus: number | null = null;
   let responseStatusText: string | null = null;
 
   try {
-    const context = await browser.newContext({
-      locale: 'es-AR',
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-      viewport: { width: 1440, height: 1600 },
-      extraHTTPHeaders: {
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
-        Referer: `${requestOrigin}/`,
-        Origin: requestOrigin,
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
+    const context = await createPortalBrowserContext(browser, requestOrigin);
     page = await context.newPage();
     const response = await page.goto(normalizedUrl, {
       waitUntil: 'domcontentloaded',
@@ -1002,27 +989,14 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
   const browser = await chromium.launch({
     headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
     executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    args: buildPortalBrowserArgs(),
   });
   let page: Page | null = null;
   let responseStatus: number | null = null;
   let responseStatusText: string | null = null;
 
   try {
-    const context = await browser.newContext({
-      locale: 'es-AR',
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-      viewport: { width: 1440, height: 1600 },
-      extraHTTPHeaders: {
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
-        Referer: `${requestOrigin}/`,
-        Origin: requestOrigin,
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
+    const context = await createPortalBrowserContext(browser, requestOrigin);
 
     await context.addCookies([
       {
@@ -1134,6 +1108,78 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
   } finally {
     await browser.close();
   }
+}
+
+function buildPortalBrowserArgs() {
+  return [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-blink-features=AutomationControlled',
+    '--disable-features=IsolateOrigins,site-per-process',
+    '--window-size=1440,1600',
+  ];
+}
+
+async function createPortalBrowserContext(
+  browser: Awaited<ReturnType<typeof chromium.launch>>,
+  requestOrigin: string,
+) {
+  const context = await browser.newContext({
+    locale: 'es-AR',
+    timezoneId: 'America/Argentina/Buenos_Aires',
+    colorScheme: 'light',
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+    viewport: { width: 1440, height: 1600 },
+    screen: { width: 1440, height: 1600 },
+    deviceScaleFactor: 1,
+    hasTouch: false,
+    isMobile: false,
+    serviceWorkers: 'block',
+    extraHTTPHeaders: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+      Referer: `${requestOrigin}/`,
+      Origin: requestOrigin,
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      'Upgrade-Insecure-Requests': '1',
+      'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'sec-fetch-dest': 'document',
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-site': 'same-origin',
+      'sec-fetch-user': '?1',
+    },
+  });
+
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    Object.defineProperty(navigator, 'language', { get: () => 'es-AR' });
+    Object.defineProperty(navigator, 'languages', { get: () => ['es-AR', 'es', 'en-US', 'en'] });
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [
+        { name: 'Chrome PDF Plugin' },
+        { name: 'Chrome PDF Viewer' },
+        { name: 'Native Client' },
+      ],
+    });
+
+    const originalQuery = window.navigator.permissions?.query?.bind(window.navigator.permissions);
+    if (originalQuery) {
+      window.navigator.permissions.query = ((parameters: PermissionDescriptor) =>
+        parameters.name === 'notifications'
+          ? Promise.resolve({ state: Notification.permission } as PermissionStatus)
+          : originalQuery(parameters)) as typeof window.navigator.permissions.query;
+    }
+  });
+
+  return context;
 }
 
 async function resolveMercadoLibreInterstitial(page: Page, timeout: number) {
