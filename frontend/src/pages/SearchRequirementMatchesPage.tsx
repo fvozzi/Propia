@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ExternalSuggestionsMap } from '../components/ExternalSuggestionsMap';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -26,6 +27,7 @@ export function SearchRequirementMatchesPage() {
   const [notice, setNotice] = useState('');
   const [busyMatchId, setBusyMatchId] = useState<number | null>(null);
   const [runsExpanded, setRunsExpanded] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   const requirementId = Number(id);
   const enabledConfigs = useMemo(() => configs.filter((config) => config.enabled), [configs]);
@@ -259,6 +261,28 @@ export function SearchRequirementMatchesPage() {
             <span className="pill">Sin fuentes activas</span>
           )}
         </div>
+      </section>
+
+      <section className="card">
+        <div className="list-item-actions">
+          <div>
+            <h3>{t('requirements.mapCard')}</h3>
+            <p className="muted">
+              {matches.filter((match) => !match.dismissed).length > 0
+                ? t('requirements.mapSubtitle')
+                : t('requirements.noExternalSuggestions')}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => setMapExpanded((current) => !current)}
+          >
+            {mapExpanded ? t('requirements.hideMap') : t('requirements.showMap')}
+          </button>
+        </div>
+
+        {mapExpanded ? <ExternalSuggestionsMap matches={matches} /> : null}
       </section>
 
       <section className="card">
