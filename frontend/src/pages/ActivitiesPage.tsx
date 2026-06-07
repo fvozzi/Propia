@@ -376,18 +376,21 @@ function ActivityPreviewCard({
   const previewDescription = activity.externalPreviewDescription;
   const previewDomain = activity.externalPreviewDomain;
   const previewImageUrl = activity.externalPreviewImageUrl;
+  const previewCardClassName = previewImageUrl
+    ? 'activity-preview-card'
+    : 'activity-preview-card activity-preview-card-no-image';
 
   if (!previewTitle && !previewDescription && !previewImageUrl && !previewDomain) {
     return null;
   }
 
   return (
-    <div className="activity-preview-card">
+    <div className={previewCardClassName}>
       {previewImageUrl ? <img src={previewImageUrl} alt={previewTitle ?? title} className="activity-preview-image" /> : null}
       <div className="activity-preview-copy">
         <p className="eyebrow activity-preview-eyebrow">{title}</p>
         {previewTitle ? <strong>{previewTitle}</strong> : null}
-        {previewDescription ? <p className="muted">{previewDescription}</p> : null}
+        {previewDescription ? <p className="muted activity-preview-description">{previewDescription}</p> : null}
         {previewDomain ? <p className="muted">{previewDomain}</p> : null}
       </div>
     </div>

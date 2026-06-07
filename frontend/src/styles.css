@@ -426,6 +426,10 @@ label {
   background: rgba(255, 255, 255, 0.78);
 }
 
+.activity-preview-card-no-image {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .activity-preview-image {
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -442,10 +446,21 @@ label {
 
 .activity-preview-copy strong {
   font-size: 1rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .activity-preview-eyebrow {
   margin: 0;
+}
+
+.activity-preview-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .run-search-url {
