@@ -823,14 +823,14 @@ async function fetchMercadoLibreListings(
   };
 }
 
-function buildArgenpropSearchUrl(baseUrl: string, requirement: SearchRequirement) {
+export function buildArgenpropSearchUrl(baseUrl: string, requirement: SearchRequirement) {
   const propertySlug = argenpropPropertyTypeSlug[requirement.propertyType] ?? 'departamentos';
   const operationSlug = requirement.operationType === OperationType.BUY ? 'venta' : 'alquiler';
   const neighborhoodSlug = slugify(requirement.neighborhoods[0] ?? 'caballito');
   return `${trimTrailingSlash(baseUrl)}/${propertySlug}/${operationSlug}/${neighborhoodSlug}`;
 }
 
-function buildZonapropSearchUrl(baseUrl: string, requirement: SearchRequirement) {
+export function buildZonapropSearchUrl(baseUrl: string, requirement: SearchRequirement) {
   const propertySlug = zonapropPropertyTypeSlug[requirement.propertyType] ?? 'departamento';
   const operationSlug = requirement.operationType === OperationType.BUY ? 'venta' : 'alquiler';
   const neighborhoodSlug = slugify(requirement.neighborhoods[0] ?? 'caballito');
@@ -839,7 +839,7 @@ function buildZonapropSearchUrl(baseUrl: string, requirement: SearchRequirement)
   return `${trimTrailingSlash(baseUrl)}/${routeSlug}.html`;
 }
 
-function buildMercadoLibreSearchUrl(baseUrl: string, requirement: SearchRequirement) {
+export function buildMercadoLibreSearchUrl(baseUrl: string, requirement: SearchRequirement) {
   const propertySlug =
     mercadolibrePropertyTypeSlug[requirement.propertyType] ?? 'departamentos';
   const operationSlug = requirement.operationType === OperationType.BUY ? 'venta' : 'alquiler';
@@ -1257,8 +1257,46 @@ async function buildBrowserPortalErrorMessage(input: {
   const finalUrlLabel = finalUrl ? ` | url final: ${finalUrl}` : '';
   const bodyLabel = bodySnippet ? ` | muestra: ${bodySnippet}` : '';
   const portalLabel = input.portalLabel ? `${input.portalLabel} ` : '';
+  const blockedReason = detectPortalBlockedResponse({
+    portalLabel: input.portalLabel,
+    responseStatus: input.responseStatus,
+    title,
+    bodySnippet,
+    selectorDiagnostics,
+  });
+
+  if (blockedReason) {
+    return `${blockedReason}: ${input.normalizedUrl}${finalUrlLabel}${titleLabel}${selectorsLabel}${bodyLabel}${causeLabel}`;
+  }
 
   return `No se pudo consultar el portal externo (${portalLabel}${statusLabel}): ${input.normalizedUrl}${finalUrlLabel}${titleLabel}${selectorsLabel}${bodyLabel}${causeLabel}`;
+}
+
+function detectPortalBlockedResponse(input: {
+  portalLabel?: string;
+  responseStatus: number | null;
+  title: string;
+  bodySnippet: string;
+  selectorDiagnostics: string[];
+}) {
+  const normalizedTitle = input.title.toLowerCase();
+  const normalizedBody = input.bodySnippet.toLowerCase();
+  const hasNoVisibleSelectors = input.selectorDiagnostics.every((entry) => /=(0|err)$/i.test(entry));
+  const looksLikeCloudfrontBlock =
+    input.responseStatus === 403 &&
+    (normalizedTitle.includes('request could not be satisfied') ||
+      normalizedBody.includes('request could not be satisfied') ||
+      normalizedBody.includes('request blocked'));
+
+  if (!looksLikeCloudfrontBlock || !hasNoVisibleSelectors) {
+    return null;
+  }
+
+  if (input.portalLabel === 'Argenprop') {
+    return 'Argenprop bloqueó el acceso desde el servidor (403 del edge/CDN). La URL es válida, pero el portal está rechazando la IP o el fingerprint del browser';
+  }
+
+  return `El portal devolvió una página de bloqueo (${input.portalLabel ?? 'proveedor'} 403). La URL es válida, pero el acceso desde el servidor fue rechazado`;
 }
 
 async function safeGetPageTitle(page: Page) {
@@ -1334,7 +1372,7 @@ function extractGroupedAnchors(
   }));
 }
 
-function parseArgenpropAnchor(
+export function parseArgenpropAnchor(
   anchor: { href: string; text: string; html: string },
   requirement: SearchRequirement,
   index: number,
@@ -1384,7 +1422,7 @@ function parseArgenpropAnchor(
   };
 }
 
-function parseZonapropAnchor(
+export function parseZonapropAnchor(
   anchor: { href: string; text: string; html: string },
   requirement: SearchRequirement,
   index: number,
@@ -1440,7 +1478,7 @@ function parseZonapropAnchor(
   };
 }
 
-function parseMercadoLibreAnchor(
+export function parseMercadoLibreAnchor(
   anchor: { href: string; text: string; html: string },
   requirement: SearchRequirement,
   index: number,
@@ -1676,7 +1714,7 @@ function extractNeighborhoodFromListingSlug(slug: string, neighborhoods: string[
   );
 }
 
-function parseZonapropFallbackAnchor(
+export function parseZonapropFallbackAnchor(
   anchor: { href: string; text: string; html: string },
   requirement: SearchRequirement,
   index: number,
@@ -1748,7 +1786,7 @@ function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '');
 }
 
-function normalizePortalBaseUrl(providerKey: PortalProviderKey, value?: string | null) {
+export function normalizePortalBaseUrl(providerKey: PortalProviderKey, value?: string | null) {
   if (!value) {
     return null;
   }
@@ -1782,7 +1820,7 @@ function normalizePortalBaseUrl(providerKey: PortalProviderKey, value?: string |
   }
 }
 
-function normalizePortalRequestUrl(value: string) {
+export function normalizePortalRequestUrl(value: string) {
   try {
     const url = new URL(value);
     if (url.hostname === 'www.zonaprop.com.ar') {
