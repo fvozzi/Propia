@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { chromium, type Page } from 'playwright';
+import { chromium, type BrowserContext, type Page } from 'playwright';
 import { Repository } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
@@ -889,30 +889,29 @@ async function fetchHtmlWithBrowser(
   const normalizedUrl = normalizePortalRequestUrl(url);
   const requestOrigin = new URL(normalizedUrl).origin;
   const timeout = Number.parseInt(process.env.PORTAL_BROWSER_TIMEOUT_MS ?? '25000', 10);
-  const browser = await chromium.launch({
-    headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
-    executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
-    args: buildPortalBrowserArgs(),
-  });
+  const session = await createPortalBrowserContext(requestOrigin);
   let page: Page | null = null;
   let responseStatus: number | null = null;
   let responseStatusText: string | null = null;
 
   try {
-    const context = await createPortalBrowserContext(browser, requestOrigin);
+    const context = session.context;
     page = await context.newPage();
-    const response = await page.goto(normalizedUrl, {
+    const browserPage = page;
+    const response = await browserPage.goto(normalizedUrl, {
       waitUntil: 'domcontentloaded',
       timeout,
     });
     responseStatus = response?.status() ?? null;
     responseStatusText = response?.statusText() ?? null;
 
-    await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) }).catch(() => {});
+    await browserPage
+      .waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) })
+      .catch(() => {});
     let selectorVisible = false;
     if (options.waitForSelector) {
       try {
-        await page.waitForSelector(options.waitForSelector, {
+        await browserPage.waitForSelector(options.waitForSelector, {
           timeout: Math.min(timeout, 15000),
         });
         selectorVisible = true;
@@ -920,7 +919,7 @@ async function fetchHtmlWithBrowser(
         throw new Error(
           await buildBrowserPortalErrorMessage({
             portalLabel: options.portalLabel,
-            page,
+            page: browserPage,
             normalizedUrl,
             responseStatus,
             responseStatusText,
@@ -939,7 +938,7 @@ async function fetchHtmlWithBrowser(
       throw new Error(
         await buildBrowserPortalErrorMessage({
           portalLabel: options.portalLabel,
-          page,
+          page: browserPage,
           normalizedUrl,
           responseStatus,
           responseStatusText,
@@ -948,7 +947,7 @@ async function fetchHtmlWithBrowser(
       );
     }
 
-    const html = await page.content();
+    const html = await browserPage.content();
     await context.close();
     return html;
   } catch (error) {
@@ -978,7 +977,7 @@ async function fetchHtmlWithBrowser(
 
     throw error;
   } finally {
-    await browser.close();
+    await session.close();
   }
 }
 
@@ -986,17 +985,13 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
   const normalizedUrl = normalizePortalRequestUrl(url);
   const requestOrigin = new URL(normalizedUrl).origin;
   const timeout = Number.parseInt(process.env.PORTAL_BROWSER_TIMEOUT_MS ?? '25000', 10);
-  const browser = await chromium.launch({
-    headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
-    executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
-    args: buildPortalBrowserArgs(),
-  });
+  const session = await createPortalBrowserContext(requestOrigin);
   let page: Page | null = null;
   let responseStatus: number | null = null;
   let responseStatusText: string | null = null;
 
   try {
-    const context = await createPortalBrowserContext(browser, requestOrigin);
+    const context = session.context;
 
     await context.addCookies([
       {
@@ -1106,7 +1101,7 @@ async function fetchMercadoLibreHtmlWithBrowser(url: string) {
 
     throw error;
   } finally {
-    await browser.close();
+    await session.close();
   }
 }
 
@@ -1122,10 +1117,9 @@ function buildPortalBrowserArgs() {
 }
 
 async function createPortalBrowserContext(
-  browser: Awaited<ReturnType<typeof chromium.launch>>,
   requestOrigin: string,
 ) {
-  const context = await browser.newContext({
+  const contextOptions = {
     locale: 'es-AR',
     timezoneId: 'America/Argentina/Buenos_Aires',
     colorScheme: 'light',
@@ -1153,8 +1147,52 @@ async function createPortalBrowserContext(
       'sec-fetch-site': 'same-origin',
       'sec-fetch-user': '?1',
     },
-  });
+  } as const;
 
+  const launchOptions = buildPortalBrowserLaunchOptions();
+  const persistentUserDataDir = process.env.PLAYWRIGHT_USER_DATA_DIR?.trim();
+
+  if (persistentUserDataDir) {
+    const context = await chromium.launchPersistentContext(persistentUserDataDir, {
+      ...launchOptions,
+      ...contextOptions,
+    });
+    await hardenPortalBrowserContext(context);
+    return {
+      context,
+      close: async () => {
+        await context.close();
+      },
+    };
+  }
+
+  const browser = await chromium.launch(launchOptions);
+  const context = await browser.newContext(contextOptions);
+  await hardenPortalBrowserContext(context);
+  return {
+    context,
+    close: async () => {
+      await browser.close();
+    },
+  };
+}
+
+function buildPortalBrowserLaunchOptions() {
+  const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined;
+  const channel =
+    !executablePath && process.env.PLAYWRIGHT_BROWSER_CHANNEL
+      ? process.env.PLAYWRIGHT_BROWSER_CHANNEL
+      : undefined;
+
+  return {
+    headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
+    executablePath,
+    channel,
+    args: buildPortalBrowserArgs(),
+  };
+}
+
+async function hardenPortalBrowserContext(context: BrowserContext) {
   await context.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     Object.defineProperty(navigator, 'language', { get: () => 'es-AR' });
@@ -1178,8 +1216,6 @@ async function createPortalBrowserContext(
           : originalQuery(parameters)) as typeof window.navigator.permissions.query;
     }
   });
-
-  return context;
 }
 
 async function resolveMercadoLibreInterstitial(page: Page, timeout: number) {

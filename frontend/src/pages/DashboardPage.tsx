@@ -16,6 +16,7 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedOperationType, setSelectedOperationType] = useState<OperationType>('SALE');
+  const today = formatDateKey(new Date());
 
   useEffect(() => {
     apiRequest<DashboardData>('/dashboard/today')
@@ -42,6 +43,39 @@ export function DashboardPage() {
     return <p>{t('common.loading')}</p>;
   }
 
+  const stats = [
+    {
+      label: t('dashboard.dueToday'),
+      value: data?.followUpsDueToday.length ?? 0,
+      to: '/activities?nextFollowUpStatus=DUE_TODAY',
+    },
+    {
+      label: t('dashboard.overdue'),
+      value: data?.overdueFollowUps.length ?? 0,
+      to: '/activities?nextFollowUpStatus=OVERDUE',
+    },
+    {
+      label: t('dashboard.visitsToday'),
+      value: data?.visitsToday.length ?? 0,
+      to: `/visits?date=${today}`,
+    },
+    {
+      label: t('dashboard.activeProperties'),
+      value: data?.activePropertiesCount ?? 0,
+      to: '/properties?status=ACTIVE',
+    },
+    {
+      label: t('dashboard.activeRequirements'),
+      value: data?.activeSearchRequirementsCount ?? 0,
+      to: '/requirements?status=ACTIVE',
+    },
+    {
+      label: t('dashboard.pendingBuyerShares'),
+      value: data?.pendingBuyerPropertySharesCount ?? 0,
+      to: '/activities?activityType=PROPERTY_SEARCH&whatsappShareStatus=PENDING',
+    },
+  ];
+
   return (
     <div className="page-stack">
       <section className="page-header">
@@ -52,30 +86,12 @@ export function DashboardPage() {
       </section>
 
       <section className="stats-grid dashboard-stats-grid">
-        <article className="stat-card">
-          <span>{t('dashboard.dueToday')}</span>
-          <strong>{data?.followUpsDueToday.length ?? 0}</strong>
-        </article>
-        <article className="stat-card">
-          <span>{t('dashboard.overdue')}</span>
-          <strong>{data?.overdueFollowUps.length ?? 0}</strong>
-        </article>
-        <article className="stat-card">
-          <span>{t('dashboard.visitsToday')}</span>
-          <strong>{data?.visitsToday.length ?? 0}</strong>
-        </article>
-        <article className="stat-card">
-          <span>{t('dashboard.activeProperties')}</span>
-          <strong>{data?.activePropertiesCount ?? 0}</strong>
-        </article>
-        <article className="stat-card">
-          <span>{t('dashboard.activeRequirements')}</span>
-          <strong>{data?.activeSearchRequirementsCount ?? 0}</strong>
-        </article>
-        <article className="stat-card">
-          <span>{t('dashboard.pendingBuyerShares')}</span>
-          <strong>{data?.pendingBuyerPropertySharesCount ?? 0}</strong>
-        </article>
+        {stats.map((stat) => (
+          <Link key={stat.label} to={stat.to} className="stat-card dashboard-stat-link">
+            <span>{stat.label}</span>
+            <strong>{stat.value}</strong>
+          </Link>
+        ))}
       </section>
 
       <section className="card">
@@ -192,6 +208,13 @@ export function DashboardPage() {
       </section>
     </div>
   );
+}
+
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function translateRequirementStep(step: DashboardRequirementPipelineStep, t: (path: string) => string) {

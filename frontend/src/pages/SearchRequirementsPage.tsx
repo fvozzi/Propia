@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
@@ -10,8 +10,9 @@ import type { Paginated, SearchRequirement } from '../types';
 
 export function SearchRequirementsPage() {
   const { t, translateEnum } = useI18n();
+  const [searchParams] = useSearchParams();
   const [response, setResponse] = useState<Paginated<SearchRequirement> | null>(null);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [page, setPage] = useState(1);
 
   async function load(nextPage = page) {

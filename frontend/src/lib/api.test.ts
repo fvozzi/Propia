@@ -81,4 +81,25 @@ describe('api helpers', () => {
 
     await expect(apiRequest('/contacts')).rejects.toThrow('No autorizado');
   });
+
+  it('throws joined backend validation errors when the request fails with json', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          message: ['firstName should not be empty', 'email must be an email'],
+          error: 'Bad Request',
+          statusCode: 400,
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiRequest('/contacts')).rejects.toThrow(
+      'firstName should not be empty\nemail must be an email',
+    );
+  });
 });

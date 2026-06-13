@@ -36,6 +36,59 @@ export function clearSession() {
   localStorage.removeItem(USER_KEY);
 }
 
+function extractErrorMessage(payload: unknown): string | null {
+  if (typeof payload === 'string') {
+    const trimmed = payload.trim();
+    return trimmed || null;
+  }
+
+  if (Array.isArray(payload)) {
+    const messages = payload
+      .map((item) => extractErrorMessage(item))
+      .filter((item): item is string => Boolean(item));
+    return messages.length > 0 ? messages.join('\n') : null;
+  }
+
+  if (payload && typeof payload === 'object') {
+    const message =
+      'message' in payload
+        ? extractErrorMessage((payload as { message?: unknown }).message)
+        : null;
+
+    if (message) {
+      return message;
+    }
+
+    if ('error' in payload && typeof (payload as { error?: unknown }).error === 'string') {
+      return (payload as { error: string }).error;
+    }
+  }
+
+  return null;
+}
+
+async function buildErrorMessage(response: Response) {
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    const payload = await response.json().catch(() => null);
+    return extractErrorMessage(payload) ?? 'Request failed';
+  }
+
+  const errorText = (await response.text()).trim();
+
+  if (!errorText) {
+    return 'Request failed';
+  }
+
+  try {
+    const parsed = JSON.parse(errorText) as unknown;
+    return extractErrorMessage(parsed) ?? errorText;
+  } catch {
+    return errorText;
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -63,8 +116,7 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || 'Request failed');
+    throw new Error(await buildErrorMessage(response));
   }
 
   if (response.status === 204) {

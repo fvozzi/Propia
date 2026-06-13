@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
@@ -16,13 +16,14 @@ type PropertyFilters = {
 
 export function PropertiesPage() {
   const { t, translateEnum } = useI18n();
+  const [searchParams] = useSearchParams();
   const [response, setResponse] = useState<Paginated<Property> | null>(null);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<PropertyFilters>({
-    status: '',
-    operationType: '',
-    propertyType: '',
-    neighborhood: '',
+    status: (searchParams.get('status') as PropertyFilters['status']) ?? '',
+    operationType: (searchParams.get('operationType') as PropertyFilters['operationType']) ?? '',
+    propertyType: (searchParams.get('propertyType') as PropertyFilters['propertyType']) ?? '',
+    neighborhood: searchParams.get('neighborhood') ?? '',
   });
 
   async function load(nextPage = page) {

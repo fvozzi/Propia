@@ -26,14 +26,26 @@ export function ContactCreatePage() {
   const navigate = useNavigate();
   const { t, translateEnum } = useI18n();
   const [form, setForm] = useState(initialForm);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  async function handleCreate(event: FormEvent) {
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await apiRequest('/contacts', {
-      method: 'POST',
-      body: JSON.stringify(form),
-    });
-    navigate('/contacts');
+    setError('');
+    setSaving(true);
+
+    try {
+      await apiRequest('/contacts', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      });
+
+      navigate('/contacts');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el contacto');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -47,6 +59,8 @@ export function ContactCreatePage() {
           {t('contacts.backToList')}
         </Link>
       </section>
+
+      {error ? <div className="alert" role="alert">{error}</div> : null}
 
       <section className="card">
         <form className="form-grid" onSubmit={handleCreate}>
@@ -76,7 +90,11 @@ export function ContactCreatePage() {
           </label>
           <label>
             {t('common.email')}
-            <input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+            <input
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+            />
           </label>
           <label>
             {t('common.source')}
@@ -101,8 +119,8 @@ export function ContactCreatePage() {
             {t('common.notes')}
             <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows={4} />
           </label>
-          <button type="submit" className="full-span">
-            {t('contacts.save')}
+          <button type="submit" className="full-span" disabled={saving}>
+            {saving ? t('common.loading') : t('contacts.save')}
           </button>
         </form>
       </section>

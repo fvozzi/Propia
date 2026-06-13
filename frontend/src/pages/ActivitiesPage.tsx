@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
@@ -24,14 +24,19 @@ import type { Activity, Contact, Paginated } from '../types';
 
 export function ActivitiesPage() {
   const { formatDateTime, t, translateEnum } = useI18n();
+  const [searchParams] = useSearchParams();
+  const initialFilters = parseActivityFilters(searchParams);
+  const processedSearchStringRef = useRef(searchParams.toString());
   const [response, setResponse] = useState<Paginated<Activity> | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [page, setPage] = useState(1);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [activityDate, setActivityDate] = useState('');
-  const [contactId, setContactId] = useState('');
-  const [activityType, setActivityType] = useState('');
-  const [propertySearchFeedback, setPropertySearchFeedback] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(hasAnyActivityFilter(initialFilters));
+  const [activityDate, setActivityDate] = useState(initialFilters.activityDate);
+  const [contactId, setContactId] = useState(initialFilters.contactId);
+  const [activityType, setActivityType] = useState(initialFilters.activityType);
+  const [propertySearchFeedback, setPropertySearchFeedback] = useState(initialFilters.propertySearchFeedback);
+  const [nextFollowUpStatus, setNextFollowUpStatus] = useState(initialFilters.nextFollowUpStatus);
+  const [whatsappShareStatus, setWhatsappShareStatus] = useState(initialFilters.whatsappShareStatus);
   const [sharingActivityId, setSharingActivityId] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
 
@@ -42,6 +47,8 @@ export function ActivitiesPage() {
       contactId?: string;
       activityType?: string;
       propertySearchFeedback?: string;
+      nextFollowUpStatus?: string;
+      whatsappShareStatus?: string;
     } = {},
   ) {
     const params = new URLSearchParams({
@@ -53,6 +60,8 @@ export function ActivitiesPage() {
     const nextContactId = filters.contactId ?? contactId;
     const nextActivityType = filters.activityType ?? activityType;
     const nextPropertySearchFeedback = filters.propertySearchFeedback ?? propertySearchFeedback;
+    const nextNextFollowUpStatus = filters.nextFollowUpStatus ?? nextFollowUpStatus;
+    const nextWhatsappShareStatus = filters.whatsappShareStatus ?? whatsappShareStatus;
 
     if (nextActivityDate) {
       params.set('fromDate', nextActivityDate);
@@ -62,6 +71,8 @@ export function ActivitiesPage() {
     if (nextContactId) params.set('contactId', nextContactId);
     if (nextActivityType) params.set('activityType', nextActivityType);
     if (nextPropertySearchFeedback) params.set('propertySearchFeedback', nextPropertySearchFeedback);
+    if (nextNextFollowUpStatus) params.set('nextFollowUpStatus', nextNextFollowUpStatus);
+    if (nextWhatsappShareStatus) params.set('whatsappShareStatus', nextWhatsappShareStatus);
 
     const data = await apiRequest<Paginated<Activity>>(`/activities?${params.toString()}`);
     setResponse(data);
@@ -80,6 +91,25 @@ export function ActivitiesPage() {
     void loadContacts();
   }, []);
 
+  useEffect(() => {
+    const nextSearchString = searchParams.toString();
+    if (nextSearchString === processedSearchStringRef.current) {
+      return;
+    }
+
+    processedSearchStringRef.current = nextSearchString;
+    const nextFilters = parseActivityFilters(searchParams);
+    setActivityDate(nextFilters.activityDate);
+    setContactId(nextFilters.contactId);
+    setActivityType(nextFilters.activityType);
+    setPropertySearchFeedback(nextFilters.propertySearchFeedback);
+    setNextFollowUpStatus(nextFilters.nextFollowUpStatus);
+    setWhatsappShareStatus(nextFilters.whatsappShareStatus);
+    setFiltersOpen(hasAnyActivityFilter(nextFilters));
+    setPage(1);
+    void load(1, nextFilters);
+  }, [searchParams]);
+
   async function handleApplyFilters() {
     setPage(1);
     await load(1);
@@ -90,12 +120,16 @@ export function ActivitiesPage() {
     setContactId('');
     setActivityType('');
     setPropertySearchFeedback('');
+    setNextFollowUpStatus('');
+    setWhatsappShareStatus('');
     setPage(1);
     await load(1, {
       activityDate: '',
       contactId: '',
       activityType: '',
       propertySearchFeedback: '',
+      nextFollowUpStatus: '',
+      whatsappShareStatus: '',
     });
   }
 
@@ -227,6 +261,30 @@ export function ActivitiesPage() {
             <label>
               {t('activities.activityDate')}
               <input type="date" value={activityDate} onChange={(event) => setActivityDate(event.target.value)} aria-label={t('activities.activityDate')} />
+            </label>
+            <label>
+              {t('activities.followUpFilter')}
+              <select
+                value={nextFollowUpStatus}
+                onChange={(event) => setNextFollowUpStatus(event.target.value)}
+                aria-label={t('activities.followUpFilter')}
+              >
+                <option value="">{t('activities.allFollowUps')}</option>
+                <option value="DUE_TODAY">{t('activities.followUpDueToday')}</option>
+                <option value="OVERDUE">{t('activities.followUpOverdue')}</option>
+              </select>
+            </label>
+            <label>
+              {t('activities.whatsappShareFilter')}
+              <select
+                value={whatsappShareStatus}
+                onChange={(event) => setWhatsappShareStatus(event.target.value)}
+                aria-label={t('activities.whatsappShareFilter')}
+              >
+                <option value="">{t('activities.allShareStatuses')}</option>
+                <option value="PENDING">{t('activities.pendingShareStatus')}</option>
+                <option value="SHARED">{t('activities.sharedShareStatus')}</option>
+              </select>
             </label>
           </div>
           <div className="filters-actions">
@@ -363,6 +421,21 @@ export function ActivitiesPage() {
       </PaginatedListCard>
     </div>
   );
+}
+
+function parseActivityFilters(searchParams: URLSearchParams) {
+  return {
+    activityDate: searchParams.get('activityDate') ?? '',
+    contactId: searchParams.get('contactId') ?? '',
+    activityType: searchParams.get('activityType') ?? '',
+    propertySearchFeedback: searchParams.get('propertySearchFeedback') ?? '',
+    nextFollowUpStatus: searchParams.get('nextFollowUpStatus') ?? '',
+    whatsappShareStatus: searchParams.get('whatsappShareStatus') ?? '',
+  };
+}
+
+function hasAnyActivityFilter(filters: ReturnType<typeof parseActivityFilters>) {
+  return Object.values(filters).some(Boolean);
 }
 
 function ActivityPreviewCard({

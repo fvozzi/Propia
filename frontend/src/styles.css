@@ -209,6 +209,19 @@ label {
   text-wrap: balance;
 }
 
+.dashboard-stat-link {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.dashboard-stat-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(182, 77, 27, 0.28);
+  box-shadow: 0 22px 52px rgba(120, 90, 44, 0.12);
+}
+
 .stat-card strong {
   font-size: 2rem;
 }

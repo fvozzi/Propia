@@ -104,6 +104,10 @@ export class ActivitiesService {
 
   async findAll(query: QueryActivitiesDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
+    const followUpDayStart = new Date();
+    followUpDayStart.setHours(0, 0, 0, 0);
+    const followUpDayEnd = new Date(followUpDayStart);
+    followUpDayEnd.setDate(followUpDayEnd.getDate() + 1);
     const qb = this.activitiesRepository
       .createQueryBuilder('activity')
       .leftJoinAndSelect('activity.contact', 'contact')
@@ -134,8 +138,37 @@ export class ActivitiesService {
       }
     }
 
+    if (query.whatsappShareStatus) {
+      qb.andWhere('activity.activityType = :shareActivityType', {
+        shareActivityType: ActivityType.PROPERTY_SEARCH,
+      });
+
+      if (query.whatsappShareStatus === 'PENDING') {
+        qb.andWhere('activity.whatsappSharedAt IS NULL');
+      } else {
+        qb.andWhere('activity.whatsappSharedAt IS NOT NULL');
+      }
+    }
+
     if (query.propertyId) {
       qb.andWhere('activity.propertyId = :propertyId', { propertyId: query.propertyId });
+    }
+
+    if (query.nextFollowUpStatus) {
+      qb.andWhere('activity.nextFollowUpDate IS NOT NULL');
+
+      if (query.nextFollowUpStatus === 'DUE_TODAY') {
+        qb.andWhere('activity.nextFollowUpDate >= :followUpDayStart', {
+          followUpDayStart: followUpDayStart.toISOString(),
+        });
+        qb.andWhere('activity.nextFollowUpDate < :followUpDayEnd', {
+          followUpDayEnd: followUpDayEnd.toISOString(),
+        });
+      } else {
+        qb.andWhere('activity.nextFollowUpDate < :followUpDayStart', {
+          followUpDayStart: followUpDayStart.toISOString(),
+        });
+      }
     }
 
     if (query.nextFollowUpDate) {

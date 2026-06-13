@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { useI18n, visitStatusOptions } from '../lib/i18n';
@@ -6,12 +7,13 @@ import type { Contact, Paginated, Property, Visit } from '../types';
 
 export function VisitsPage() {
   const { formatDateTime, t, translateEnum } = useI18n();
+  const [searchParams] = useSearchParams();
   const [visits, setVisits] = useState<Paginated<Visit> | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [filters, setFilters] = useState({
-    date: '',
-    status: '',
+    date: searchParams.get('date') ?? '',
+    status: searchParams.get('status') ?? '',
   });
 
   async function load() {
