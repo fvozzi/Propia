@@ -533,6 +533,129 @@
   - feedback loop desde acciones de usuaria
   - recomendaciones mas finas segun historial de descarte o compartidos
 
+## UC10. Finanzas: registrar egresos operativos
+
+- Objetivo: permitir que la usuaria registre egresos operativos del negocio inmobiliario y, cuando corresponda, los vincule a una actividad o a un requerimiento para luego medir rentabilidad.
+- Actor principal: usuaria comercial.
+- Entidades principales propuestas: `FinancialEntry`, `SearchRequirement`, `Activity`.
+
+### Flujo esperado
+
+1. La usuaria entra al modulo de finanzas.
+2. La usuaria crea un nuevo movimiento de tipo `Egreso`.
+3. El sistema solicita fecha, categoria de egreso, moneda, monto y notas opcionales.
+4. La usuaria puede vincular el egreso a una actividad y opcionalmente a un requerimiento.
+5. El sistema guarda el movimiento y lo muestra en el historial financiero.
+6. Si el egreso esta asociado a un requerimiento, debe impactar luego en el resumen economico de ese requerimiento.
+
+### Primera version implementada
+
+- Categorias iniciales:
+  - `Fotografia`
+  - `Transporte`
+  - `Publicidad / pauta`
+  - `Servicios de busqueda de propiedades`
+  - `Fotocopias`
+  - `Otro`
+- El movimiento puede vincularse a una `Activity`.
+- El movimiento puede vincularse a un `SearchRequirement`.
+- La UI muestra el listado de movimientos y un resumen agregado por requerimiento.
+
+### Criterios de aceptacion
+
+- Debe existir un alta de egreso con fecha, categoria, moneda y monto.
+- La vinculacion a actividad debe ser opcional.
+- La vinculacion a requerimiento debe ser opcional, pero persistente cuando se informa.
+- El historial debe distinguir claramente egresos de ingresos.
+- El resumen por requerimiento debe acumular egresos para compararlos luego con los ingresos generados por una operacion.
+
+### Cobertura unitaria
+
+- Pendiente de ampliar con tests especificos del caso de uso financiero.
+- Regla ya implementada en servicio:
+  - persistencia de egresos con categoria, monto y asociaciones opcionales
+
+## UC11. Finanzas: registrar ingresos por operaciones cerradas
+
+- Objetivo: permitir que la usuaria registre ingresos provenientes de operaciones cerradas, calculando automaticamente comision, participacion de franquicia e ingreso neto.
+- Actor principal: usuaria comercial.
+- Entidades principales propuestas: `FinancialEntry`, `Activity`, `FinanceConfig`.
+
+### Flujo esperado
+
+1. La usuaria entra al modulo de finanzas.
+2. La usuaria crea un nuevo movimiento de tipo `Ingreso`.
+3. El sistema obliga a elegir una actividad de tipo `Escritura de venta` o `Escritura de compra`.
+4. El sistema propone monto total de la operacion, porcentaje de comision y porcentaje de franquicia.
+5. La usuaria puede editar esos valores antes de guardar.
+6. El sistema calcula comision de la operacion, monto de franquicia e ingreso neto de la usuaria.
+7. El movimiento queda registrado y debe poder imputarse al requerimiento relacionado cuando exista.
+
+### Primera version implementada
+
+- Los ingresos solo pueden vincularse a actividades de tipo `SALE_DEED` o `PURCHASE_DEED`.
+- El porcentaje de comision sugerido sale de `FinanceConfig`:
+  - venta: `saleCommissionPercent`
+  - compra: `purchaseCommissionPercent`
+- El porcentaje de franquicia sugerido sale de `FinanceConfig.franchisePercent`.
+- El sistema calcula:
+  - `commissionAmount`
+  - `franchiseAmount`
+  - `netIncomeAmount`
+
+### Criterios de aceptacion
+
+- Un ingreso no debe poder guardarse sin estar vinculado a una actividad de escritura.
+- Debe poder elegirse una escritura de venta o compra como origen del ingreso.
+- El monto total de la operacion debe ser editable.
+- Los porcentajes de comision y franquicia deben poder editarse antes de guardar.
+- El sistema debe mostrar de forma visible el ingreso neto resultante.
+- El historial debe mostrar ingresos junto con su actividad vinculada y los montos calculados.
+
+### Cobertura unitaria
+
+- Pendiente de ampliar con tests especificos del caso de uso financiero.
+- Regla ya implementada en servicio:
+  - validacion de que los ingresos se vinculen a una actividad de escritura
+  - calculo derivado de comision, franquicia e ingreso neto
+
+## UC12. Finanzas: configurar porcentajes de comision y franquicia
+
+- Objetivo: permitir que cada cuenta configure sus porcentajes por defecto para venta, compra y franquicia, de modo que los ingresos se calculen con reglas propias del equipo.
+- Actor principal: usuaria administradora del equipo.
+- Entidad principal propuesta: `FinanceConfig`.
+
+### Flujo esperado
+
+1. La usuaria administradora entra a configuracion.
+2. El sistema muestra los porcentajes vigentes de franquicia, venta y compra.
+3. La usuaria modifica uno o varios valores.
+4. El sistema guarda la configuracion a nivel de `team`.
+5. Al crear un ingreso nuevo, el modulo de finanzas usa esos porcentajes como valores sugeridos iniciales.
+
+### Primera version implementada
+
+- Existe una configuracion financiera por `team`.
+- Valores iniciales por defecto:
+  - franquicia: `55%`
+  - comision de venta: `3%`
+  - comision de compra: `4%`
+- La configuracion se edita desde `Settings`.
+- El modulo de finanzas la consume para precargar el formulario de ingresos.
+
+### Criterios de aceptacion
+
+- Debe existir una unica configuracion financiera por equipo.
+- Deben poder editarse porcentaje de franquicia, porcentaje de venta y porcentaje de compra.
+- Los cambios deben impactar en nuevos ingresos sin requerir cambios manuales en codigo.
+- La configuracion no debe alterar retroactivamente movimientos ya guardados.
+
+### Cobertura unitaria
+
+- Pendiente de ampliar con tests especificos del caso de uso financiero.
+- Regla ya implementada en servicio:
+  - lectura y persistencia de configuracion financiera por equipo
+
 ## Nota
 
 Estos casos de uso quedan documentados y testeados a nivel de reglas de negocio. La implementacion funcional completa en entidades, endpoints, dashboard y UI puede construirse iterativamente sobre esta base.

@@ -35,6 +35,7 @@ export function ContactDetailPage() {
         phone: formData.get('phone'),
         whatsapp: formData.get('whatsapp'),
         email: formData.get('email'),
+        documentNumber: formData.get('documentNumber'),
         source: formData.get('source'),
         notes: formData.get('notes'),
         roles,
@@ -94,6 +95,10 @@ export function ContactDetailPage() {
             <label>
               {t('common.email')}
               <input name="email" defaultValue={contact.email ?? ''} />
+            </label>
+            <label>
+              {t('contacts.documentNumber')}
+              <input name="documentNumber" defaultValue={contact.documentNumber ?? ''} />
             </label>
             <label>
               {t('common.source')}

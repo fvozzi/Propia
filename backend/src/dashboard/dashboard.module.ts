@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Activity } from '../activities/activity.entity';
+import { ActivityGoal } from '../activity-goals/activity-goal.entity';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
@@ -9,7 +10,16 @@ import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Activity, Visit, Property, SearchRequirement, AppraisalRequest])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Activity,
+      ActivityGoal,
+      Visit,
+      Property,
+      SearchRequirement,
+      AppraisalRequest,
+    ]),
+  ],
   controllers: [DashboardController],
   providers: [DashboardService],
 })

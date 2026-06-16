@@ -59,6 +59,10 @@ function getActivityTypeLabel(activityType: ActivityType) {
       return 'Busqueda de propiedad';
     case ActivityType.APPRAISAL_REQUEST:
       return 'Solicitud de tasacion';
+    case ActivityType.SALE_DEED:
+      return 'Escritura de venta';
+    case ActivityType.PURCHASE_DEED:
+      return 'Escritura de compra';
     default:
       return 'Actividad';
   }

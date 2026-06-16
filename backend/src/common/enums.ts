@@ -64,6 +64,8 @@ export enum ActivityType {
   FOLLOW_UP = 'FOLLOW_UP',
   PROPERTY_SEARCH = 'PROPERTY_SEARCH',
   APPRAISAL_REQUEST = 'APPRAISAL_REQUEST',
+  SALE_DEED = 'SALE_DEED',
+  PURCHASE_DEED = 'PURCHASE_DEED',
 }
 
 export enum VisitStatus {
@@ -141,4 +143,23 @@ export enum PortalSearchRunStatus {
   RUNNING = 'RUNNING',
   SUCCESS = 'SUCCESS',
   FAILED = 'FAILED',
+}
+
+export enum DocumentTemplatePresetKey {
+  CUSTOM = 'CUSTOM',
+  EXCLUSIVE_SALE_AUTHORIZATION = 'EXCLUSIVE_SALE_AUTHORIZATION',
+}
+
+export enum FinancialEntryType {
+  EXPENSE = 'EXPENSE',
+  INCOME = 'INCOME',
+}
+
+export enum ExpenseCategory {
+  PHOTOGRAPHY = 'PHOTOGRAPHY',
+  TRANSPORT = 'TRANSPORT',
+  ADVERTISING = 'ADVERTISING',
+  PROPERTY_SEARCH_SERVICES = 'PROPERTY_SEARCH_SERVICES',
+  PHOTOCOPIES = 'PHOTOCOPIES',
+  OTHER = 'OTHER',
 }

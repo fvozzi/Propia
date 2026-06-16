@@ -96,6 +96,34 @@ export function DashboardPage() {
 
       <section className="card">
         <div className="page-header">
+          <h3>{t('dashboard.weeklyGoalsTitle')}</h3>
+        </div>
+        {(data?.weeklyActivityGoals ?? []).length === 0 ? (
+          <p className="muted">{t('dashboard.weeklyGoalsEmpty')}</p>
+        ) : (
+          <div className="stats-grid dashboard-stats-grid">
+            {(data?.weeklyActivityGoals ?? []).map((goal) => (
+              <article key={goal.goalId} className="stat-card">
+                <span>{translateEnum('activityType', goal.activityType)}</span>
+                <strong>
+                  {goal.completedCount}/{goal.targetCount}
+                </strong>
+                <small className="muted">
+                  {t('dashboard.weeklyGoalsProgress')}: {goal.completedCount}
+                </small>
+                <small className="muted">
+                  {goal.remainingCount > 0
+                    ? `${t('dashboard.weeklyGoalsRemaining')}: ${goal.remainingCount}`
+                    : t('dashboard.weeklyGoalsAchieved')}
+                </small>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="page-header">
           <h3>{t('dashboard.requirementsByType')}</h3>
         </div>
         {(data?.requirementPipelineGroups ?? []).every((group) => group.total === 0) ? (

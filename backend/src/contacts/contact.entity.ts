@@ -44,6 +44,9 @@ export class Contact {
   email: string | null;
 
   @Column({ type: 'varchar', nullable: true })
+  documentNumber: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   source: string | null;
 
   @Column({ type: 'text', nullable: true })

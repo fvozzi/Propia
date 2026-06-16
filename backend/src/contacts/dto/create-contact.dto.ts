@@ -50,6 +50,11 @@ export class CreateContactDto {
   @Transform(({ value }) => normalizeOptionalString(value))
   @IsOptional()
   @IsString()
+  documentNumber?: string;
+
+  @Transform(({ value }) => normalizeOptionalString(value))
+  @IsOptional()
+  @IsString()
   source?: string;
 
   @Transform(({ value }) => normalizeOptionalString(value))

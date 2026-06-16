@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ActivityGoalsModule } from './activity-goals/activity-goals.module';
 import { AppraisalRequestsModule } from './appraisal-requests/appraisal-requests.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -10,7 +11,9 @@ import { CalendarModule } from './calendar/calendar.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { buildDataSourceOptions } from './database/typeorm.config';
+import { DocumentTemplatesModule } from './document-templates/document-templates.module';
 import { ExternalSearchModule } from './external-search/external-search.module';
+import { FinancesModule } from './finances/finances.module';
 import { PropertiesModule } from './properties/properties.module';
 import { SearchRequirementsModule } from './search-requirements/search-requirements.module';
 import { VisitsModule } from './visits/visits.module';
@@ -26,6 +29,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
       useFactory: (configService: ConfigService) => buildDataSourceOptions(configService),
     }),
     AuthModule,
+    ActivityGoalsModule,
     AppraisalRequestsModule,
     BuyerPropertyCandidatesModule,
     CalendarModule,
@@ -33,6 +37,8 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     PropertiesModule,
     SearchRequirementsModule,
     ExternalSearchModule,
+    DocumentTemplatesModule,
+    FinancesModule,
     ActivitiesModule,
     VisitsModule,
     DashboardModule,

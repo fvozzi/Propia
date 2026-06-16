@@ -44,6 +44,7 @@ export class ContactsService {
         `(contact.firstName ILIKE :search
           OR contact.lastName ILIKE :search
           OR contact.displayName ILIKE :search
+          OR contact."documentNumber" ILIKE :search
           OR contact.phone ILIKE :search
           OR contact.email ILIKE :search)`,
         { search: `%${query.search}%` },
@@ -111,6 +112,7 @@ export class ContactsService {
       phone: rest.phone ?? contact.phone ?? undefined,
       whatsapp: rest.whatsapp ?? contact.whatsapp ?? undefined,
       email: rest.email ?? contact.email ?? undefined,
+      documentNumber: rest.documentNumber ?? contact.documentNumber ?? undefined,
       source: rest.source ?? contact.source ?? undefined,
       notes: rest.notes ?? contact.notes ?? undefined,
     });
@@ -151,7 +153,15 @@ export class ContactsService {
 
   private normalizeContactFields(dto: Pick<
     CreateContactDto,
-    'firstName' | 'lastName' | 'displayName' | 'phone' | 'whatsapp' | 'email' | 'source' | 'notes'
+    | 'firstName'
+    | 'lastName'
+    | 'displayName'
+    | 'phone'
+    | 'whatsapp'
+    | 'email'
+    | 'documentNumber'
+    | 'source'
+    | 'notes'
   >) {
     const firstName = dto.firstName.trim();
     const lastName = dto.lastName?.trim() ?? '';
@@ -164,6 +174,7 @@ export class ContactsService {
       phone: dto.phone ?? null,
       whatsapp: dto.whatsapp ?? null,
       email: dto.email ?? null,
+      documentNumber: dto.documentNumber ?? null,
       source: dto.source ?? null,
       notes: dto.notes ?? null,
     };

@@ -11,6 +11,7 @@ const initialForm = {
   phone: '',
   whatsapp: '',
   email: '',
+  documentNumber: '',
   source: '',
   notes: '',
   roles: ['BUYER'] as Role[],
@@ -94,6 +95,15 @@ export function ContactCreatePage() {
               type="email"
               value={form.email}
               onChange={(event) => setForm({ ...form, email: event.target.value })}
+            />
+          </label>
+          <label>
+            {t('contacts.documentNumber')}
+            <input
+              value={form.documentNumber}
+              onChange={(event) =>
+                setForm({ ...form, documentNumber: event.target.value })
+              }
             />
           </label>
           <label>

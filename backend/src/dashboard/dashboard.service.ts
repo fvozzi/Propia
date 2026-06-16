@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Activity } from '../activities/activity.entity';
+import { ActivityGoal } from '../activity-goals/activity-goal.entity';
 import { ActivityType, PropertyStatus, SearchRequirementStatus } from '../common/enums';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { Property } from '../properties/property.entity';
@@ -15,6 +16,8 @@ export class DashboardService {
   constructor(
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
+    @InjectRepository(ActivityGoal)
+    private readonly activityGoalsRepository: Repository<ActivityGoal>,
     @InjectRepository(Visit)
     private readonly visitsRepository: Repository<Visit>,
     @InjectRepository(Property)
@@ -31,6 +34,9 @@ export class DashboardService {
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
+    const weekStart = getStartOfWeek(new Date());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
 
     const [
       followUpsDueToday,
@@ -40,6 +46,7 @@ export class DashboardService {
       activeSearchRequirementsCount,
       pendingBuyerPropertyShares,
       activeRequirements,
+      activityGoals,
     ] =
       await Promise.all([
         this.activitiesRepository
@@ -102,6 +109,10 @@ export class DashboardService {
             updatedAt: 'DESC',
           },
         }),
+        this.activityGoalsRepository.find({
+          where: { teamId },
+          order: { activityType: 'ASC', createdAt: 'ASC' },
+        }),
       ]);
 
     const requirementContactIds = [...new Set(activeRequirements.map((requirement) => requirement.contactId))];
@@ -129,6 +140,12 @@ export class DashboardService {
       propertySearchActivities,
       appraisalRequests,
     );
+    const weeklyActivityGoals = await this.buildWeeklyActivityGoals(
+      teamId,
+      activityGoals,
+      weekStart,
+      weekEnd,
+    );
 
     return {
       followUpsDueToday,
@@ -138,7 +155,60 @@ export class DashboardService {
       activeSearchRequirementsCount,
       pendingBuyerPropertySharesCount: pendingBuyerPropertyShares.length,
       pendingBuyerPropertyShares,
+      weeklyActivityGoals,
       requirementPipelineGroups,
     };
   }
+
+  private async buildWeeklyActivityGoals(
+    teamId: number,
+    goals: ActivityGoal[],
+    weekStart: Date,
+    weekEnd: Date,
+  ) {
+    if (goals.length === 0) {
+      return [];
+    }
+
+    const counts = await this.activitiesRepository
+      .createQueryBuilder('activity')
+      .select('activity.activityType', 'activityType')
+      .addSelect('COUNT(*)', 'count')
+      .where('activity.teamId = :teamId', { teamId })
+      .andWhere('activity.activityDate >= :weekStart', {
+        weekStart: weekStart.toISOString(),
+      })
+      .andWhere('activity.activityDate < :weekEnd', {
+        weekEnd: weekEnd.toISOString(),
+      })
+      .andWhere('activity.activityType IN (:...activityTypes)', {
+        activityTypes: goals.map((goal) => goal.activityType),
+      })
+      .groupBy('activity.activityType')
+      .getRawMany<{ activityType: ActivityType; count: string }>();
+
+    const countByType = new Map(
+      counts.map((row) => [row.activityType, Number(row.count)]),
+    );
+
+    return goals.map((goal) => {
+      const completedCount = countByType.get(goal.activityType) ?? 0;
+      return {
+        goalId: goal.id,
+        activityType: goal.activityType,
+        targetCount: goal.targetCount,
+        completedCount,
+        remainingCount: Math.max(goal.targetCount - completedCount, 0),
+      };
+    });
+  }
+}
+
+function getStartOfWeek(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  return date;
 }

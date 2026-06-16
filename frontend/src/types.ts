@@ -72,7 +72,9 @@ export type ActivityType =
   | 'NOTE'
   | 'FOLLOW_UP'
   | 'PROPERTY_SEARCH'
-  | 'APPRAISAL_REQUEST';
+  | 'APPRAISAL_REQUEST'
+  | 'SALE_DEED'
+  | 'PURCHASE_DEED';
 export type VisitStatus = 'SCHEDULED' | 'DONE' | 'CANCELLED' | 'RESCHEDULED';
 export type AppraisalOrientation = 'EAST' | 'NORTH' | 'SOUTH' | 'WEST';
 export type AppraisalDisposition = 'FRONT' | 'BACK';
@@ -84,6 +86,16 @@ export type AccountStatus = 'ACTIVE' | 'TRIAL' | 'PAST_DUE' | 'SUSPENDED' | 'CAN
 export type PortalProviderKey = 'ARGENPROP' | 'ZONAPROP' | 'MERCADOLIBRE' | 'MOCK';
 export type ExternalListingStatus = 'ACTIVE' | 'MISSING' | 'DUPLICATED' | 'ARCHIVED';
 export type PortalSearchRunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
+export type DocumentTemplatePresetKey = 'CUSTOM' | 'EXCLUSIVE_SALE_AUTHORIZATION';
+export type DocumentTemplateFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select';
+export type FinancialEntryType = 'EXPENSE' | 'INCOME';
+export type ExpenseCategory =
+  | 'PHOTOGRAPHY'
+  | 'TRANSPORT'
+  | 'ADVERTISING'
+  | 'PROPERTY_SEARCH_SERVICES'
+  | 'PHOTOCOPIES'
+  | 'OTHER';
 
 export interface SessionTeam {
   id: number;
@@ -109,6 +121,7 @@ export interface Contact {
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
+  documentNumber: string | null;
   source: string | null;
   notes: string | null;
   createdAt: string;
@@ -211,6 +224,77 @@ export interface PortalSourceConfig {
   authConfig: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DocumentTemplateFieldDefinition {
+  key: string;
+  label: string;
+  type: DocumentTemplateFieldType;
+  required?: boolean;
+  placeholder?: string;
+  helpText?: string;
+  options?: Array<{
+    label: string;
+    value: string;
+  }>;
+}
+
+export interface DocumentTemplate {
+  id: number;
+  teamId: number;
+  ownerUserId: number;
+  name: string;
+  description: string | null;
+  presetKey: DocumentTemplatePresetKey;
+  sourceFileName: string | null;
+  sourceFilePath?: string | null;
+  htmlContent: string | null;
+  fieldDefinitions: DocumentTemplateFieldDefinition[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityGoal {
+  id: number;
+  teamId: number;
+  activityType: ActivityType;
+  targetCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceConfig {
+  id: number;
+  teamId: number;
+  franchisePercent: number;
+  saleCommissionPercent: number;
+  purchaseCommissionPercent: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinancialEntry {
+  id: number;
+  teamId: number;
+  ownerUserId: number;
+  entryType: FinancialEntryType;
+  entryDate: string;
+  currency: CurrencyType;
+  amount: number;
+  expenseCategory: ExpenseCategory | null;
+  activityId: number | null;
+  searchRequirementId: number | null;
+  incomeOperationType: OperationType | null;
+  operationAmount: number | null;
+  commissionPercent: number | null;
+  commissionAmount: number | null;
+  franchisePercent: number | null;
+  franchiseAmount: number | null;
+  netIncomeAmount: number | null;
+  notes: string | null;
+  createdAt: string;
+  activity?: Activity | null;
+  searchRequirement?: SearchRequirement | null;
 }
 
 export interface ExternalListing {
@@ -405,7 +489,16 @@ export interface DashboardData {
   activeSearchRequirementsCount: number;
   pendingBuyerPropertySharesCount: number;
   pendingBuyerPropertyShares: Activity[];
+  weeklyActivityGoals: WeeklyActivityGoalProgress[];
   requirementPipelineGroups: DashboardRequirementPipelineGroup[];
+}
+
+export interface WeeklyActivityGoalProgress {
+  goalId: number;
+  activityType: ActivityType;
+  targetCount: number;
+  completedCount: number;
+  remainingCount: number;
 }
 
 export interface DashboardRequirementPipelineStep {

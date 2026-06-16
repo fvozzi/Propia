@@ -16,6 +16,8 @@ import { ContactCreatePage } from './pages/ContactCreatePage';
 import { ContactDetailPage } from './pages/ContactDetailPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { DocumentsPage } from './pages/DocumentsPage';
+import { FinancesPage } from './pages/FinancesPage';
 import { LoginPage } from './pages/LoginPage';
 import { PublicAppraisalRequestPage } from './pages/PublicAppraisalRequestPage';
 import { PropertyMapPage } from './pages/PropertyMapPage';
@@ -45,6 +47,8 @@ export default function App() {
                 <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/contacts/new" element={<ContactCreatePage />} />
                 <Route path="/contacts/:id" element={<ContactDetailPage />} />
+                <Route path="/documents" element={<DocumentsPage />} />
+                <Route path="/finances" element={<FinancesPage />} />
                 <Route path="/appraisals" element={<AppraisalRequestsPage />} />
                 <Route path="/appraisals/new" element={<AppraisalRequestFormPage />} />
                 <Route path="/appraisals/:id/edit" element={<AppraisalRequestFormPage />} />
