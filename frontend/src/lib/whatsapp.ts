@@ -1,9 +1,49 @@
-import type { Activity, Contact } from '../types';
+import type { Activity, Contact, Property, Visit } from '../types';
 
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
+type ShareableVisit = Pick<Visit, 'scheduledAt' | 'status' | 'notes' | 'externalUrl'> & {
+  property?: Pick<Property, 'address' | 'city' | 'neighborhood'> | null;
+};
 
 export function buildPropertySearchMessage(activity: Pick<Activity, 'externalUrl' | 'whatsappComment'>) {
   return [activity.whatsappComment, activity.externalUrl].filter(Boolean).join('\n\n');
+}
+
+export function buildVisitWhatsappMessage(visit: ShareableVisit) {
+  const statusLine = getVisitWhatsappStatusLine(visit.status);
+  const date = new Date(visit.scheduledAt);
+  const weekday = new Intl.DateTimeFormat('es-AR', {
+    weekday: 'long',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  })
+    .format(date)
+    .toUpperCase();
+  const calendarDate = new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(date);
+  const time = new Intl.DateTimeFormat('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(date);
+  const address = [visit.property?.address, visit.property?.neighborhood || visit.property?.city]
+    .filter(Boolean)
+    .join(', ');
+
+  return [
+    statusLine,
+    `🗓️ ${weekday} ${calendarDate}`,
+    `🕒 ${time} hs`,
+    address ? `📍 ${address}` : null,
+    visit.notes?.trim() ? visit.notes.trim() : null,
+    visit.externalUrl?.trim() ? `🔗 ${visit.externalUrl.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function getContactWhatsappPhone(contact: ShareableContact) {
@@ -48,6 +88,20 @@ export function openWhatsAppShareUrl(url: string) {
 function isMobileWhatsAppShareTarget() {
   const userAgent = navigator.userAgent.toLowerCase();
   return /android|iphone|ipad|ipod|mobile|tablet/.test(userAgent);
+}
+
+function getVisitWhatsappStatusLine(status: Visit['status']) {
+  switch (status) {
+    case 'DONE':
+      return '✅ VISITA REALIZADA';
+    case 'CANCELLED':
+      return '❌ VISITA CANCELADA';
+    case 'RESCHEDULED':
+      return '🔄 VISITA REPROGRAMADA';
+    case 'SCHEDULED':
+    default:
+      return '✅ VISITA CONFIRMADA';
+  }
 }
 
 function normalizeMobileWhatsappPhone(rawPhone: string) {

@@ -155,6 +155,14 @@
   - pipeline de compra/alquiler con criterios y propiedades compartidas
   - agrupacion por tipo de operacion y conteo de completitud
 
+## Criterio transversal. Diferencia entre Visita y Muestra
+
+- `Visita`: instancia de agenda para ir a ver una propiedad que esta mostrando otro colega o inmobiliaria.
+- `Muestra de propiedad`: actividad agendable del CRM para mostrar una propiedad propia o captada por el equipo.
+- En calendario deben convivir ambas, pero no deben confundirse:
+  - `Visitas` corresponde a la agenda comercial externa.
+  - `Muestra de propiedad` corresponde al tipo de actividad `VISIT`.
+
 ## UC7. Navegacion por mapa
 
 - Objetivo: permitir que la usuaria vea en un mapa la actividad vinculada a propiedades y filtre entre propiedades en venta y propiedades ya visitadas en busquedas para clientes.

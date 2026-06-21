@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPropertySearchMessage,
+  buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
@@ -22,6 +23,30 @@ describe('whatsapp helpers', () => {
         externalUrl: 'https://zonaprop.com.ar/publicacion',
       }),
     ).toBe('Te comparto esta opcion\n\nhttps://zonaprop.com.ar/publicacion');
+  });
+
+  it('builds the visit confirmation message with schedule, address and link', () => {
+    expect(
+      buildVisitWhatsappMessage({
+        scheduledAt: '2026-05-11T14:30:00.000Z',
+        status: 'SCHEDULED',
+        notes: null,
+        externalUrl: 'https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+        property: {
+          address: 'Av Dorrego 1653 timbre 5',
+          neighborhood: 'Palermo Hollywood',
+          city: 'CABA',
+        },
+      }),
+    ).toBe(
+      [
+        '✅ VISITA CONFIRMADA',
+        '🗓️ LUNES 11/05/2026',
+        '🕒 11:30 hs',
+        '📍 Av Dorrego 1653 timbre 5, Palermo Hollywood',
+        '🔗 https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+      ].join('\n'),
+    );
   });
 
   it('prefers whatsapp over phone for the contact number', () => {

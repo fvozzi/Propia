@@ -73,6 +73,9 @@ export type ActivityType =
   | 'FOLLOW_UP'
   | 'PROPERTY_SEARCH'
   | 'APPRAISAL_REQUEST'
+  | 'MARKET_ANALYSIS'
+  | 'PHOTO_SESSION'
+  | 'RESERVATION'
   | 'SALE_DEED'
   | 'PURCHASE_DEED';
 export type VisitStatus = 'SCHEDULED' | 'DONE' | 'CANCELLED' | 'RESCHEDULED';
@@ -455,6 +458,7 @@ export interface Visit {
   scheduledAt: string;
   status: VisitStatus;
   notes: string | null;
+  externalUrl: string | null;
   googleEventId?: string | null;
   googleSyncStatus?: string;
   lastSyncedAt?: string | null;

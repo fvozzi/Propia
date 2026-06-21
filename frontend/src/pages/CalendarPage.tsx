@@ -2,8 +2,14 @@ import { FormEvent, MouseEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
-import { activityTypeOptions, useI18n, visitStatusOptions } from '../lib/i18n';
-import type { Activity, Contact, Paginated, Property, Visit } from '../types';
+import { calendarActivityTypeOptions, useI18n, visitStatusOptions } from '../lib/i18n';
+import {
+  buildVisitWhatsappMessage,
+  buildWhatsAppShareUrl,
+  getContactWhatsappPhone,
+  openWhatsAppShareUrl,
+} from '../lib/whatsapp';
+import type { Activity, ActivityType, Contact, Paginated, Property, Visit } from '../types';
 
 type AgendaItem = {
   id: string;
@@ -15,16 +21,19 @@ type AgendaItem = {
   contact?: Contact | null;
   property?: Property | null;
   notes?: string | null;
+  externalUrl?: string | null;
+  visit?: Visit;
 };
 
 type ActivityFormState = {
-  activityType: string;
+  activityType: ActivityType;
   contactId: string;
   propertyId: string;
   title: string;
   description: string;
   activityDate: string;
   nextFollowUpDate: string;
+  appraisalPropertyAddress: string;
 };
 
 type VisitFormState = {
@@ -32,6 +41,7 @@ type VisitFormState = {
   contactId: string;
   scheduledAt: string;
   status: string;
+  externalUrl: string;
   notes: string;
 };
 
@@ -49,6 +59,7 @@ export function CalendarPage() {
   const [loadError, setLoadError] = useState('');
   const [savingTask, setSavingTask] = useState(false);
   const [savingVisit, setSavingVisit] = useState(false);
+  const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
   const [composerMode, setComposerMode] = useState<ComposerMode>(null);
   const [activityForm, setActivityForm] = useState<ActivityFormState>(() =>
     createInitialActivityForm(formatDateKey(new Date())),
@@ -110,10 +121,20 @@ export function CalendarPage() {
           contactId: activityForm.contactId ? Number(activityForm.contactId) : undefined,
           propertyId: activityForm.propertyId ? Number(activityForm.propertyId) : undefined,
           activityType: activityForm.activityType,
-          title: activityForm.title,
-          description: activityForm.description || undefined,
+          title:
+            activityForm.activityType === 'APPRAISAL_REQUEST'
+              ? 'Solicitud de tasacion'
+              : activityForm.title,
+          description:
+            activityForm.activityType === 'APPRAISAL_REQUEST'
+              ? undefined
+              : activityForm.description || undefined,
           activityDate: activityForm.activityDate,
           nextFollowUpDate: activityForm.nextFollowUpDate || undefined,
+          appraisalPropertyAddress:
+            activityForm.activityType === 'APPRAISAL_REQUEST'
+              ? activityForm.appraisalPropertyAddress || undefined
+              : undefined,
         }),
       });
       setActivityForm(createInitialActivityForm(selectedDateKey));
@@ -136,6 +157,7 @@ export function CalendarPage() {
           contactId: Number(visitForm.contactId),
           scheduledAt: visitForm.scheduledAt,
           status: visitForm.status,
+          externalUrl: visitForm.externalUrl || undefined,
           notes: visitForm.notes || undefined,
         }),
       });
@@ -144,6 +166,23 @@ export function CalendarPage() {
       await loadAgenda();
     } finally {
       setSavingVisit(false);
+    }
+  }
+
+  async function handleShareVisit(visit: Visit) {
+    if (!visit.contact || !getContactWhatsappPhone(visit.contact) || !visit.externalUrl) return;
+
+    setSharingVisitId(visit.id);
+    setLoadError('');
+
+    try {
+      const message = buildVisitWhatsappMessage(visit);
+      openWhatsAppShareUrl(buildWhatsAppShareUrl(visit.contact, message));
+      window.alert(t('common.whatsappSent'));
+    } catch (shareError) {
+      setLoadError(shareError instanceof Error ? shareError.message : t('common.whatsappSendFailed'));
+    } finally {
+      setSharingVisitId(null);
     }
   }
 
@@ -180,7 +219,10 @@ export function CalendarPage() {
   }).format(visibleMonth);
   const weekdayLabels = buildWeekdayLabels(locale);
   const calendarDays = buildCalendarDays(visibleMonth);
-  const agendaItems = [...activities.map(mapActivityToAgendaItem), ...visits.map(mapVisitToAgendaItem)].sort(
+  const schedulableActivities = activities.filter((activity) =>
+    isCalendarActivityType(activity.activityType),
+  );
+  const agendaItems = [...schedulableActivities.map(mapActivityToAgendaItem), ...visits.map(mapVisitToAgendaItem)].sort(
     (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
   );
   const itemsByDay = groupAgendaByDay(agendaItems);
@@ -192,24 +234,24 @@ export function CalendarPage() {
 
   return (
     <div className="page-stack">
-      <section className="page-header">
-        <div>
+      <section className="page-header calendar-page-header">
+        <div className="calendar-page-header-copy">
           <p className="eyebrow">{t('calendar.eyebrow')}</p>
           <h2>{t('calendar.title')}</h2>
           <p className="muted">{t('calendar.subtitle')}</p>
         </div>
-        <div className="stats-grid">
-          <article className="stat-card">
-            <span>{t('calendar.monthItems')}</span>
-            <strong>{agendaItems.length}</strong>
+        <div className="calendar-summary-grid" aria-label={t('calendar.monthItems')}>
+          <article className="calendar-summary-card">
+            <span className="calendar-summary-label">{t('calendar.monthItems')}</span>
+            <strong className="calendar-summary-value">{agendaItems.length}</strong>
           </article>
-          <article className="stat-card">
-            <span>{t('calendar.monthTasks')}</span>
-            <strong>{activities.length}</strong>
+          <article className="calendar-summary-card">
+            <span className="calendar-summary-label">{t('calendar.monthTasks')}</span>
+            <strong className="calendar-summary-value">{schedulableActivities.length}</strong>
           </article>
-          <article className="stat-card">
-            <span>{t('calendar.monthVisits')}</span>
-            <strong>{visits.length}</strong>
+          <article className="calendar-summary-card">
+            <span className="calendar-summary-label">{t('calendar.monthVisits')}</span>
+            <strong className="calendar-summary-value">{visits.length}</strong>
           </article>
         </div>
       </section>
@@ -315,6 +357,25 @@ export function CalendarPage() {
                         {t('calendar.openProperty')}
                       </Link>
                     ) : null}
+                    {item.entityType === 'visit' && item.externalUrl ? (
+                      <a href={item.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
+                        {t('visits.openListing')}
+                      </a>
+                    ) : null}
+                    {item.entityType === 'visit' &&
+                    item.visit &&
+                    item.contact &&
+                    item.externalUrl &&
+                    getContactWhatsappPhone(item.contact) ? (
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => handleShareVisit(item.visit!)}
+                        disabled={sharingVisitId === item.visit.id}
+                      >
+                        {sharingVisitId === item.visit.id ? t('common.loading') : t('visits.shareNow')}
+                      </button>
+                    ) : null}
                   </div>
                 </article>
               ))
@@ -367,10 +428,13 @@ export function CalendarPage() {
                 <select
                   value={activityForm.activityType}
                   onChange={(event) =>
-                    setActivityForm({ ...activityForm, activityType: event.target.value })
+                    setActivityForm({
+                      ...activityForm,
+                      activityType: event.target.value as ActivityType,
+                    })
                   }
                 >
-                  {activityTypeOptions.map((option) => (
+                  {calendarActivityTypeOptions.map((option) => (
                     <option key={option} value={option}>
                       {translateEnum('activityType', option)}
                     </option>
@@ -384,6 +448,7 @@ export function CalendarPage() {
                   onChange={(event) =>
                     setActivityForm({ ...activityForm, contactId: event.target.value })
                   }
+                  required={activityForm.activityType === 'APPRAISAL_REQUEST'}
                 >
                   <option value="">{t('calendar.contactOptional')}</option>
                   {contacts.map((contact) => (
@@ -417,6 +482,21 @@ export function CalendarPage() {
                   {t('properties.newProperty')}
                 </Link>
               </div>
+              {activityForm.activityType === 'APPRAISAL_REQUEST' ? (
+                <label className="full-span">
+                  {t('appraisals.propertyAddress')}
+                  <input
+                    value={activityForm.appraisalPropertyAddress}
+                    onChange={(event) =>
+                      setActivityForm({
+                        ...activityForm,
+                        appraisalPropertyAddress: event.target.value,
+                      })
+                    }
+                    required
+                  />
+                </label>
+              ) : null}
               <label>
                 {t('activities.activityDate')}
                 <input
@@ -443,7 +523,7 @@ export function CalendarPage() {
                 <input
                   value={activityForm.title}
                   onChange={(event) => setActivityForm({ ...activityForm, title: event.target.value })}
-                  required
+                  required={activityForm.activityType !== 'APPRAISAL_REQUEST'}
                 />
               </label>
               <label className="full-span">
@@ -531,6 +611,15 @@ export function CalendarPage() {
                 </select>
               </label>
               <label className="full-span">
+                {t('visits.listingUrl')}
+                <input
+                  type="url"
+                  value={visitForm.externalUrl}
+                  onChange={(event) => setVisitForm({ ...visitForm, externalUrl: event.target.value })}
+                  placeholder="https://..."
+                />
+              </label>
+              <label className="full-span">
                 {t('common.notes')}
                 <textarea
                   rows={4}
@@ -551,13 +640,14 @@ export function CalendarPage() {
 
 function createInitialActivityForm(dayKey: string): ActivityFormState {
   return {
-    activityType: 'FOLLOW_UP',
+    activityType: 'VISIT',
     contactId: '',
     propertyId: '',
     title: '',
     description: '',
     activityDate: `${dayKey}T10:00`,
     nextFollowUpDate: '',
+    appraisalPropertyAddress: '',
   };
 }
 
@@ -567,6 +657,7 @@ function createInitialVisitForm(dayKey: string): VisitFormState {
     contactId: '',
     scheduledAt: `${dayKey}T11:00`,
     status: 'SCHEDULED',
+    externalUrl: '',
     notes: '',
   };
 }
@@ -596,7 +687,15 @@ function mapVisitToAgendaItem(visit: Visit): AgendaItem {
     contact: visit.contact,
     property: visit.property,
     notes: visit.notes,
+    externalUrl: visit.externalUrl,
+    visit,
   };
+}
+
+function isCalendarActivityType(activityType: ActivityType) {
+  return calendarActivityTypeOptions.includes(
+    activityType as (typeof calendarActivityTypeOptions)[number],
+  );
 }
 
 function groupAgendaByDay(items: AgendaItem[]) {

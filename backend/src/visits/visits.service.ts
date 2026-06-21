@@ -28,10 +28,14 @@ export class VisitsService {
     await this.assertScopedRelations(dto.contactId, dto.propertyId, teamId);
 
     const visit = this.visitsRepository.create({
-      ...dto,
       teamId,
       ownerUserId: user.sub,
+      propertyId: dto.propertyId,
+      contactId: dto.contactId,
       scheduledAt: new Date(dto.scheduledAt),
+      status: dto.status,
+      notes: dto.notes?.trim() || null,
+      externalUrl: dto.externalUrl?.trim() || null,
       googleSyncStatus: 'PENDING',
     });
 
@@ -96,8 +100,13 @@ export class VisitsService {
     await this.assertScopedRelations(nextContactId, nextPropertyId, teamId);
 
     Object.assign(visit, {
-      ...dto,
+      propertyId: nextPropertyId,
+      contactId: nextContactId,
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : visit.scheduledAt,
+      status: dto.status ?? visit.status,
+      notes: dto.notes === undefined ? visit.notes : dto.notes?.trim() || null,
+      externalUrl:
+        dto.externalUrl === undefined ? visit.externalUrl : dto.externalUrl?.trim() || null,
       googleSyncStatus: 'PENDING',
       googleSyncError: null,
     });

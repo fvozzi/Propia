@@ -3,6 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { useI18n, visitStatusOptions } from '../lib/i18n';
+import {
+  buildVisitWhatsappMessage,
+  buildWhatsAppShareUrl,
+  getContactWhatsappPhone,
+  openWhatsAppShareUrl,
+} from '../lib/whatsapp';
 import type { Contact, Paginated, Property, Visit } from '../types';
 
 export function VisitsPage() {
@@ -11,6 +17,8 @@ export function VisitsPage() {
   const [visits, setVisits] = useState<Paginated<Visit> | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [actionError, setActionError] = useState('');
+  const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
   const [filters, setFilters] = useState({
     date: searchParams.get('date') ?? '',
     status: searchParams.get('status') ?? '',
@@ -46,10 +54,30 @@ export function VisitsPage() {
         scheduledAt: formData.get('scheduledAt'),
         status: formData.get('visitStatus'),
         notes: formData.get('notes'),
+        externalUrl: formData.get('externalUrl') || undefined,
       }),
     });
     event.currentTarget.reset();
     await load();
+  }
+
+  async function handleShareWhatsapp(visit: Visit) {
+    if (!visit.contact || !getContactWhatsappPhone(visit.contact) || !visit.externalUrl) return;
+
+    setSharingVisitId(visit.id);
+    setActionError('');
+
+    try {
+      const message = buildVisitWhatsappMessage(visit);
+      openWhatsAppShareUrl(buildWhatsAppShareUrl(visit.contact, message));
+      window.alert(t('common.whatsappSent'));
+    } catch (shareError) {
+      setActionError(
+        shareError instanceof Error ? shareError.message : t('common.whatsappSendFailed'),
+      );
+    } finally {
+      setSharingVisitId(null);
+    }
   }
 
   async function handleDelete(id: number) {
@@ -64,6 +92,7 @@ export function VisitsPage() {
         <div>
           <p className="eyebrow">{t('visits.eyebrow')}</p>
           <h2>{t('visits.title')}</h2>
+          <p className="muted">{t('visits.subtitle')}</p>
         </div>
         <div className="toolbar">
           <input
@@ -124,6 +153,10 @@ export function VisitsPage() {
               </select>
             </label>
             <label className="full-span">
+              {t('visits.listingUrl')}
+              <input type="url" name="externalUrl" placeholder="https://..." />
+            </label>
+            <label className="full-span">
               {t('common.notes')}
               <textarea name="notes" rows={3} />
             </label>
@@ -133,18 +166,36 @@ export function VisitsPage() {
 
         <section className="card">
           <h3>{t('visits.listTitle')}</h3>
+          {actionError ? <p className="alert">{actionError}</p> : null}
           {(visits?.items ?? []).map((visit) => (
             <article key={visit.id} className="list-item list-item-actions">
               <div>
                 <strong>{visit.property?.title ?? `${t('common.property')} #${visit.propertyId}`}</strong>
                 <p className="muted">
-                  {visit.contact?.displayName ?? `${t('common.contact')} #${visit.contactId}`} · {formatDateTime(visit.scheduledAt)}
+                  {visit.contact?.displayName ?? `${t('common.contact')} #${visit.contactId}`} - {formatDateTime(visit.scheduledAt)}
                 </p>
                 <StatusPill value={visit.status} />
               </div>
-              <button className="ghost-button" onClick={() => handleDelete(visit.id)}>
-                {t('common.delete')}
-              </button>
+              <div className="toolbar">
+                {visit.externalUrl ? (
+                  <a href={visit.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
+                    {t('visits.openListing')}
+                  </a>
+                ) : null}
+                {visit.contact && getContactWhatsappPhone(visit.contact) && visit.externalUrl ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => handleShareWhatsapp(visit)}
+                    disabled={sharingVisitId === visit.id}
+                  >
+                    {sharingVisitId === visit.id ? t('common.loading') : t('visits.shareNow')}
+                  </button>
+                ) : null}
+                <button type="button" className="ghost-button" onClick={() => handleDelete(visit.id)}>
+                  {t('common.delete')}
+                </button>
+              </div>
             </article>
           ))}
         </section>

@@ -50,7 +50,7 @@ function getActivityTypeLabel(activityType: ActivityType) {
     case ActivityType.MEETING:
       return 'Reunion';
     case ActivityType.VISIT:
-      return 'Visita';
+      return 'Muestra de propiedad';
     case ActivityType.NOTE:
       return 'Nota';
     case ActivityType.FOLLOW_UP:
@@ -58,7 +58,13 @@ function getActivityTypeLabel(activityType: ActivityType) {
     case ActivityType.PROPERTY_SEARCH:
       return 'Busqueda de propiedad';
     case ActivityType.APPRAISAL_REQUEST:
-      return 'Solicitud de tasacion';
+      return 'Prelisting (Solicitud de tasacion)';
+    case ActivityType.MARKET_ANALYSIS:
+      return 'ACM (Analisis comparativo de mercado)';
+    case ActivityType.PHOTO_SESSION:
+      return 'Sesion de fotos';
+    case ActivityType.RESERVATION:
+      return 'Reserva';
     case ActivityType.SALE_DEED:
       return 'Escritura de venta';
     case ActivityType.PURCHASE_DEED:

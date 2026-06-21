@@ -45,6 +45,9 @@ export class Visit {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  externalUrl: string | null;
+
   @Column({ type: 'varchar', nullable: true })
   googleEventId: string | null;
 

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUrl } from 'class-validator';
 import { VisitStatus } from '../../common/enums';
 
 export class CreateVisitDto {
@@ -20,4 +20,10 @@ export class CreateVisitDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsUrl({
+    require_protocol: true,
+  })
+  externalUrl?: string;
 }

@@ -213,12 +213,13 @@ export class GoogleCalendarService {
     const contactName = visit.contact?.displayName ?? `Contact #${visit.contactId}`;
 
     return {
-      summary: `Property visit - ${propertyTitle}`,
+      summary: `External property visit - ${propertyTitle}`,
       description: [
         `Contact: ${contactName}`,
         `Property: ${propertyTitle}`,
         `Address: ${propertyAddress}`,
         `Status: ${visit.status}`,
+        visit.externalUrl?.trim() ? `Listing: ${visit.externalUrl.trim()}` : null,
         visit.notes ? `Notes: ${visit.notes}` : null,
       ]
         .filter(Boolean)

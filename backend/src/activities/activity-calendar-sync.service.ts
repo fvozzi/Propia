@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GoogleCalendarService } from '../calendar/google-calendar.service';
 import { Activity } from './activity.entity';
+import { isSchedulableActivityType } from './schedulable-activity-types';
 
 @Injectable()
 export class ActivityCalendarSyncService {
@@ -17,6 +18,19 @@ export class ActivityCalendarSyncService {
 
     if (!activity) {
       return null;
+    }
+
+    if (!isSchedulableActivityType(activity.activityType)) {
+      if (activity.googleEventId) {
+        await this.deleteExternal(activity);
+      }
+
+      activity.googleEventId = null;
+      activity.googleSyncStatus = 'SKIPPED';
+      activity.googleSyncError = null;
+      activity.lastSyncedAt = null;
+      await this.activitiesRepository.save(activity);
+      return activity;
     }
 
     try {
