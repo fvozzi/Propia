@@ -75,6 +75,10 @@ function getActivityTypeLabel(activityType: ActivityType) {
 }
 
 function buildSummary(activityType: ActivityType, title: string) {
+  if (activityType === ActivityType.APPRAISAL_REQUEST) {
+    return title;
+  }
+
   const typeLabel = getActivityTypeLabel(activityType);
   return title.startsWith(`${typeLabel} -`) ? title : `${typeLabel} - ${title}`;
 }
