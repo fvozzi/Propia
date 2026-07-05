@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddAppraisalRequestActivities1710000000011 implements MigrationInterface {
+export class AddAppraisalRequestActivities1710000000011
+  implements MigrationInterface
+{
   public transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -45,8 +47,8 @@ export class AddAppraisalRequestActivities1710000000011 implements MigrationInte
         ar."id",
         'APPRAISAL_REQUEST',
         CASE
-          WHEN COALESCE(TRIM(ar."propertyAddress"), '') <> '' THEN 'Solicitud de tasacion · ' || TRIM(ar."propertyAddress")
-          ELSE 'Solicitud de tasacion'
+          WHEN COALESCE(TRIM(ar."propertyAddress"), '') <> '' THEN 'Prelisting · ' || TRIM(ar."propertyAddress")
+          ELSE 'Prelisting'
         END,
         CASE
           WHEN ar."submittedAt" IS NOT NULL THEN CONCAT_WS(

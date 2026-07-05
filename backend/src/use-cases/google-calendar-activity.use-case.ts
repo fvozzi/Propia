@@ -58,7 +58,7 @@ function getActivityTypeLabel(activityType: ActivityType) {
     case ActivityType.PROPERTY_SEARCH:
       return 'Busqueda de propiedad';
     case ActivityType.APPRAISAL_REQUEST:
-      return 'Prelisting (Solicitud de tasacion)';
+      return 'Prelisting';
     case ActivityType.MARKET_ANALYSIS:
       return 'ACM (Analisis comparativo de mercado)';
     case ActivityType.PHOTO_SESSION:
@@ -99,7 +99,7 @@ function buildAppraisalPublicUrl(frontendUrl: string | undefined, publicToken: s
   }
 
   const normalizedBase = frontendUrl.replace(/\/+$/, '');
-  return `${normalizedBase}/tasacion/${publicToken}`;
+  return `${normalizedBase}/prelisting/${publicToken}`;
 }
 
 export function buildActivityCalendarEvent(

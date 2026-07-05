@@ -37,7 +37,7 @@ describe('google-calendar-activity use case', () => {
     const event = buildActivityCalendarEvent(
       {
         activityType: ActivityType.APPRAISAL_REQUEST,
-        title: 'Solicitud de tasacion - Arcos 2100',
+        title: 'Prelisting · Arcos 2100',
         activityDate: new Date('2026-05-25T09:00:00.000Z'),
         contact: { displayName: 'Susi' },
         appraisalRequest: {
@@ -51,9 +51,9 @@ describe('google-calendar-activity use case', () => {
       { frontendUrl: 'https://app.propiacrm.ar/' },
     );
 
-    expect(event.summary).toBe('Solicitud de tasacion - Arcos 2100');
+    expect(event.summary).toBe('Prelisting · Arcos 2100');
     expect(event.location).toBe('Arcos 2100, Buenos Aires');
-    expect(event.description).toContain('Formulario publico: https://app.propiacrm.ar/tasacion/abc123');
+    expect(event.description).toContain('Formulario publico: https://app.propiacrm.ar/prelisting/abc123');
     expect(event.description).toContain('Estado de solicitud: Pendiente');
   });
 });

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AppraisalDisposition, AppraisalOrientation, PropertyType } from '../common/enums';
+import {
+  AppraisalDisposition,
+  AppraisalOrientation,
+  PropertyType,
+} from '../common/enums';
 import {
   buildAppraisalRequestActivityTitle,
   calculateAppraisalAreas,
@@ -17,13 +21,19 @@ describe('appraisal-initial-intake use case', () => {
   });
 
   it('builds a readable activity title for the appraisal request', () => {
-    expect(buildAppraisalRequestActivityTitle('Av. Directorio 1200')).toBe('Solicitud de tasacion · Av. Directorio 1200');
-    expect(buildAppraisalRequestActivityTitle(null)).toBe('Solicitud de tasacion');
+    expect(buildAppraisalRequestActivityTitle('Av. Directorio 1200')).toBe(
+      'Prelisting · Av. Directorio 1200',
+    );
+    expect(buildAppraisalRequestActivityTitle(null)).toBe('Prelisting');
   });
 
   it('marks a request unavailable if it was already submitted or expired', () => {
     expect(
-      isAppraisalRequestAvailable('2026-05-26T12:00:00.000Z', null, new Date('2026-05-25T09:00:00.000Z')),
+      isAppraisalRequestAvailable(
+        '2026-05-26T12:00:00.000Z',
+        null,
+        new Date('2026-05-25T09:00:00.000Z'),
+      ),
     ).toBe(true);
     expect(
       isAppraisalRequestAvailable(
@@ -33,7 +43,11 @@ describe('appraisal-initial-intake use case', () => {
       ),
     ).toBe(false);
     expect(
-      isAppraisalRequestAvailable('2026-05-26T12:00:00.000Z', null, new Date('2026-05-26T12:00:00.000Z')),
+      isAppraisalRequestAvailable(
+        '2026-05-26T12:00:00.000Z',
+        null,
+        new Date('2026-05-26T12:00:00.000Z'),
+      ),
     ).toBe(false);
   });
 

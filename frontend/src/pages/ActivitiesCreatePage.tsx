@@ -466,7 +466,7 @@ function buildActivityPayload(
     propertyId:
       !isAppraisalRequest && linkProperty && form.propertyId ? Number(form.propertyId) : null,
     activityType: form.activityType,
-    title: isAppraisalRequest ? 'Solicitud de tasacion' : form.title,
+    title: isAppraisalRequest ? 'Prelisting' : form.title,
     description: isAppraisalRequest ? null : form.description || null,
     appraisalPropertyAddress: isAppraisalRequest ? form.appraisalPropertyAddress || null : null,
     externalUrl: isPropertySearch ? form.externalUrl || null : null,

@@ -292,16 +292,16 @@ export class PropertiesService {
     });
 
     if (!appraisalRequest) {
-      throw new NotFoundException('Solicitud de tasacion no encontrada');
+      throw new NotFoundException('Prelisting no encontrado');
     }
 
     if (!appraisalRequest.submittedAt) {
-      throw new BadRequestException('La solicitud de tasacion seleccionada todavia no fue respondida');
+      throw new BadRequestException('El prelisting seleccionado todavia no fue respondido');
     }
 
     const linkedProperty = appraisalRequest.properties.find((item) => item.id !== propertyId);
     if (linkedProperty) {
-      throw new BadRequestException('La solicitud de tasacion seleccionada ya esta vinculada a otra propiedad');
+      throw new BadRequestException('El prelisting seleccionado ya esta vinculado a otra propiedad');
     }
 
     return appraisalRequest;

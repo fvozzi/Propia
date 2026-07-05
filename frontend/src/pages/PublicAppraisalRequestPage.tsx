@@ -161,7 +161,7 @@ export function PublicAppraisalRequestPage() {
     });
 
     if (!response.ok) {
-      throw new Error('Could not submit appraisal form');
+      throw new Error('Could not submit prelisting form');
     }
 
     const data = (await response.json()) as PublicAppraisalRequest;

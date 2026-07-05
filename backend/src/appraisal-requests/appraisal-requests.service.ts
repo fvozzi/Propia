@@ -92,7 +92,7 @@ export class AppraisalRequestsService {
     });
 
     if (!request) {
-      throw new NotFoundException('Solicitud de tasacion no encontrada');
+      throw new NotFoundException('Prelisting no encontrado');
     }
 
     return request;
@@ -123,7 +123,7 @@ export class AppraisalRequestsService {
     });
 
     if (!linkedActivity) {
-      throw new NotFoundException('La solicitud de tasacion no tiene una actividad asociada');
+      throw new NotFoundException('El prelisting no tiene una actividad asociada');
     }
 
     return this.whatsappService.sendActivityMessage(linkedActivity.id, user);
@@ -151,7 +151,7 @@ export class AppraisalRequestsService {
     });
 
     if (!request) {
-      throw new NotFoundException('Formulario de tasacion no encontrado');
+      throw new NotFoundException('Formulario de prelisting no encontrado');
     }
 
     return {
@@ -194,11 +194,11 @@ export class AppraisalRequestsService {
     });
 
     if (!request) {
-      throw new NotFoundException('Formulario de tasacion no encontrado');
+      throw new NotFoundException('Formulario de prelisting no encontrado');
     }
 
     if (!isAppraisalRequestAvailable(request.expiresAt, request.submittedAt)) {
-      throw new BadRequestException('El formulario de tasacion ya fue respondido o vencio');
+      throw new BadRequestException('El formulario de prelisting ya fue respondido o vencio');
     }
 
     Object.assign(request, {

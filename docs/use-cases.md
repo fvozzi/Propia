@@ -1,5 +1,20 @@
 # Casos de Uso
 
+## Indice
+
+- [UC1. Buscar propiedades para un contacto comprador](#uc1-buscar-propiedades-para-un-contacto-comprador)
+- [UC2. Cargar requerimiento de busqueda para un contacto comprador](#uc2-cargar-requerimiento-de-busqueda-para-un-contacto-comprador)
+- [UC3. Prelisting: preguntas iniciales](#uc3-prelisting-preguntas-iniciales)
+- [UC4. Dashboard de requerimientos por tipo y pipeline](#uc4-dashboard-de-requerimientos-por-tipo-y-pipeline)
+- [Criterio transversal. Diferencia entre Visita y Muestra](#criterio-transversal-diferencia-entre-visita-y-muestra)
+- [UC7. Navegacion por mapa](#uc7-navegacion-por-mapa)
+- [UC8. Backoffice de cuentas, usuarios y acceso](#uc8-backoffice-de-cuentas-usuarios-y-acceso)
+- [UC9. Busqueda automatica y preseleccion de propiedades desde portales externos](#uc9-busqueda-automatica-y-preseleccion-de-propiedades-desde-portales-externos)
+- [UC10. Finanzas: registrar egresos operativos](#uc10-finanzas-registrar-egresos-operativos)
+- [UC11. Finanzas: registrar ingresos por operaciones cerradas](#uc11-finanzas-registrar-ingresos-por-operaciones-cerradas)
+- [UC12. Finanzas: configurar porcentajes de comision y franquicia](#uc12-finanzas-configurar-porcentajes-de-comision-y-franquicia)
+- [Nota](#nota)
+
 ## UC1. Buscar propiedades para un contacto comprador
 
 - Objetivo: permitir que la usuaria investigue propiedades para un contacto comprador, cargue resultados de busqueda en el CRM como actividades y gestione si ya fueron compartidos por WhatsApp o siguen pendientes.
@@ -77,16 +92,16 @@
   - conservacion de filtros booleanos, categoricos y numericos
   - resumen legible de criterios
 
-## UC3. Tasacion: preguntas iniciales
+## UC3. Prelisting: preguntas iniciales
 
-- Objetivo: permitir que la usuaria genere un formulario publico y temporario para que un contacto vendedor complete datos iniciales utiles para una tasacion.
+- Objetivo: permitir que la usuaria genere un formulario publico y temporario para que un contacto vendedor complete datos iniciales utiles para un prelisting.
 - Actor principal: usuaria comercial.
 - Actores secundarios: contacto vendedor que responde el formulario.
 - Entidad principal propuesta: `AppraisalRequest`.
 
 ### Flujo esperado
 
-1. La usuaria crea una solicitud de tasacion inicial asociada a un contacto vendedor.
+1. La usuaria crea un prelisting inicial asociado a un contacto vendedor.
 2. El sistema genera un link publico del CRM que no requiere login.
 3. El link debe permanecer disponible durante 48 horas desde su generacion o ultima edicion interna.
 4. El contacto completa el formulario publico.
@@ -97,11 +112,11 @@
 
 - El link publico debe resolverse por token y no requerir autenticacion.
 - El formulario debe bloquearse cuando venza o cuando ya haya sido respondido.
-- Las respuestas deben conservar direccion, tipo de propiedad y datos iniciales de tasacion.
+- Las respuestas deben conservar direccion, tipo de propiedad y datos iniciales de prelisting.
 - El formulario debe soportar tambien expensas, piso, amenities, orientacion, disposicion y antiguedad.
 - Debe calcular automaticamente `superficie total` como la suma de cubierta, semicubierta y descubierta.
 - Debe calcular automaticamente `superficie ponderada` como `superficie cubierta + ((superficie semicubierta + superficie descubierta) / 2)`.
-- La solicitud debe existir como una `Actividad` propia de tipo `Solicitud de tasacion`.
+- La solicitud debe existir como una `Actividad` propia de tipo `Prelisting`.
 - La respuesta completada debe actualizar esa actividad existente, en lugar de generar una nota separada.
 - La usuaria debe poder crear, editar, eliminar y volver a abrir el formulario publico desde el sistema.
 
@@ -132,8 +147,8 @@
 - Para `Venta`, los pasos se calculan como:
   - contacto vinculado
   - propiedad vinculada
-  - solicitud de tasacion enviada
-  - solicitud de tasacion respondida
+  - prelisting enviado
+  - prelisting respondido
 - Para `Compra` y `Alquiler`, los pasos se calculan como:
   - contacto vinculado
   - criterios cargados
@@ -151,7 +166,7 @@
 
 - Archivo: `backend/src/use-cases/requirement-pipeline.use-case.spec.ts`
 - Reglas cubiertas:
-  - pipeline de venta con hitos de tasacion
+  - pipeline de venta con hitos de prelisting
   - pipeline de compra/alquiler con criterios y propiedades compartidas
   - agrupacion por tipo de operacion y conteo de completitud
 

@@ -45,7 +45,10 @@ export function LoginPage() {
         <p className="muted">{t('login.subtitle')}</p>
         <label className="full-span">
           {t('common.language')}
-          <select value={locale} onChange={(event) => setLocale(event.target.value as 'en' | 'es')}>
+          <select
+            value={locale}
+            onChange={(event) => setLocale(event.target.value as 'en' | 'es')}
+          >
             <option value="es">Español</option>
             <option value="en">English</option>
           </select>

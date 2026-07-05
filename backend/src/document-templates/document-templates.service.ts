@@ -19,6 +19,7 @@ import { User } from '../auth/user.entity';
 import { DocumentTemplatePresetKey } from '../common/enums';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
+import { sanitizeDocxTemplateBuffer } from './docx-template-sanitizer';
 import {
   DocumentTemplate,
   type DocumentTemplateFieldDefinition,
@@ -51,10 +52,17 @@ export class DocumentTemplatesService {
 
   async findAll(user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    return this.documentTemplatesRepository.find({
+    const templates = await this.documentTemplatesRepository.find({
       where: { teamId },
       order: { updatedAt: 'DESC', createdAt: 'DESC' },
     });
+
+    return templates.map((template) => ({
+      ...template,
+      sourceFileName: template.sourceFileName
+        ? normalizeUploadedFileName(template.sourceFileName)
+        : null,
+    }));
   }
 
   async create(
@@ -146,7 +154,7 @@ export class DocumentTemplatesService {
     const sourceDocx = await loadTemplateSourceDocx(template);
 
     if (sourceDocx) {
-      const docxBuffer = renderDocxTemplate(sourceDocx, variables);
+      const docxBuffer = renderDocxTemplate(sourceDocx, variables, template.presetKey);
       const pdfBuffer = await renderPdfFromDocx(docxBuffer);
 
       return {
@@ -221,7 +229,7 @@ export class DocumentTemplatesService {
       ownerUser,
       manualFields: dto.manualFields ?? {},
     });
-    const docxBuffer = renderDocxTemplate(sourceDocx, variables);
+    const docxBuffer = renderDocxTemplate(sourceDocx, variables, template.presetKey);
     const fileBaseName = buildOutputFileBaseName(template.name, contact, property);
 
     return {
@@ -582,7 +590,9 @@ async function storeTemplateSourceFile(
   templateFile: Express.Multer.File,
   teamId: number,
 ) {
-  if (!templateFile.originalname.toLowerCase().endsWith('.docx')) {
+  const normalizedOriginalName = normalizeUploadedFileName(templateFile.originalname);
+
+  if (!normalizedOriginalName.toLowerCase().endsWith('.docx')) {
     throw new BadRequestException('Solo se permiten archivos .docx');
   }
 
@@ -596,7 +606,7 @@ async function storeTemplateSourceFile(
     'document-templates',
     `team-${teamId}`,
   );
-  const fileBaseName = sanitizeFileName(templateFile.originalname);
+  const fileBaseName = sanitizeFileName(normalizedOriginalName);
   const fileName = `${Date.now()}-${fileBaseName}.docx`;
   const absolutePath = join(templateDir, fileName);
 
@@ -604,7 +614,7 @@ async function storeTemplateSourceFile(
   await writeFile(absolutePath, templateFile.buffer);
 
   return {
-    sourceFileName: templateFile.originalname,
+    sourceFileName: normalizedOriginalName,
     sourceFilePath: absolutePath,
   };
 }
@@ -735,12 +745,17 @@ function wrapPrintableHtml(content: string) {
 function renderDocxTemplate(
   sourceBuffer: Buffer,
   variables: Record<string, unknown>,
+  presetKey?: DocumentTemplatePresetKey,
 ) {
   try {
-    const zip = new PizZip(sourceBuffer);
+    const zip = new PizZip(sanitizeDocxTemplateBuffer(sourceBuffer, presetKey));
     const document = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
+      delimiters: {
+        start: '{{',
+        end: '}}',
+      },
       nullGetter() {
         return '';
       },
@@ -816,10 +831,43 @@ function extractErrorMessage(error: unknown) {
   }
 
   if (error instanceof Error) {
+    const detailedMessage = extractDocxTemplateErrorDetails(error);
+    if (detailedMessage) {
+      return detailedMessage;
+    }
+
     return error.message;
   }
 
   return String(error);
+}
+
+function extractDocxTemplateErrorDetails(error: Error) {
+  const details = (error as Error & { properties?: { errors?: unknown[] } }).properties?.errors;
+  if (!Array.isArray(details) || details.length === 0) {
+    return '';
+  }
+
+  const explanations = details
+    .map((detail) => {
+      if (!detail || typeof detail !== 'object') {
+        return null;
+      }
+
+      const properties = (detail as { properties?: { explanation?: unknown; context?: unknown } }).properties;
+      const explanation =
+        typeof properties?.explanation === 'string' ? properties.explanation.trim() : '';
+      const context = typeof properties?.context === 'string' ? properties.context.trim() : '';
+
+      if (!explanation) {
+        return null;
+      }
+
+      return context ? `${explanation} (${context})` : explanation;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  return explanations.length > 0 ? explanations.join(' | ') : '';
 }
 
 function sanitizeFileName(value: string) {
@@ -831,6 +879,25 @@ function sanitizeFileName(value: string) {
     .replace(/^-|-$/g, '');
 
   return base || 'template';
+}
+
+function normalizeUploadedFileName(value: string): string;
+function normalizeUploadedFileName(value: null | undefined): null;
+function normalizeUploadedFileName(value?: string | null) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  if (!/[\u00C3\u00C2\u00E2]/.test(value)) {
+    return value;
+  }
+
+  const decoded = Buffer.from(value, 'latin1').toString('utf8').trim();
+  if (!decoded || decoded.includes('\uFFFD')) {
+    return value;
+  }
+
+  return decoded;
 }
 
 function buildOutputFileBaseName(

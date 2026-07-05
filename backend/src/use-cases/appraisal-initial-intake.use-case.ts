@@ -1,5 +1,10 @@
 import { randomBytes } from 'crypto';
-import { AppraisalDisposition, AppraisalOrientation, OperationType, PropertyType } from '../common/enums';
+import {
+  AppraisalDisposition,
+  AppraisalOrientation,
+  OperationType,
+  PropertyType,
+} from '../common/enums';
 
 export type AppraisalDraft = {
   propertyAddress?: string | null;
@@ -28,7 +33,9 @@ export type AppraisalDraft = {
   additionalNotes?: string | null;
 };
 
-export function calculateAppraisalAreas(draft: Pick<AppraisalDraft, 'coveredArea' | 'semiCoveredArea' | 'uncoveredArea'>) {
+export function calculateAppraisalAreas(
+  draft: Pick<AppraisalDraft, 'coveredArea' | 'semiCoveredArea' | 'uncoveredArea'>,
+) {
   const coveredArea = draft.coveredArea ?? 0;
   const semiCoveredArea = draft.semiCoveredArea ?? 0;
   const uncoveredArea = draft.uncoveredArea ?? 0;
@@ -60,8 +67,8 @@ export function createAppraisalRequestExpiration(now = new Date()) {
 
 export function buildAppraisalRequestActivityTitle(propertyAddress?: string | null) {
   return propertyAddress?.trim()
-    ? `Solicitud de tasacion · ${propertyAddress.trim()}`
-    : 'Solicitud de tasacion';
+    ? `Prelisting · ${propertyAddress.trim()}`
+    : 'Prelisting';
 }
 
 export function isAppraisalRequestAvailable(
@@ -94,7 +101,9 @@ export function summarizeAppraisalAnswers(draft: AppraisalDraft) {
     draft.uncoveredArea ? `Superficie descubierta: ${draft.uncoveredArea}` : null,
     draft.totalArea ? `Superficie total: ${draft.totalArea}` : null,
     draft.weightedArea ? `Superficie ponderada: ${draft.weightedArea}` : null,
-    draft.hasGarage === null || draft.hasGarage === undefined ? null : `Cochera: ${draft.hasGarage ? 'Si' : 'No'}`,
+    draft.hasGarage === null || draft.hasGarage === undefined
+      ? null
+      : `Cochera: ${draft.hasGarage ? 'Si' : 'No'}`,
     draft.conditionNotes ? `Estado y mejoras: ${draft.conditionNotes}` : null,
     draft.valuationReason ? `Motivo de tasacion: ${draft.valuationReason}` : null,
     draft.availabilityNotes ? `Disponibilidad: ${draft.availabilityNotes}` : null,

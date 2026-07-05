@@ -410,7 +410,7 @@ export function BackofficePage() {
                   />
                 </label>
                 <label>
-                  Template solicitud tasacion
+                  Template prelisting
                   <input
                     value={draft.whatsappAppraisalTemplateName}
                     onChange={(event) =>

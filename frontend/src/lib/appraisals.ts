@@ -2,7 +2,7 @@ import type { AppraisalRequest, Contact } from '../types';
 import { getContactWhatsappPhone } from './whatsapp';
 
 export function buildPublicAppraisalUrl(publicToken: string) {
-  return `${window.location.origin}/tasacion/${publicToken}`;
+  return `${window.location.origin}/prelisting/${publicToken}`;
 }
 
 export function canShareAppraisalByWhatsApp(contact?: Contact | null) {

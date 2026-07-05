@@ -39,6 +39,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
+            <Route path="/prelisting/:token" element={<PublicAppraisalRequestPage />} />
             <Route path="/tasacion/:token" element={<PublicAppraisalRequestPage />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>

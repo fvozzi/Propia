@@ -52,10 +52,10 @@ export class ActivitiesService {
 
     if (dto.activityType === ActivityType.APPRAISAL_REQUEST) {
       if (!dto.contactId) {
-        throw new BadRequestException('La actividad de solicitud de tasacion requiere un contacto');
+        throw new BadRequestException('La actividad de prelisting requiere un contacto');
       }
       if (!dto.appraisalPropertyAddress?.trim()) {
-        throw new BadRequestException('La actividad de solicitud de tasacion requiere direccion de la propiedad');
+        throw new BadRequestException('La actividad de prelisting requiere direccion de la propiedad');
       }
 
       const request = await this.appraisalRequestsRepository.save(
@@ -218,7 +218,7 @@ export class ActivitiesService {
     }
 
     if (activity.activityType === ActivityType.APPRAISAL_REQUEST && dto.activityType && dto.activityType !== ActivityType.APPRAISAL_REQUEST) {
-      throw new BadRequestException('La actividad de solicitud de tasacion no puede cambiar de tipo');
+      throw new BadRequestException('La actividad de prelisting no puede cambiar de tipo');
     }
 
     const nextActivityType = dto.activityType ?? activity.activityType;
@@ -246,7 +246,7 @@ export class ActivitiesService {
 
     if (nextActivityType === ActivityType.APPRAISAL_REQUEST) {
       if (!nextContactId) {
-        throw new BadRequestException('La actividad de solicitud de tasacion requiere un contacto');
+        throw new BadRequestException('La actividad de prelisting requiere un contacto');
       }
 
       if (activity.appraisalRequest) {
@@ -254,7 +254,7 @@ export class ActivitiesService {
         if (dto.appraisalPropertyAddress !== undefined) {
           const propertyAddress = dto.appraisalPropertyAddress.trim();
           if (!propertyAddress) {
-            throw new BadRequestException('La actividad de solicitud de tasacion requiere direccion de la propiedad');
+            throw new BadRequestException('La actividad de prelisting requiere direccion de la propiedad');
           }
           activity.appraisalRequest.propertyAddress = propertyAddress;
         }
@@ -392,7 +392,7 @@ export class ActivitiesService {
       });
 
       if (!appraisalRequest) {
-        throw new NotFoundException('Solicitud de tasacion no encontrada');
+        throw new NotFoundException('Prelisting no encontrado');
       }
     }
   }

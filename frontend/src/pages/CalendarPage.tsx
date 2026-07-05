@@ -123,7 +123,7 @@ export function CalendarPage() {
           activityType: activityForm.activityType,
           title:
             activityForm.activityType === 'APPRAISAL_REQUEST'
-              ? 'Solicitud de tasacion'
+              ? 'Prelisting'
               : activityForm.title,
           description:
             activityForm.activityType === 'APPRAISAL_REQUEST'

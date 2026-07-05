@@ -48,7 +48,7 @@ export class WhatsappService {
       activity.activityType !== ActivityType.APPRAISAL_REQUEST
     ) {
       throw new BadRequestException(
-        'Solo las actividades de busqueda de propiedad y solicitudes de tasacion se pueden enviar por WhatsApp',
+        'Solo las actividades de busqueda de propiedad y prelistings se pueden enviar por WhatsApp',
       );
     }
 
@@ -263,7 +263,7 @@ export class WhatsappService {
       !team.whatsappAppraisalTemplateName
     ) {
       throw new BadRequestException(
-        'Falta configurar la plantilla de WhatsApp para solicitud de tasacion',
+        'Falta configurar la plantilla de WhatsApp para prelisting',
       );
     }
   }
@@ -380,7 +380,7 @@ function getTemplateName(
 }
 
 function buildPublicAppraisalUrl(frontendUrl: string, token: string) {
-  return new URL(`/tasacion/${token}`, frontendUrl).toString();
+  return new URL(`/prelisting/${token}`, frontendUrl).toString();
 }
 
 function buildPropertySearchComponents(

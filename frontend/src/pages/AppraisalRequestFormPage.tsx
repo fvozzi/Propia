@@ -140,7 +140,7 @@ export function AppraisalRequestFormPage() {
                 {t('appraisals.shareEmail')}
               </button>
             ) : null}
-            <a href={`/tasacion/${request.publicToken}`} target="_blank" rel="noreferrer" className="ghost-button button-link">
+            <a href={`/prelisting/${request.publicToken}`} target="_blank" rel="noreferrer" className="ghost-button button-link">
               {t('appraisals.openPublicForm')}
             </a>
           </div>
