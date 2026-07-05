@@ -85,16 +85,17 @@ a {
 }
 
 .hero h1 {
-  font-size: clamp(3rem, 6vw, 5.4rem);
+  font-size: clamp(2.7rem, 4.8vw, 4.6rem);
   margin-top: 16px;
-  max-width: 12ch;
+  max-width: 10.5ch;
+  letter-spacing: -0.04em;
 }
 
 .lead {
   margin: 20px 0 0;
-  max-width: 34rem;
-  font-size: 1.14rem;
-  line-height: 1.7;
+  max-width: 32rem;
+  font-size: 1.06rem;
+  line-height: 1.65;
   color: var(--muted);
 }
 
