@@ -13,6 +13,8 @@ export function PropertyDetailPage() {
   const { formatDateTime, t, translateEnum } = useI18n();
   const [property, setProperty] = useState<Property | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   async function load() {
     const [propertyData, contactsData] = await Promise.all([
@@ -29,44 +31,66 @@ export function PropertyDetailPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!property) {
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
     const formData = new FormData(event.currentTarget);
     const coveredArea = parseNullableNumber(String(formData.get('coveredArea') ?? ''));
     const semiCoveredArea = parseNullableNumber(String(formData.get('semiCoveredArea') ?? ''));
     const uncoveredArea = parseNullableNumber(String(formData.get('uncoveredArea') ?? ''));
     const computedAreas = calculateAppraisalAreas({ coveredArea, semiCoveredArea, uncoveredArea });
-    await apiRequest(`/properties/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        title: formData.get('title'),
-        description: formData.get('description'),
-        address: formData.get('address'),
-        city: formData.get('city'),
-        neighborhood: formData.get('neighborhood'),
-        status: formData.get('status') as PropertyStatus,
-        price: formData.get('price') ? Number(formData.get('price')) : null,
-        expenses: formData.get('expenses') ? Number(formData.get('expenses')) : null,
-        rooms: formData.get('rooms') ? Number(formData.get('rooms')) : null,
-        bedrooms: formData.get('bedrooms') ? Number(formData.get('bedrooms')) : null,
-        bathrooms: formData.get('bathrooms') ? Number(formData.get('bathrooms')) : null,
-        coveredArea,
-        semiCoveredArea,
-        uncoveredArea,
-        totalArea: computedAreas.totalArea,
-        weightedArea: computedAreas.weightedArea,
-        floor: formData.get('floor') ? Number(formData.get('floor')) : null,
-        amenities: formData.get('amenities'),
-        orientation: formData.get('orientation') || null,
-        disposition: formData.get('disposition') || null,
-        ageYears: formData.get('ageYears') ? Number(formData.get('ageYears')) : null,
-        hasGarage: formData.get('hasGarage') === 'on',
-        ownerContactId: formData.get('ownerContactId')
-          ? Number(formData.get('ownerContactId'))
-          : property?.ownerContactId ?? null,
-        privateNotes: formData.get('privateNotes'),
-        photos: property?.photos ?? [],
-      }),
-    });
-    navigate('/properties');
+
+    try {
+      await apiRequest(`/properties/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: String(formData.get('title') ?? '').trim(),
+          description: String(formData.get('description') ?? '').trim(),
+          address: String(formData.get('address') ?? '').trim(),
+          city: String(formData.get('city') ?? '').trim(),
+          neighborhood: String(formData.get('neighborhood') ?? '').trim(),
+          operationType: property.operationType,
+          propertyType: property.propertyType,
+          status: formData.get('status') as PropertyStatus,
+          price: parseNullableNumber(String(formData.get('price') ?? '')),
+          currency: property.currency,
+          expenses: parseNullableNumber(String(formData.get('expenses') ?? '')),
+          rooms: parseNullableNumber(String(formData.get('rooms') ?? '')),
+          bedrooms: parseNullableNumber(String(formData.get('bedrooms') ?? '')),
+          bathrooms: parseNullableNumber(String(formData.get('bathrooms') ?? '')),
+          coveredArea,
+          semiCoveredArea,
+          uncoveredArea,
+          totalArea: computedAreas.totalArea,
+          weightedArea: computedAreas.weightedArea,
+          floor: parseNullableNumber(String(formData.get('floor') ?? '')),
+          amenities: String(formData.get('amenities') ?? '').trim(),
+          orientation: String(formData.get('orientation') ?? '').trim() || null,
+          disposition: String(formData.get('disposition') ?? '').trim() || null,
+          ageYears: parseNullableNumber(String(formData.get('ageYears') ?? '')),
+          hasGarage: formData.get('hasGarage') === 'on',
+          ownerContactId: formData.get('ownerContactId')
+            ? Number(formData.get('ownerContactId'))
+            : property.ownerContactId ?? null,
+          privateNotes: String(formData.get('privateNotes') ?? '').trim(),
+          photos: property.photos.map((photo) => ({
+            url: photo.url,
+            thumbnailUrl: photo.thumbnailUrl ?? null,
+            caption: photo.caption ?? null,
+            orderIndex: photo.orderIndex,
+          })),
+        }),
+      });
+      navigate('/properties');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'No se pudo actualizar la propiedad');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const computedAreas = calculateAppraisalAreas({
@@ -119,6 +143,7 @@ export function PropertyDetailPage() {
       <div className="two-column">
         <section className="card">
           <h3>{t('properties.detailsCard')}</h3>
+          {error ? <p className="form-error">{error}</p> : null}
           <form className="form-grid" onSubmit={handleSubmit}>
             <label>
               {t('common.title')}
@@ -243,7 +268,9 @@ export function PropertyDetailPage() {
               {t('properties.privateNotes')}
               <textarea name="privateNotes" rows={3} defaultValue={property.privateNotes ?? ''} />
             </label>
-            <button type="submit">{t('common.update')}</button>
+            <button type="submit" disabled={saving}>
+              {saving ? t('common.loading') : t('common.update')}
+            </button>
           </form>
         </section>
 

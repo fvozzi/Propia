@@ -29,6 +29,7 @@ import { SearchRequirementMatchesPage } from './pages/SearchRequirementMatchesPa
 import { SearchRequirementsPage } from './pages/SearchRequirementsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UsersPage } from './pages/UsersPage';
+import { UseCasesPage } from './pages/UseCasesPage';
 import { VisitsPage } from './pages/VisitsPage';
 
 export default function App() {
@@ -66,6 +67,7 @@ export default function App() {
                 <Route path="/activities/new" element={<ActivitiesCreatePage />} />
                 <Route path="/activities/:id/edit" element={<ActivitiesCreatePage />} />
                 <Route path="/visits" element={<VisitsPage />} />
+                <Route path="/use-cases" element={<UseCasesPage />} />
                 <Route element={<AdminRoute />}>
                   <Route path="/users" element={<UsersPage />} />
                 </Route>

@@ -329,6 +329,74 @@ label {
   margin: 0;
 }
 
+.form-error {
+  margin: 0 0 1rem;
+  color: #a02f14;
+  font-weight: 600;
+}
+
+.use-cases-doc {
+  display: grid;
+  gap: 1rem;
+}
+
+.use-cases-doc h1,
+.use-cases-doc h2,
+.use-cases-doc h3,
+.use-cases-doc p,
+.use-cases-doc ul,
+.use-cases-doc ol {
+  margin: 0;
+}
+
+.use-cases-doc h1 {
+  font-size: 1.8rem;
+}
+
+.use-cases-doc h2 {
+  margin-top: 1rem;
+  font-size: 1.35rem;
+}
+
+.use-cases-doc h3 {
+  margin-top: 0.4rem;
+  font-size: 1.05rem;
+}
+
+.use-cases-doc p,
+.use-cases-doc li {
+  line-height: 1.7;
+}
+
+.use-cases-doc ul,
+.use-cases-doc ol {
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.use-cases-doc a {
+  color: var(--accent-dark);
+  text-decoration: underline;
+}
+
+.use-cases-doc code {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.94em;
+  background: rgba(21, 32, 34, 0.06);
+  border-radius: 8px;
+  padding: 0.12rem 0.35rem;
+}
+
+.use-cases-code {
+  margin: 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(21, 32, 34, 0.04);
+  padding: 1rem;
+}
+
 .eyebrow {
   text-transform: uppercase;
   font-size: 0.74rem;

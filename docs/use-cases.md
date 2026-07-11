@@ -6,6 +6,7 @@
 - [UC2. Cargar requerimiento de busqueda para un contacto comprador](#uc2-cargar-requerimiento-de-busqueda-para-un-contacto-comprador)
 - [UC3. Prelisting: preguntas iniciales](#uc3-prelisting-preguntas-iniciales)
 - [UC4. Dashboard de requerimientos por tipo y pipeline](#uc4-dashboard-de-requerimientos-por-tipo-y-pipeline)
+- [Criterio transversal. Requerimiento vs oportunidad comercial](#criterio-transversal-requerimiento-vs-oportunidad-comercial)
 - [Criterio transversal. Diferencia entre Visita y Muestra](#criterio-transversal-diferencia-entre-visita-y-muestra)
 - [UC7. Navegacion por mapa](#uc7-navegacion-por-mapa)
 - [UC8. Backoffice de cuentas, usuarios y acceso](#uc8-backoffice-de-cuentas-usuarios-y-acceso)
@@ -169,6 +170,292 @@
   - pipeline de venta con hitos de prelisting
   - pipeline de compra/alquiler con criterios y propiedades compartidas
   - agrupacion por tipo de operacion y conteo de completitud
+
+## Criterio transversal. Requerimiento vs oportunidad comercial
+
+- Decision de producto:
+  - `SearchRequirement` tiene sentido fuerte para `Compra` y puede reutilizarse para `Alquiler`.
+  - Para `Venta`, no conviene duplicar en un requerimiento los mismos datos que ya vive en `Prelisting` y luego en `Property`.
+  - `Activity` no reemplaza a la entidad comercial principal; registra acciones, no define el objetivo del caso.
+
+### Lectura funcional por flujo
+
+- `Compra`
+  - La entidad principal del caso es el requerimiento.
+  - El requerimiento expresa que quiere comprar el cliente: zonas, presupuesto, tipologia, ambientes, cochera, credito y otras condiciones.
+  - Las actividades representan lo que hace la usuaria sobre ese objetivo: llamados, busquedas, links compartidos, visitas y seguimientos.
+
+- `Venta`
+  - La entidad principal no deberia ser un requerimiento espejo.
+  - El flujo se ordena mejor con:
+    - contacto propietario
+    - actividad inicial
+    - prelisting
+    - propiedad
+    - pipeline comercial de captacion / venta
+  - El prelisting captura los datos estructurados iniciales y la propiedad consolida el activo comercial. Crear ademas un requerimiento de venta genera redundancia.
+
+### Modelo recomendado
+
+- `Activity`
+  - registro historico de acciones: llamada, WhatsApp, visita, muestra, nota, envio de documento, seguimiento
+  - siempre debe poder vincularse al contacto y, cuando aplique, a propiedad, prelisting o caso comercial
+
+- `SearchRequirement`
+  - usarlo para `Compra`
+  - opcion futura: reutilizarlo para `Alquiler`
+  - no usarlo como entidad principal de `Venta`
+
+- `CommercialOpportunity` o `Deal`
+  - entidad paraguas recomendada para unificar pipeline comercial
+  - campos iniciales sugeridos:
+    - `id`
+    - `teamId`
+    - `contactId`
+    - `operationType` (`BUY`, `SALE`, `RENT`)
+    - `stage`
+    - `sourceActivityId`
+    - `propertyId` opcional
+    - `searchRequirementId` opcional para compra/alquiler
+    - `appraisalRequestId` opcional para venta
+    - `ownerUserId`
+    - `createdAt`, `updatedAt`, `closedAt`
+
+### Regla operativa recomendada
+
+- Si entra un contacto comprador:
+  - se crea o actualiza una oportunidad de `Compra`
+  - se carga un requerimiento de busqueda
+  - las actividades cuelgan de esa oportunidad
+
+- Si entra un contacto vendedor:
+  - se crea o actualiza una oportunidad de `Venta`
+  - se genera actividad inicial y, si aplica, prelisting
+  - cuando el prelisting avanza, se crea o vincula la propiedad
+  - las actividades cuelgan de esa oportunidad
+
+### Implicancias para modulos actuales
+
+- `Dashboard`
+  - a futuro deberia mostrar oportunidades por tipo de operacion, no solo requerimientos.
+  - en la transicion, el pipeline de venta puede seguir calculandose sobre `SearchRequirement`, pero como solucion provisoria.
+
+- `Finanzas`
+  - egresos e ingresos deberian poder vincularse a la oportunidad comercial.
+  - para compra, esa oportunidad puede referenciar un requerimiento.
+  - para venta, la referencia principal deberia ser oportunidad + propiedad, no un requerimiento redundante.
+
+- `Documentos`
+  - en venta, los documentos deberian tomar contexto desde propiedad, propietario, prelisting y oportunidad.
+  - en compra, los documentos relevantes pueden vincularse a la oportunidad o al contacto segun el caso.
+
+### Fases sugeridas de evolucion
+
+1. Fase 1
+  - mantener `SearchRequirement` para `Compra`
+  - dejar de empujar nuevos casos de `Venta` a requerimientos artificiales
+  - seguir usando `Prelisting + Property + Activity` para venta
+
+2. Fase 2
+  - introducir `CommercialOpportunity`
+  - vincular actividades, finanzas y documentos a esa entidad
+
+3. Fase 3
+  - migrar el dashboard y reportes para que el embudo se lea por oportunidad
+  - dejar `SearchRequirement` solo como modulo especializado de compra/alquiler
+
+### Esquema de datos propuesto
+
+- Tabla: `commercial_opportunities`
+- Campos recomendados:
+  - `id`
+  - `teamId`
+  - `ownerUserId`
+  - `contactId`
+  - `operationType`
+    - `BUY`
+    - `SALE`
+    - `RENT`
+  - `stage`
+    - primera version sugerida:
+      - `NEW`
+      - `QUALIFYING`
+      - `SEARCHING`
+      - `PRELISTING_SENT`
+      - `PRELISTING_COMPLETED`
+      - `PROPERTY_READY`
+      - `VISITING`
+      - `NEGOTIATING`
+      - `RESERVED`
+      - `CLOSED_WON`
+      - `CLOSED_LOST`
+  - `status`
+    - `OPEN`
+    - `WON`
+    - `LOST`
+    - `ARCHIVED`
+  - `sourceActivityId` nullable
+  - `searchRequirementId` nullable
+  - `appraisalRequestId` nullable
+  - `propertyId` nullable
+  - `title`
+    - resumen legible del caso, por ejemplo:
+      - `Compra PH en Caballito - Susi`
+      - `Venta Arcos 2100 - Marta Suarez`
+  - `summary` nullable
+  - `lostReason` nullable
+  - `closedAt` nullable
+  - `createdAt`
+  - `updatedAt`
+
+### Relaciones exactas con entidades actuales
+
+- `Contact`
+  - una oportunidad pertenece a un contacto
+  - un contacto puede tener muchas oportunidades
+
+- `Activity`
+  - agregar `commercialOpportunityId` nullable
+  - una oportunidad puede tener muchas actividades
+  - una actividad puede seguir vinculada ademas a:
+    - `contactId`
+    - `propertyId`
+    - `appraisalRequestId`
+  - regla: `commercialOpportunityId` pasa a ser el ancla funcional principal
+
+- `SearchRequirement`
+  - agregar `commercialOpportunityId` nullable o relacion 1:1 via `searchRequirementId` en oportunidad
+  - recomendacion:
+    - en primera version, dejar la FK en `commercial_opportunities.searchRequirementId`
+    - asi no se rompe el modulo actual de requerimientos
+  - uso esperado:
+    - presente para `BUY`
+    - opcional para `RENT`
+    - ausente para `SALE`
+
+- `AppraisalRequest`
+  - relacion 1:1 opcional con oportunidad de venta
+  - recomendacion:
+    - usar `commercial_opportunities.appraisalRequestId`
+    - mantener `Activity.appraisalRequestId` por compatibilidad operativa
+
+- `Property`
+  - relacion 1:1 opcional con oportunidad cuando la propiedad propia ya existe o se consolida desde un prelisting
+  - recomendacion:
+    - usar `commercial_opportunities.propertyId`
+    - mantener `SearchRequirement.propertyId` mientras exista pipeline viejo
+
+- `FinancialEntry`
+  - agregar `commercialOpportunityId` nullable
+  - dejar `activityId` como soporte de trazabilidad puntual
+  - mantener `searchRequirementId` en transicion para compatibilidad
+
+- `DocumentTemplate` / documentos emitidos
+  - no hace falta cambiar templates
+  - si luego existe historial de documentos emitidos, deberia colgar de `commercialOpportunityId`
+
+### Reglas de consistencia
+
+- `BUY`
+  - debe tener `searchRequirementId`
+  - no deberia tener `appraisalRequestId`
+  - puede o no tener `propertyId`
+
+- `SALE`
+  - puede arrancar con `sourceActivityId`
+  - puede tener `appraisalRequestId`
+  - puede luego tener `propertyId`
+  - no deberia requerir `searchRequirementId`
+
+- `RENT`
+  - puede comportarse como `BUY` si el caso es de inquilino buscando
+  - o como `SALE` si el caso es de propietario ofreciendo alquiler
+  - decision futura:
+    - si la cuenta opera ambos escenarios, conviene separar luego por `side`
+    - `DEMAND`
+    - `SUPPLY`
+
+### Endpoints propuestos
+
+- Oportunidades
+  - `GET /commercial-opportunities`
+  - `GET /commercial-opportunities/:id`
+  - `POST /commercial-opportunities`
+  - `PATCH /commercial-opportunities/:id`
+  - `DELETE /commercial-opportunities/:id`
+
+- Acciones especializadas
+  - `POST /commercial-opportunities/:id/link-search-requirement`
+  - `POST /commercial-opportunities/:id/link-appraisal-request`
+  - `POST /commercial-opportunities/:id/link-property`
+  - `POST /commercial-opportunities/:id/close-won`
+  - `POST /commercial-opportunities/:id/close-lost`
+
+- Navegacion por contexto
+  - `GET /contacts/:id/commercial-opportunities`
+  - `GET /properties/:id/commercial-opportunity`
+  - `GET /appraisal-requests/:id/commercial-opportunity`
+
+### Estrategia de migracion incremental
+
+1. Paso 1
+  - crear entidad y tabla `commercial_opportunities`
+  - no tocar aun UI principal
+  - agregar FKs nullable desde `Activity` y `FinancialEntry`
+
+2. Paso 2
+  - al crear un requerimiento de compra:
+    - crear oportunidad `BUY`
+    - guardar `searchRequirementId`
+  - al crear una actividad inicial de prelisting o una solicitud manual:
+    - crear oportunidad `SALE`
+
+3. Paso 3
+  - cuando un prelisting se responde y se convierte en propiedad:
+    - vincular `appraisalRequestId` y luego `propertyId` a la misma oportunidad
+
+4. Paso 4
+  - hacer que nuevas actividades, documentos y finanzas se creen con `commercialOpportunityId`
+  - mantener las relaciones viejas como soporte de lectura
+
+5. Paso 5
+  - migrar dashboard y reportes para leer oportunidades
+  - dejar `SearchRequirement` como submodulo especializado de demanda
+
+### Pantallas impactadas
+
+- `Dashboard`
+  - reemplazar tarjetas basadas solo en requerimientos por tarjetas basadas en oportunidades abiertas
+
+- `ContactDetail`
+  - mostrar `Oportunidades` del contacto
+  - desde ahi crear:
+    - `Nueva compra`
+    - `Nueva venta`
+
+- `Activities`
+  - cada actividad deberia mostrar a que oportunidad pertenece
+
+- `Finanzas`
+  - selector principal de oportunidad
+  - selector secundario de actividad opcional
+
+- `Prelistings`
+  - al crear uno nuevo, preguntar si se vincula a una oportunidad existente o si crea una nueva de venta
+
+### Primera implementacion recomendada
+
+- No migrar todo junto.
+- Primera entrega tecnica razonable:
+  - tabla `commercial_opportunities`
+  - endpoints CRUD minimos
+  - crear oportunidad automaticamente en:
+    - alta de requerimiento de compra
+    - alta de actividad de prelisting
+  - agregar `commercialOpportunityId` en:
+    - `Activity`
+    - `FinancialEntry`
+  - nueva vista simple de listado de oportunidades por contacto
 
 ## Criterio transversal. Diferencia entre Visita y Muestra
 
@@ -558,18 +845,18 @@
 
 ## UC10. Finanzas: registrar egresos operativos
 
-- Objetivo: permitir que la usuaria registre egresos operativos del negocio inmobiliario y, cuando corresponda, los vincule a una actividad o a un requerimiento para luego medir rentabilidad.
+- Objetivo: permitir que la usuaria registre egresos operativos del negocio inmobiliario y, cuando corresponda, los vincule a una actividad o a un caso comercial para luego medir rentabilidad.
 - Actor principal: usuaria comercial.
-- Entidades principales propuestas: `FinancialEntry`, `SearchRequirement`, `Activity`.
+- Entidades principales propuestas: `FinancialEntry`, `Activity`, `CommercialOpportunity` y, en compra/alquiler, `SearchRequirement`.
 
 ### Flujo esperado
 
 1. La usuaria entra al modulo de finanzas.
 2. La usuaria crea un nuevo movimiento de tipo `Egreso`.
 3. El sistema solicita fecha, categoria de egreso, moneda, monto y notas opcionales.
-4. La usuaria puede vincular el egreso a una actividad y opcionalmente a un requerimiento.
+4. La usuaria puede vincular el egreso a una actividad y opcionalmente a una oportunidad comercial.
 5. El sistema guarda el movimiento y lo muestra en el historial financiero.
-6. Si el egreso esta asociado a un requerimiento, debe impactar luego en el resumen economico de ese requerimiento.
+6. Si el egreso esta asociado a una oportunidad o a un requerimiento de compra/alquiler, debe impactar luego en su resumen economico.
 
 ### Primera version implementada
 
@@ -582,15 +869,16 @@
   - `Otro`
 - El movimiento puede vincularse a una `Activity`.
 - El movimiento puede vincularse a un `SearchRequirement`.
+- A futuro, la vinculacion principal deberia ser la oportunidad comercial y el resumen economico deberia leerse por caso.
 - La UI muestra el listado de movimientos y un resumen agregado por requerimiento.
 
 ### Criterios de aceptacion
 
 - Debe existir un alta de egreso con fecha, categoria, moneda y monto.
 - La vinculacion a actividad debe ser opcional.
-- La vinculacion a requerimiento debe ser opcional, pero persistente cuando se informa.
+- La vinculacion a oportunidad o requerimiento debe ser opcional, pero persistente cuando se informa.
 - El historial debe distinguir claramente egresos de ingresos.
-- El resumen por requerimiento debe acumular egresos para compararlos luego con los ingresos generados por una operacion.
+- El resumen por caso comercial debe acumular egresos para compararlos luego con los ingresos generados por una operacion.
 
 ### Cobertura unitaria
 
@@ -612,7 +900,7 @@
 4. El sistema propone monto total de la operacion, porcentaje de comision y porcentaje de franquicia.
 5. La usuaria puede editar esos valores antes de guardar.
 6. El sistema calcula comision de la operacion, monto de franquicia e ingreso neto de la usuaria.
-7. El movimiento queda registrado y debe poder imputarse al requerimiento relacionado cuando exista.
+7. El movimiento queda registrado y debe poder imputarse al caso comercial relacionado cuando exista.
 
 ### Primera version implementada
 
@@ -621,6 +909,7 @@
   - venta: `saleCommissionPercent`
   - compra: `purchaseCommissionPercent`
 - El porcentaje de franquicia sugerido sale de `FinanceConfig.franchisePercent`.
+- A futuro el ingreso deberia quedar asociado a una oportunidad comercial, no solo a la actividad puntual de escritura.
 - El sistema calcula:
   - `commissionAmount`
   - `franchiseAmount`

@@ -212,18 +212,17 @@ export class PropertiesService {
     const appraisalRequest = nextAppraisalRequestId
       ? await this.assertScopedAppraisalRequest(nextAppraisalRequestId, teamId, property.id)
       : null;
+    const { photos, ...rest } = dto;
     const draftSource = {
       ...property,
-      ...dto,
+      ...rest,
       appraisalRequestId: nextAppraisalRequestId ?? undefined,
-      photos: dto.photos,
     } as PropertyDraftPayload;
     const draft = this.applyAppraisalDefaults(draftSource, appraisalRequest);
     const nextOwnerContactId = draft.ownerContactId ?? null;
     this.assertAppraisalOwnerConsistency(nextOwnerContactId, appraisalRequest);
     await this.assertOwnerContact(nextOwnerContactId ?? null, teamId);
 
-    const { photos, ...rest } = dto;
     Object.assign(property, {
       ...rest,
       ...draft,

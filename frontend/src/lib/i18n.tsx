@@ -71,6 +71,7 @@ const translations = {
       requirements: 'Requirements',
       activities: 'Activities',
       visits: 'Visits',
+      useCases: 'Use cases',
       settings: 'Settings',
       users: 'Users',
     },
@@ -217,6 +218,10 @@ const translations = {
       saveError: 'Could not save the template.',
       deleteError: 'Could not delete the template.',
       generateError: 'Could not generate the PDF.',
+    },
+    useCases: {
+      eyebrow: 'Product',
+      title: 'Use cases and operating criteria',
     },
     properties: {
       eyebrow: 'Properties',
@@ -732,6 +737,7 @@ const translations = {
       requirements: 'Requerimientos',
       activities: 'Actividades',
       visits: 'Visitas',
+      useCases: 'Casos de uso',
       settings: 'Configuracion',
       users: 'Usuarios',
     },
@@ -878,6 +884,10 @@ const translations = {
       saveError: 'No se pudo guardar el template.',
       deleteError: 'No se pudo eliminar el template.',
       generateError: 'No se pudo generar el PDF.',
+    },
+    useCases: {
+      eyebrow: 'Producto',
+      title: 'Casos de uso y criterio operativo',
     },
     properties: {
       eyebrow: 'Propiedades',
