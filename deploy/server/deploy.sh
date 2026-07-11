@@ -8,11 +8,54 @@ APP_DIR="${APP_DIR:-/var/www/$APP_NAME}"
 BRANCH="${BRANCH:-main}"
 RELEASE_ARCHIVE="${RELEASE_ARCHIVE:-}"
 FORCE_SERVER_BUILD="${FORCE_SERVER_BUILD:-false}"
+BOOTSTRAP_ADMIN_EMAILS_B64="${BOOTSTRAP_ADMIN_EMAILS_B64:-}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run this script as root."
   exit 1
 fi
+
+sync_backend_runtime_env() {
+  local backend_env_file="$APP_DIR/shared/backend/.env"
+
+  if [[ ! -f "$backend_env_file" ]]; then
+    touch "$backend_env_file"
+  fi
+
+  if [[ -n "$BOOTSTRAP_ADMIN_EMAILS_B64" ]]; then
+    local decoded_value
+    decoded_value="$(printf '%s' "$BOOTSTRAP_ADMIN_EMAILS_B64" | base64 --decode)"
+    upsert_env_var "$backend_env_file" "BOOTSTRAP_ADMIN_EMAILS" "$decoded_value"
+    echo "Updated shared backend env: BOOTSTRAP_ADMIN_EMAILS"
+  fi
+}
+
+upsert_env_var() {
+  local file_path="$1"
+  local key="$2"
+  local value="$3"
+  local tmp_file
+  tmp_file="$(mktemp)"
+
+  awk -v key="$key" -v value="$value" '
+    BEGIN { updated = 0 }
+    index($0, key "=") == 1 {
+      print key "=" value
+      updated = 1
+      next
+    }
+    { print }
+    END {
+      if (!updated) {
+        print key "=" value
+      }
+    }
+  ' "$file_path" > "$tmp_file"
+
+  mv "$tmp_file" "$file_path"
+}
+
+sync_backend_runtime_env
 
 cd "$APP_DIR/app"
 

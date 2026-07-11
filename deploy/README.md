@@ -72,6 +72,7 @@ SEED_ON_BOOTSTRAP=false
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_CALLBACK_URL=https://app.tu-dominio.com/api/auth/google/callback
+BOOTSTRAP_ADMIN_EMAILS=
 ```
 
 Frontend recomendado:
@@ -144,6 +145,7 @@ Configurar estos secrets en GitHub:
 - `DROPLET_PORT`
 - `DROPLET_USER`
 - `DROPLET_SSH_KEY`
+- `BOOTSTRAP_ADMIN_EMAILS` opcional para sincronizar admins bootstrap al `.env` compartido del backend durante cada deploy
 
 Opcionales como repo variables de GitHub Actions:
 
@@ -163,6 +165,7 @@ El workflow:
 - builda backend y frontend en GitHub
 - empaqueta artefactos Linux listos para deploy
 - los sube por `scp`
+- sincroniza `BOOTSTRAP_ADMIN_EMAILS` en `/var/www/propia/shared/backend/.env` si el secret existe
 - ejecuta migraciones productivas en el Droplet
 - reinicia backend y recarga `nginx`
 

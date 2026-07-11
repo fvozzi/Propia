@@ -81,4 +81,13 @@ jobs:
         run: scp -P "${{ secrets.DROPLET_PORT }}" "${RELEASE_NAME}" "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:/tmp/${RELEASE_NAME}"
 
       - name: Deploy on droplet
-        run: ssh -p "${{ secrets.DROPLET_PORT }}" "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}" "sudo RELEASE_ARCHIVE=/tmp/${RELEASE_NAME} bash /var/www/propia/app/deploy/server/deploy.sh"
+        env:
+          BOOTSTRAP_ADMIN_EMAILS: ${{ secrets.BOOTSTRAP_ADMIN_EMAILS || '' }}
+        run: |
+          BOOTSTRAP_ADMIN_EMAILS_B64=""
+          if [[ -n "${BOOTSTRAP_ADMIN_EMAILS}" ]]; then
+            BOOTSTRAP_ADMIN_EMAILS_B64="$(printf '%s' "${BOOTSTRAP_ADMIN_EMAILS}" | base64 -w0)"
+          fi
+
+          ssh -p "${{ secrets.DROPLET_PORT }}" "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}" \
+            "sudo RELEASE_ARCHIVE=/tmp/${RELEASE_NAME} BOOTSTRAP_ADMIN_EMAILS_B64=${BOOTSTRAP_ADMIN_EMAILS_B64} bash /var/www/propia/app/deploy/server/deploy.sh"

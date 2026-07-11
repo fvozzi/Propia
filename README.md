@@ -56,6 +56,7 @@ SEED_ON_BOOTSTRAP=false
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+BOOTSTRAP_ADMIN_EMAILS=
 ```
 
 ### Frontend
@@ -134,6 +135,8 @@ Ese flujo deja:
 - backend NestJS bajo `systemd`
 - PostgreSQL local en el mismo servidor
 - deploy continuo por `git push` usando GitHub Actions + SSH
+
+Para admins bootstrap del backend, el workflow tambien puede sincronizar `BOOTSTRAP_ADMIN_EMAILS` desde GitHub Secrets hacia `/var/www/propia/shared/backend/.env` durante el deploy.
 
 Si queres separar sitio comercial y app:
 
