@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly loginEventsRepository: Repository<LoginEvent>,
     private readonly jwtService: JwtService,
     private readonly userWorkspaceService: UserWorkspaceService,
+    private readonly configService: ConfigService,
   ) {}
 
   async login(
@@ -60,7 +62,7 @@ export class AuthService {
     }
 
     user = await this.userWorkspaceService.ensurePersonalTeam(user);
-    const response = await this.buildAuthResponse(user);
+    const response = await this.buildAuthResponseWithAudit(user, 'PASSWORD', context);
     await this.recordSuccessfulLogin(user, 'PASSWORD', context);
     return response;
   }
@@ -84,6 +86,7 @@ export class AuthService {
     let user = await this.usersRepository.findOne({
       where: { email: primaryEmail },
     });
+    const bootstrapAdmin = this.isBootstrapAdminEmail(primaryEmail);
 
     if (!user) {
       user = await this.usersRepository.save(
@@ -91,13 +94,39 @@ export class AuthService {
           email: primaryEmail,
           name: params.profile.displayName || primaryEmail,
           passwordHash: null,
-          backofficeAccess: false,
-          status: UserStatus.ACTIVE,
+          appRole: bootstrapAdmin ? AppUserRole.ADMIN : AppUserRole.USER,
+          backofficeAccess: bootstrapAdmin,
+          status: bootstrapAdmin ? UserStatus.ACTIVE : UserStatus.PENDING,
         }),
       );
-    } else if (params.profile.displayName && user.name !== params.profile.displayName) {
-      user.name = params.profile.displayName;
-      user = await this.usersRepository.save(user);
+    } else {
+      let requiresSave = false;
+
+      if (params.profile.displayName && user.name !== params.profile.displayName) {
+        user.name = params.profile.displayName;
+        requiresSave = true;
+      }
+
+      if (bootstrapAdmin) {
+        if (user.appRole !== AppUserRole.ADMIN) {
+          user.appRole = AppUserRole.ADMIN;
+          requiresSave = true;
+        }
+
+        if (!user.backofficeAccess) {
+          user.backofficeAccess = true;
+          requiresSave = true;
+        }
+
+        if (user.status !== UserStatus.ACTIVE) {
+          user.status = UserStatus.ACTIVE;
+          requiresSave = true;
+        }
+      }
+
+      if (requiresSave) {
+        user = await this.usersRepository.save(user);
+      }
     }
 
     user = await this.userWorkspaceService.ensurePersonalTeam(user);
@@ -130,7 +159,7 @@ export class AuthService {
 
     await this.googleConnectionsRepository.save(connection);
 
-    const response = await this.buildAuthResponse(user);
+    const response = await this.buildAuthResponseWithAudit(user, 'GOOGLE', context);
     await this.recordSuccessfulLogin(user, 'GOOGLE', context);
     return response;
   }
@@ -154,6 +183,45 @@ export class AuthService {
     await this.userWorkspaceService.setActiveTeam(userId, teamId);
     const user = await this.usersRepository.findOneOrFail({ where: { id: userId } });
     return this.buildAuthResponse(user);
+  }
+
+  private async buildAuthResponseWithAudit(
+    user: User,
+    authMethod: LoginMethod,
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
+    try {
+      return await this.buildAuthResponse(user);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        await this.recordLoginEvent({
+          email: user.email,
+          userId: user.id,
+          teamId: user.activeTeamId,
+          success: false,
+          authMethod,
+          failureReason: 'ACCESS_DENIED',
+          ...context,
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  private isBootstrapAdminEmail(email: string) {
+    return this.getBootstrapAdminEmails().has(normalizeEmail(email));
+  }
+
+  private getBootstrapAdminEmails() {
+    const rawValue = this.configService.get<string>('BOOTSTRAP_ADMIN_EMAILS', '');
+
+    return new Set(
+      rawValue
+        .split(/[,\s;]+/)
+        .map((value) => normalizeEmail(value))
+        .filter((value) => value.length > 0),
+    );
   }
 
   private async buildAuthResponse(user: User) {

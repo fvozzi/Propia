@@ -542,13 +542,16 @@
 - Archivos relacionados:
   - `backend/src/auth/user-workspace.service.spec.ts`
   - `backend/src/auth/google-enabled.guard.spec.ts`
+  - `backend/src/auth/backoffice.guard.spec.ts`
+  - `backend/src/auth/backoffice-admin.service.spec.ts`
+  - `backend/src/auth/auth.service.spec.ts`
 - Reglas cubiertas actualmente:
   - validacion de acceso segun configuracion y contexto autenticado
+  - acceso a backoffice solo para `ADMIN` con `backofficeAccess = true`
+  - alta por Google con promocion automatica para emails bootstrap de administracion
+  - alta por Google en estado `PENDING` para nuevos usuarios no aprobados
   - soporte de infraestructura base para bloquear acceso por reglas de cuenta y usuario
-- Pendiente de ampliar:
-  - tests especificos de backoffice guard
-  - tests especificos de suspension de cuenta y deshabilitacion de usuario en login
-  - tests de agregacion de metricas de `LoginEvent`
+  - suspension operativa de cuentas y agregacion de metricas de `LoginEvent`
 
 ## UC9. Busqueda automatica y preseleccion de propiedades desde portales externos
 
@@ -587,13 +590,17 @@
 
 ### Cobertura unitaria
 
-- Pendiente de implementar.
-- Reglas candidatas a cubrir:
-  - normalizacion de resultados externos a un formato comun
+- Archivo principal:
+  - `backend/src/use-cases/external-listing-matching.use-case.spec.ts`
+- Archivos relacionados:
+  - `backend/src/auth/backoffice-admin.service.spec.ts`
+- Reglas cubiertas:
   - scoring o matching contra requerimientos de compra
-  - deduplicacion de candidatos externos
-  - explicacion de coincidencias y motivos de descarte
-  - aplicacion de configuracion por cuenta y por portal
+  - penalizacion por presupuesto excedido y cochera faltante
+  - matching de barrios ignorando mayusculas, acentos y espacios repetidos
+  - deduplicacion por URL canonica, `providerKey + externalListingId` y heuristica fuerte
+  - descarte de falsos positivos cuando los avisos son claramente distintos
+  - normalizacion administrativa de `baseUrl` por portal en backoffice
 
 ### Diseno tecnico propuesto
 
@@ -882,9 +889,12 @@
 
 ### Cobertura unitaria
 
-- Pendiente de ampliar con tests especificos del caso de uso financiero.
-- Regla ya implementada en servicio:
+- Archivo principal:
+  - `backend/src/finances/finances.service.spec.ts`
+- Reglas cubiertas:
+  - creacion de configuracion financiera por defecto por equipo cuando aun no existe
   - persistencia de egresos con categoria, monto y asociaciones opcionales
+  - resolucion automatica de oportunidad comercial a partir del requerimiento vinculado
 
 ## UC11. Finanzas: registrar ingresos por operaciones cerradas
 
@@ -926,10 +936,13 @@
 
 ### Cobertura unitaria
 
-- Pendiente de ampliar con tests especificos del caso de uso financiero.
-- Regla ya implementada en servicio:
+- Archivo principal:
+  - `backend/src/finances/finances.service.spec.ts`
+- Reglas cubiertas:
   - validacion de que los ingresos se vinculen a una actividad de escritura
+  - bloqueo cuando la actividad y la oportunidad comercial no coinciden
   - calculo derivado de comision, franquicia e ingreso neto
+  - inferencia de oportunidad comercial a partir de la actividad de escritura
 
 ## UC12. Finanzas: configurar porcentajes de comision y franquicia
 
@@ -964,9 +977,12 @@
 
 ### Cobertura unitaria
 
-- Pendiente de ampliar con tests especificos del caso de uso financiero.
-- Regla ya implementada en servicio:
-  - lectura y persistencia de configuracion financiera por equipo
+- Archivo principal:
+  - `backend/src/finances/finances.service.spec.ts`
+- Reglas cubiertas:
+  - lectura y creacion de configuracion financiera por equipo
+  - persistencia de porcentaje de franquicia, venta y compra
+  - aislamiento por equipo para no depender de valores hardcodeados en UI
 
 ## Nota
 
