@@ -5,7 +5,13 @@ import { chromium } from 'playwright';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Contact } from '../contacts/contact.entity';
 import { paginate } from '../common/pagination';
-import { ActivityType } from '../common/enums';
+import {
+  CommercialOpportunityStage,
+  CommercialOpportunityStatus,
+  ActivityType,
+  OperationType,
+} from '../common/enums';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { Property } from '../properties/property.entity';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import {
@@ -28,6 +34,8 @@ export class ActivitiesService {
     private readonly activitiesRepository: Repository<Activity>,
     @InjectRepository(Contact)
     private readonly contactsRepository: Repository<Contact>,
+    @InjectRepository(CommercialOpportunity)
+    private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
     @InjectRepository(Property)
     private readonly propertiesRepository: Repository<Property>,
     @InjectRepository(AppraisalRequest)
@@ -72,6 +80,14 @@ export class ActivitiesService {
       appraisalRequestId = request.id;
     }
 
+    const commercialOpportunity = await this.resolveOpportunityForActivityDraft({
+      teamId,
+      contactId: dto.contactId ?? null,
+      propertyId: dto.propertyId ?? null,
+      appraisalRequestId,
+      activityType: dto.activityType,
+    });
+
     const activity = this.activitiesRepository.create({
       ...dto,
       teamId,
@@ -85,6 +101,7 @@ export class ActivitiesService {
       contactId: dto.contactId ?? null,
       propertyId: dto.propertyId ?? null,
       appraisalRequestId,
+      commercialOpportunityId: commercialOpportunity?.id ?? null,
       title: nextTitle,
       externalUrl: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.externalUrl?.trim() || null : null,
       externalPreviewImageUrl: preview.imageUrl,
@@ -98,6 +115,24 @@ export class ActivitiesService {
     });
 
     const saved = await this.activitiesRepository.save(activity);
+
+    if (dto.activityType === ActivityType.APPRAISAL_REQUEST && appraisalRequestId) {
+      const opportunity = await this.upsertSaleOpportunityFromAppraisal({
+        teamId,
+        ownerUserId: user.sub,
+        contactId: dto.contactId ?? null,
+        appraisalRequestId,
+        sourceActivityId: saved.id,
+        propertyId: dto.propertyId ?? null,
+        propertyAddress: dto.appraisalPropertyAddress?.trim() || null,
+      });
+
+      if (saved.commercialOpportunityId !== opportunity.id) {
+        saved.commercialOpportunityId = opportunity.id;
+        await this.activitiesRepository.save(saved);
+      }
+    }
+
     await this.activityCalendarSyncService.syncById(saved.id, 'create');
     return this.findOne(saved.id, user);
   }
@@ -113,6 +148,7 @@ export class ActivitiesService {
       .leftJoinAndSelect('activity.contact', 'contact')
       .leftJoinAndSelect('activity.property', 'property')
       .leftJoinAndSelect('activity.appraisalRequest', 'appraisalRequest')
+      .leftJoinAndSelect('activity.commercialOpportunity', 'commercialOpportunity')
       .where('activity.teamId = :teamId', { teamId })
       .orderBy('activity.activityDate', 'DESC');
 
@@ -196,7 +232,12 @@ export class ActivitiesService {
     const teamId = requireActiveTeamId(user);
     const activity = await this.activitiesRepository.findOne({
       where: { id, teamId },
-      relations: { contact: true, property: true, appraisalRequest: true },
+      relations: {
+        contact: true,
+        property: true,
+        appraisalRequest: true,
+        commercialOpportunity: true,
+      },
     });
 
     if (!activity) {
@@ -262,6 +303,14 @@ export class ActivitiesService {
       }
     }
 
+    const linkedOpportunity = await this.resolveOpportunityForActivityDraft({
+      teamId,
+      contactId: nextContactId,
+      propertyId: nextPropertyId,
+      appraisalRequestId: nextAppraisalRequestId,
+      activityType: nextActivityType,
+    });
+
     Object.assign(activity, {
       ...dto,
       activityDate: dto.activityDate ? new Date(dto.activityDate) : activity.activityDate,
@@ -274,6 +323,10 @@ export class ActivitiesService {
       contactId: nextContactId,
       propertyId: nextPropertyId,
       appraisalRequestId: nextAppraisalRequestId ?? null,
+      commercialOpportunityId:
+        nextActivityType === ActivityType.APPRAISAL_REQUEST
+          ? activity.commercialOpportunityId
+          : linkedOpportunity?.id ?? null,
       title: nextTitle,
       externalUrl: nextExternalUrl,
       externalPreviewImageUrl: preview.imageUrl,
@@ -304,6 +357,27 @@ export class ActivitiesService {
     });
 
     await this.activitiesRepository.save(activity);
+
+    if (nextActivityType === ActivityType.APPRAISAL_REQUEST && nextAppraisalRequestId) {
+      const opportunity = await this.upsertSaleOpportunityFromAppraisal({
+        teamId,
+        ownerUserId: activity.ownerUserId,
+        contactId: nextContactId,
+        appraisalRequestId: nextAppraisalRequestId,
+        sourceActivityId: activity.id,
+        propertyId: nextPropertyId,
+        propertyAddress:
+          activity.appraisalRequest?.propertyAddress ??
+          dto.appraisalPropertyAddress?.trim() ??
+          null,
+      });
+
+      if (activity.commercialOpportunityId !== opportunity.id) {
+        activity.commercialOpportunityId = opportunity.id;
+        await this.activitiesRepository.save(activity);
+      }
+    }
+
     await this.activityCalendarSyncService.syncById(activity.id, 'update');
     return this.findOne(id, user);
   }
@@ -453,6 +527,115 @@ export class ActivitiesService {
     } catch {
       return fallback;
     }
+  }
+
+  private async resolveOpportunityForActivityDraft(params: {
+    teamId: number;
+    contactId: number | null;
+    propertyId: number | null;
+    appraisalRequestId: number | null;
+    activityType: ActivityType;
+  }) {
+    if (params.appraisalRequestId) {
+      return this.opportunitiesRepository.findOne({
+        where: {
+          teamId: params.teamId,
+          appraisalRequestId: params.appraisalRequestId,
+        },
+      });
+    }
+
+    if (params.propertyId) {
+      return this.opportunitiesRepository.findOne({
+        where: {
+          teamId: params.teamId,
+          propertyId: params.propertyId,
+        },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+
+    if (
+      params.contactId &&
+      (params.activityType === ActivityType.SALE_DEED ||
+        params.activityType === ActivityType.PURCHASE_DEED)
+    ) {
+      return this.opportunitiesRepository.findOne({
+        where: {
+          teamId: params.teamId,
+          contactId: params.contactId,
+          operationType:
+            params.activityType === ActivityType.SALE_DEED
+              ? OperationType.SALE
+              : OperationType.BUY,
+          status: CommercialOpportunityStatus.OPEN,
+        },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+
+    return null;
+  }
+
+  private async upsertSaleOpportunityFromAppraisal(params: {
+    teamId: number;
+    ownerUserId: number;
+    contactId: number | null;
+    appraisalRequestId: number;
+    sourceActivityId: number;
+    propertyId: number | null;
+    propertyAddress: string | null;
+  }) {
+    if (!params.contactId) {
+      throw new BadRequestException(
+        'La oportunidad comercial de venta requiere contacto',
+      );
+    }
+
+    const existing = await this.opportunitiesRepository.findOne({
+      where: {
+        teamId: params.teamId,
+        appraisalRequestId: params.appraisalRequestId,
+      },
+    });
+
+    const stage = params.propertyId
+      ? CommercialOpportunityStage.PROPERTY_READY
+      : CommercialOpportunityStage.PRELISTING_SENT;
+    const title = params.propertyAddress?.trim()
+      ? `Venta - ${params.propertyAddress.trim()}`
+      : 'Venta - Prelisting';
+
+    if (existing) {
+      existing.contactId = params.contactId;
+      existing.sourceActivityId = params.sourceActivityId;
+      existing.propertyId = params.propertyId ?? null;
+      existing.stage = stage;
+      existing.status = CommercialOpportunityStatus.OPEN;
+      existing.title = title;
+      existing.closedAt = null;
+      existing.lostReason = null;
+      return this.opportunitiesRepository.save(existing);
+    }
+
+    return this.opportunitiesRepository.save(
+      this.opportunitiesRepository.create({
+        teamId: params.teamId,
+        ownerUserId: params.ownerUserId,
+        contactId: params.contactId,
+        operationType: OperationType.SALE,
+        stage,
+        status: CommercialOpportunityStatus.OPEN,
+        sourceActivityId: params.sourceActivityId,
+        searchRequirementId: null,
+        appraisalRequestId: params.appraisalRequestId,
+        propertyId: params.propertyId ?? null,
+        title,
+        summary: null,
+        lostReason: null,
+        closedAt: null,
+      }),
+    );
   }
 }
 

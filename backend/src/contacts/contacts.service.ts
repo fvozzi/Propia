@@ -69,6 +69,11 @@ export class ContactsService {
         activities: {
           property: true,
         },
+        commercialOpportunities: {
+          property: true,
+          searchRequirement: true,
+          appraisalRequest: true,
+        },
         visits: {
           property: true,
         },
@@ -83,6 +88,9 @@ export class ContactsService {
         },
         propertyCandidates: {
           createdAt: 'DESC',
+        },
+        commercialOpportunities: {
+          updatedAt: 'DESC',
         },
       },
     });

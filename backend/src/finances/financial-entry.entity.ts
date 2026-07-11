@@ -13,6 +13,7 @@ import {
   OperationType,
 } from '../common/enums';
 import { Activity } from '../activities/activity.entity';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 
 @Entity('financial_entries')
@@ -54,6 +55,17 @@ export class FinancialEntry {
 
   @Column({ type: 'integer', nullable: true })
   searchRequirementId: number | null;
+
+  @ManyToOne(
+    () => CommercialOpportunity,
+    (commercialOpportunity) => commercialOpportunity.financialEntries,
+    { nullable: true, onDelete: 'SET NULL' },
+  )
+  @JoinColumn({ name: 'commercialOpportunityId' })
+  commercialOpportunity: CommercialOpportunity | null;
+
+  @Column({ type: 'integer', nullable: true })
+  commercialOpportunityId: number | null;
 
   @Column({ type: 'enum', enum: OperationType, enumName: 'operation_type', nullable: true })
   incomeOperationType: OperationType | null;

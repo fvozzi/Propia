@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { BuyerPropertyCandidatesModule } from './buyer-property-candidates/buyer-property-candidates.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { CommercialOpportunitiesModule } from './commercial-opportunities/commercial-opportunities.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { buildDataSourceOptions } from './database/typeorm.config';
@@ -33,6 +34,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     AppraisalRequestsModule,
     BuyerPropertyCandidatesModule,
     CalendarModule,
+    CommercialOpportunitiesModule,
     ContactsModule,
     PropertiesModule,
     SearchRequirementsModule,

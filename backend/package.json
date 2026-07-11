@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage",
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
     "seed:prod": "node dist/database/seed.js",
+    "backfill:commercial-opportunities": "ts-node -r tsconfig-paths/register src/database/backfill-commercial-opportunities.ts",
     "playwright:install": "playwright install chromium",
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "typeorm:prod": "typeorm -d dist/database/data-source.js",

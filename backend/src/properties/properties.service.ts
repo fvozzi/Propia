@@ -6,8 +6,14 @@ import { ActivityCalendarSyncService } from '../activities/activity-calendar-syn
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { paginate } from '../common/pagination';
 import { Contact } from '../contacts/contact.entity';
-import { OperationType, SearchRequirementStatus } from '../common/enums';
+import {
+  CommercialOpportunityStage,
+  CommercialOpportunityStatus,
+  OperationType,
+  SearchRequirementStatus,
+} from '../common/enums';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { calculateAppraisalAreas, summarizeAppraisalAnswers } from '../use-cases/appraisal-initial-intake.use-case';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { Visit } from '../visits/visit.entity';
@@ -52,6 +58,8 @@ export class PropertiesService {
     private readonly appraisalRequestsRepository: Repository<AppraisalRequest>,
     @InjectRepository(SearchRequirement)
     private readonly requirementsRepository: Repository<SearchRequirement>,
+    @InjectRepository(CommercialOpportunity)
+    private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
     @InjectRepository(Visit)
@@ -80,6 +88,7 @@ export class PropertiesService {
     const saved = await this.propertiesRepository.save(property);
     await this.syncAppraisalActivity(saved.id, saved.appraisalRequestId ?? null, teamId);
     await this.linkSaleRequirement(saved, teamId);
+    await this.syncCommercialOpportunity(saved, teamId, user.sub);
     return this.findOne(saved.id, user);
   }
 
@@ -253,6 +262,7 @@ export class PropertiesService {
 
     await this.syncAppraisalActivity(property.id, property.appraisalRequestId ?? null, teamId);
     await this.linkSaleRequirement(property, teamId);
+    await this.syncCommercialOpportunity(property, teamId, property.ownerUserId);
     return this.findOne(id, user);
   }
 
@@ -436,5 +446,85 @@ export class PropertiesService {
 
     unlinkedRequirements[0].propertyId = property.id;
     await this.requirementsRepository.save(unlinkedRequirements[0]);
+  }
+
+  private async syncCommercialOpportunity(
+    property: Property,
+    teamId: number,
+    ownerUserId: number,
+  ) {
+    if (!property.ownerContactId || property.operationType !== OperationType.SALE) {
+      return;
+    }
+
+    const linkedRequirement = await this.requirementsRepository.findOne({
+      where: {
+        teamId,
+        propertyId: property.id,
+        operationType: OperationType.SALE,
+      },
+      order: { createdAt: 'ASC' },
+    });
+
+    const opportunity =
+      (property.appraisalRequestId
+        ? await this.opportunitiesRepository.findOne({
+            where: {
+              teamId,
+              appraisalRequestId: property.appraisalRequestId,
+            },
+          })
+        : null) ??
+      (linkedRequirement
+        ? await this.opportunitiesRepository.findOne({
+            where: {
+              teamId,
+              searchRequirementId: linkedRequirement.id,
+            },
+          })
+        : null) ??
+      (await this.opportunitiesRepository.findOne({
+        where: {
+          teamId,
+          propertyId: property.id,
+        },
+      }));
+
+    const title = property.title?.trim()
+      ? `Venta - ${property.title.trim()}`
+      : `Venta - ${property.address}`;
+
+    if (opportunity) {
+      opportunity.contactId = property.ownerContactId;
+      opportunity.propertyId = property.id;
+      opportunity.operationType = OperationType.SALE;
+      opportunity.stage = CommercialOpportunityStage.PROPERTY_READY;
+      opportunity.status = CommercialOpportunityStatus.OPEN;
+      opportunity.title = title;
+      if (linkedRequirement) {
+        opportunity.searchRequirementId = linkedRequirement.id;
+      }
+      await this.opportunitiesRepository.save(opportunity);
+      return;
+    }
+
+    await this.opportunitiesRepository.save(
+      this.opportunitiesRepository.create({
+        teamId,
+        ownerUserId,
+        contactId: property.ownerContactId,
+        operationType: OperationType.SALE,
+        stage: CommercialOpportunityStage.PROPERTY_READY,
+        status: CommercialOpportunityStatus.OPEN,
+        sourceActivityId: null,
+        searchRequirementId: linkedRequirement?.id ?? null,
+        appraisalRequestId: property.appraisalRequestId ?? null,
+        propertyId: property.id,
+        title,
+        summary: property.privateNotes?.trim() || null,
+        lostReason: null,
+        closedAt: null,
+      }),
+    );
   }
 }

@@ -17,6 +17,7 @@ export function Layout() {
     { to: '/contacts', label: t('nav.contacts') },
     { to: '/documents', label: t('nav.documents') },
     { to: '/finances', label: t('nav.finances') },
+    { to: '/opportunities', label: t('nav.commercialOpportunities') },
     { to: '/properties', label: t('nav.properties') },
     { to: '/map', label: t('nav.map') },
     { to: '/appraisals', label: t('nav.appraisals') },

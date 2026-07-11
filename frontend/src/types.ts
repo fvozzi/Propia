@@ -99,6 +99,19 @@ export type ExpenseCategory =
   | 'PROPERTY_SEARCH_SERVICES'
   | 'PHOTOCOPIES'
   | 'OTHER';
+export type CommercialOpportunityStage =
+  | 'NEW'
+  | 'QUALIFYING'
+  | 'SEARCHING'
+  | 'PRELISTING_SENT'
+  | 'PRELISTING_COMPLETED'
+  | 'PROPERTY_READY'
+  | 'VISITING'
+  | 'NEGOTIATING'
+  | 'RESERVED'
+  | 'CLOSED_WON'
+  | 'CLOSED_LOST';
+export type CommercialOpportunityStatus = 'OPEN' | 'WON' | 'LOST' | 'ARCHIVED';
 
 export interface SessionTeam {
   id: number;
@@ -134,6 +147,7 @@ export interface Contact {
   propertyCandidates?: BuyerPropertyCandidate[];
   appraisalRequests?: AppraisalRequest[];
   activities?: Activity[];
+  commercialOpportunities?: CommercialOpportunity[];
   visits?: Visit[];
   ownedProperties?: Property[];
 }
@@ -297,6 +311,7 @@ export interface FinancialEntry {
   notes: string | null;
   createdAt: string;
   activity?: Activity | null;
+  commercialOpportunity?: CommercialOpportunity | null;
   searchRequirement?: SearchRequirement | null;
 }
 
@@ -390,6 +405,7 @@ export interface Activity {
   contactId: number | null;
   propertyId: number | null;
   appraisalRequestId: number | null;
+  commercialOpportunityId?: number | null;
   activityType: ActivityType;
   title: string;
   description: string | null;
@@ -408,6 +424,32 @@ export interface Activity {
   contact?: Contact | null;
   property?: Property | null;
   appraisalRequest?: AppraisalRequest | null;
+  commercialOpportunity?: CommercialOpportunity | null;
+}
+
+export interface CommercialOpportunity {
+  id: number;
+  teamId: number;
+  ownerUserId: number;
+  contactId: number;
+  operationType: OperationType;
+  stage: CommercialOpportunityStage;
+  status: CommercialOpportunityStatus;
+  sourceActivityId: number | null;
+  searchRequirementId: number | null;
+  appraisalRequestId: number | null;
+  propertyId: number | null;
+  title: string;
+  summary: string | null;
+  lostReason: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contact?: Contact;
+  property?: Property | null;
+  searchRequirement?: SearchRequirement | null;
+  appraisalRequest?: AppraisalRequest | null;
+  sourceActivity?: Activity | null;
 }
 
 export interface AppraisalRequest {

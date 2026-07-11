@@ -46,6 +46,11 @@ export class CreateFinancialEntryDto {
 
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
+  commercialOpportunityId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   operationAmount?: number;

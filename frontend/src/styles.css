@@ -411,6 +411,12 @@ label {
   border: 1px solid rgba(182, 77, 27, 0.24);
 }
 
+.active-toggle {
+  background: rgba(182, 77, 27, 0.12);
+  color: #7f2d0a;
+  border-color: rgba(182, 77, 27, 0.3);
+}
+
 .stack-gap {
   display: grid;
   gap: 0.8rem;
@@ -449,6 +455,14 @@ label {
 .table-cell-stack {
   display: grid;
   gap: 0.25rem;
+}
+
+.pagination-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .portal-config-panel {

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { CalendarModule } from '../calendar/calendar.module';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
@@ -12,7 +13,13 @@ import { ActivitiesService } from './activities.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Activity, Contact, Property, AppraisalRequest]),
+    TypeOrmModule.forFeature([
+      Activity,
+      Contact,
+      Property,
+      AppraisalRequest,
+      CommercialOpportunity,
+    ]),
     CalendarModule,
     WhatsappModule,
   ],

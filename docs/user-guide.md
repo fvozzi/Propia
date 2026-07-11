@@ -1,0 +1,169 @@
+# Guia operativa Propia CRM
+
+## Indice
+
+- [Inicio rapido](#inicio-rapido)
+- [Proceso de compra](#proceso-de-compra)
+- [Proceso de venta](#proceso-de-venta)
+- [Documentos y cierre](#documentos-y-cierre)
+- [Indicadores para usar todos los dias](#indicadores-para-usar-todos-los-dias)
+
+## Inicio rapido
+
+Esta guia esta pensada para trabajar el CRM todos los dias sin entrar en detalles tecnicos.
+
+Pantallas principales:
+
+- [Dashboard](/): prioridades del dia y pendientes.
+- [Contactos](/contacts): personas y relacion comercial.
+- [Oportunidades](/opportunities): negocio de compra o venta en curso.
+- [Actividades](/activities): llamados, WhatsApp, seguimientos, muestras, reservas y escrituras.
+- [Calendario](/calendar): agenda comercial.
+- [Prelistings](/appraisals): formulario inicial para captar una propiedad.
+- [Propiedades](/properties): inmuebles captados o en analisis.
+- [Requerimientos](/requirements): lo que busca un comprador.
+- [Finanzas](/finances): egresos, ingresos y balance.
+- [Documentos](/documents): generacion de plantillas y PDF.
+
+## Proceso de compra
+
+### 1. Crear el contacto comprador
+
+Ir a [Contactos](/contacts) y cargar el contacto con rol `Comprador`.
+
+### 2. Cargar el requerimiento
+
+Ir a [Requerimientos](/requirements) y definir:
+
+1. zona o barrios
+2. rango de precio
+3. tipo de propiedad
+4. ambientes, dormitorios y banos
+5. criterios como cochera, apto credito o amenities
+
+Al guardar, el CRM crea o alimenta una **oportunidad comercial de compra** en [Oportunidades](/opportunities).
+
+### 3. Investigar y hacer seguimiento
+
+Usar [Actividades](/activities) para registrar:
+
+- llamadas
+- WhatsApp
+- seguimientos
+- links investigados
+- visitas
+- muestras
+- reserva
+- escritura de compra
+
+### 4. Seguir el avance del negocio
+
+Usar [Oportunidades](/opportunities) para ver si el negocio esta:
+
+- buscando
+- visitando
+- negociando
+- reservado
+- cierre ganado
+
+### 5. Registrar el resultado economico
+
+En [Finanzas](/finances):
+
+- cargar egresos vinculados al negocio
+- cargar el ingreso al momento de la escritura
+
+## Proceso de venta
+
+### 1. Crear el contacto propietario
+
+Ir a [Contactos](/contacts) y cargar el rol `Propietario`.
+
+### 2. Abrir el proceso comercial
+
+La venta puede arrancar de dos maneras:
+
+1. desde [Prelistings](/appraisals), enviando el formulario inicial
+2. desde [Propiedades](/properties), si la propiedad ya se carga directo
+
+En ambos casos el sistema crea o actualiza una **oportunidad comercial de venta**.
+
+### 3. Enviar el prelisting
+
+En [Prelistings](/appraisals) enviar el formulario para relevar:
+
+- direccion
+- tipo de inmueble
+- superficies
+- estado general
+- disponibilidad
+- comentarios del propietario
+
+### 4. Cargar la propiedad
+
+En [Propiedades](/properties) completar:
+
+1. titulo
+2. direccion
+3. precio
+4. fotos
+5. superficies
+6. notas privadas
+
+### 5. Comercializar y seguir la captacion
+
+Registrar en [Actividades](/activities):
+
+- llamados
+- WhatsApp
+- muestra de propiedad propia
+- ACM
+- sesion de fotos
+- reserva
+- escritura de venta
+
+Y revisar agenda desde [Calendario](/calendar).
+
+### 6. Controlar la etapa
+
+En [Oportunidades](/opportunities) la venta puede pasar por:
+
+- prelisting enviado
+- prelisting respondido
+- propiedad lista
+- negociando
+- reservado
+- cierre ganado
+
+Si se pierde, marcar motivo de perdida.
+
+## Documentos y cierre
+
+### Documentos
+
+En [Documentos](/documents) generar documentos comerciales reutilizando datos del CRM.
+
+### Finanzas
+
+En [Finanzas](/finances) registrar:
+
+- egresos de fotografia, transporte, pauta y otros
+- ingresos de escrituras
+- balance del negocio
+
+## Indicadores para usar todos los dias
+
+Orden recomendado de trabajo:
+
+1. [Dashboard](/)
+2. [Calendario](/calendar)
+3. [Oportunidades](/opportunities)
+4. [Actividades](/activities)
+
+Regla simple:
+
+- el **contacto** es la persona
+- la **actividad** es lo que hiciste
+- la **oportunidad** es el negocio en curso
+- la **propiedad** es el inmueble
+- el **requerimiento** describe lo que busca un comprador

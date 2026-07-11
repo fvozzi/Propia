@@ -15,6 +15,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { ContactCreatePage } from './pages/ContactCreatePage';
 import { ContactDetailPage } from './pages/ContactDetailPage';
 import { ContactsPage } from './pages/ContactsPage';
+import { CommercialOpportunitiesPage } from './pages/CommercialOpportunitiesPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { FinancesPage } from './pages/FinancesPage';
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/contacts" element={<ContactsPage />} />
+                <Route path="/opportunities" element={<CommercialOpportunitiesPage />} />
                 <Route path="/contacts/new" element={<ContactCreatePage />} />
                 <Route path="/contacts/:id" element={<ContactDetailPage />} />
                 <Route path="/documents" element={<DocumentsPage />} />

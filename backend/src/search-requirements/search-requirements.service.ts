@@ -2,8 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
-import { CurrencyType, OperationType, PropertyType, SearchRequirementStatus } from '../common/enums';
+import {
+  CommercialOpportunityStage,
+  CommercialOpportunityStatus,
+  CurrencyType,
+  OperationType,
+  PropertyType,
+  SearchRequirementStatus,
+} from '../common/enums';
 import { paginate } from '../common/pagination';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
 import {
@@ -46,6 +54,8 @@ export class SearchRequirementsService {
   constructor(
     @InjectRepository(SearchRequirement)
     private readonly requirementsRepository: Repository<SearchRequirement>,
+    @InjectRepository(CommercialOpportunity)
+    private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
     @InjectRepository(Contact)
     private readonly contactsRepository: Repository<Contact>,
     @InjectRepository(Property)
@@ -54,7 +64,7 @@ export class SearchRequirementsService {
 
   async create(dto: CreateSearchRequirementDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    await this.assertScopedContact(dto.contactId, teamId);
+    const contact = await this.assertScopedContact(dto.contactId, teamId);
     const scopedProperty = dto.propertyId ? await this.assertScopedProperty(dto.propertyId, teamId) : null;
 
     const requirement = this.requirementsRepository.create({
@@ -62,7 +72,34 @@ export class SearchRequirementsService {
       teamId,
       ownerUserId: user.sub,
     });
-    return this.requirementsRepository.save(requirement);
+    const saved = await this.requirementsRepository.save(requirement);
+
+    if (saved.operationType === OperationType.BUY) {
+      await this.opportunitiesRepository.save(
+        this.opportunitiesRepository.create({
+          teamId,
+          ownerUserId: user.sub,
+          contactId: saved.contactId,
+          operationType: saved.operationType,
+          stage: CommercialOpportunityStage.SEARCHING,
+          status: CommercialOpportunityStatus.OPEN,
+          searchRequirementId: saved.id,
+          propertyId: saved.propertyId ?? null,
+          sourceActivityId: null,
+          appraisalRequestId: null,
+          title: buildRequirementOpportunityTitle(
+            contact.displayName,
+            saved.operationType,
+            saved.propertyType,
+          ),
+          summary: saved.notes?.trim() || null,
+          lostReason: null,
+          closedAt: null,
+        }),
+      );
+    }
+
+    return saved;
   }
 
   async findAll(query: QuerySearchRequirementsDto, user: AuthenticatedUser) {
@@ -110,7 +147,7 @@ export class SearchRequirementsService {
     }
 
     const nextContactId = dto.contactId ?? requirement.contactId;
-    await this.assertScopedContact(nextContactId, teamId);
+    const contact = await this.assertScopedContact(nextContactId, teamId);
     const nextPropertyId = dto.propertyId === undefined ? requirement.propertyId : dto.propertyId;
     const scopedProperty = nextPropertyId ? await this.assertScopedProperty(nextPropertyId, teamId) : null;
 
@@ -126,6 +163,25 @@ export class SearchRequirementsService {
       ),
     );
     await this.requirementsRepository.save(requirement);
+
+    const linkedOpportunity = await this.opportunitiesRepository.findOne({
+      where: { searchRequirementId: requirement.id, teamId },
+    });
+
+    if (linkedOpportunity) {
+      linkedOpportunity.contactId = requirement.contactId;
+      linkedOpportunity.operationType = requirement.operationType;
+      linkedOpportunity.propertyId = requirement.propertyId ?? null;
+      linkedOpportunity.summary = requirement.notes?.trim() || null;
+      linkedOpportunity.title = buildRequirementOpportunityTitle(
+        contact.displayName,
+        requirement.operationType,
+        requirement.propertyType,
+      );
+
+      await this.opportunitiesRepository.save(linkedOpportunity);
+    }
+
     return this.findOne(id, user);
   }
 
@@ -151,6 +207,8 @@ export class SearchRequirementsService {
     if (!contact) {
       throw new NotFoundException('Contacto no encontrado');
     }
+
+    return contact;
   }
 
   private async assertScopedProperty(propertyId: number, teamId: number) {
@@ -213,4 +271,19 @@ export class SearchRequirementsService {
       notes: criteria.notes,
     };
   }
+}
+
+function buildRequirementOpportunityTitle(
+  contactName: string,
+  operationType: OperationType,
+  propertyType: PropertyType,
+) {
+  const prefix =
+    operationType === OperationType.BUY
+      ? 'Compra'
+      : operationType === OperationType.SALE
+        ? 'Venta'
+        : 'Alquiler';
+
+  return `${prefix} - ${contactName} - ${propertyType}`;
 }

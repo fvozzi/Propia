@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Activity } from '../activities/activity.entity';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { FinanceConfigController } from './finance-config.controller';
 import { FinanceConfig } from './finance-config.entity';
@@ -15,6 +16,7 @@ import { FinancesService } from './finances.service';
       FinancialEntry,
       Activity,
       SearchRequirement,
+      CommercialOpportunity,
     ]),
   ],
   controllers: [FinanceConfigController, FinancialEntriesController],

@@ -1,45 +1,79 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { useI18n } from '../lib/i18n';
+import userGuideMarkdown from '../../../docs/user-guide.md?raw';
 import useCasesMarkdown from '../../../docs/use-cases.md?raw';
 
 type MarkdownBlock =
-  | { type: 'h1' | 'h2' | 'h3'; text: string }
+  | { type: 'h1' | 'h2' | 'h3'; text: string; id: string }
   | { type: 'p'; text: string }
   | { type: 'ul' | 'ol'; items: string[] }
   | { type: 'code'; code: string };
 
 export function UseCasesPage() {
   const { t } = useI18n();
-  const blocks = useMemo(() => parseMarkdown(useCasesMarkdown), []);
+  const [mode, setMode] = useState<'guide' | 'technical'>('guide');
+  const blocks = useMemo(
+    () => parseMarkdown(mode === 'guide' ? userGuideMarkdown : useCasesMarkdown),
+    [mode],
+  );
 
   return (
     <div className="page-stack">
       <ResourcePageHeader
         eyebrow={t('useCases.eyebrow')}
-        title={t('useCases.title')}
+        title={mode === 'guide' ? t('useCases.title') : t('useCases.technicalTitle')}
+        actions={
+          <div className="candidate-actions">
+            <button
+              type="button"
+              className={mode === 'guide' ? 'ghost-button active-toggle' : 'ghost-button'}
+              onClick={() => setMode('guide')}
+            >
+              {t('useCases.modeGuide')}
+            </button>
+            <button
+              type="button"
+              className={
+                mode === 'technical' ? 'ghost-button active-toggle' : 'ghost-button'
+              }
+              onClick={() => setMode('technical')}
+            >
+              {t('useCases.modeTechnical')}
+            </button>
+          </div>
+        }
       />
 
       <section className="card use-cases-doc">
         {blocks.map((block, index) => {
           if (block.type === 'h1') {
-            return <h1 key={index}>{block.text}</h1>;
+            return (
+              <h1 key={index} id={block.id}>
+                {block.text}
+              </h1>
+            );
           }
 
           if (block.type === 'h2') {
-            return <h2 key={index}>{block.text}</h2>;
+            return (
+              <h2 key={index} id={block.id}>
+                {block.text}
+              </h2>
+            );
           }
 
           if (block.type === 'h3') {
-            return <h3 key={index}>{block.text}</h3>;
+            return (
+              <h3 key={index} id={block.id}>
+                {block.text}
+              </h3>
+            );
           }
 
           if (block.type === 'p') {
-            return (
-              <p key={index}>
-                {renderInlineMarkdown(block.text)}
-              </p>
-            );
+            return <p key={index}>{renderInlineMarkdown(block.text)}</p>;
           }
 
           if (block.type === 'code') {
@@ -57,7 +91,7 @@ export function UseCasesPage() {
           const ListTag = block.type;
           return (
             <ListTag key={index}>
-              {block.items.map((item: string, itemIndex: number) => (
+              {block.items.map((item, itemIndex) => (
                 <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
               ))}
             </ListTag>
@@ -150,9 +184,11 @@ function parseMarkdown(content: string): MarkdownBlock[] {
       flushList();
 
       const depth = headingMatch[1].length;
+      const text = headingMatch[2].trim();
       blocks.push({
         type: depth === 1 ? 'h1' : depth === 2 ? 'h2' : 'h3',
-        text: headingMatch[2].trim(),
+        text,
+        id: slugifyHeading(text),
       });
       continue;
     }
@@ -200,9 +236,27 @@ function renderInlineMarkdown(text: string) {
 
     const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (linkMatch) {
+      const [, label, href] = linkMatch;
+
+      if (href.startsWith('/')) {
+        return (
+          <Link key={index} to={href}>
+            {label}
+          </Link>
+        );
+      }
+
+      if (href.startsWith('#')) {
+        return (
+          <a key={index} href={href}>
+            {label}
+          </a>
+        );
+      }
+
       return (
-        <a key={index} href={linkMatch[2]} target="_blank" rel="noreferrer">
-          {linkMatch[1]}
+        <a key={index} href={href} target="_blank" rel="noreferrer">
+          {label}
         </a>
       );
     }
@@ -224,4 +278,13 @@ function renderInlineMarkdown(text: string) {
 
     return <Fragment key={index}>{part}</Fragment>;
   });
+}
+
+function slugifyHeading(text: string) {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }

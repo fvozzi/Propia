@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { ActivityType } from '../common/enums';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
 
@@ -51,6 +52,20 @@ export class Activity {
 
   @Column({ type: 'integer', nullable: true })
   appraisalRequestId: number | null;
+
+  @ManyToOne(
+    () => CommercialOpportunity,
+    (commercialOpportunity) => commercialOpportunity.activities,
+    {
+      nullable: true,
+      onDelete: 'SET NULL',
+    },
+  )
+  @JoinColumn({ name: 'commercialOpportunityId' })
+  commercialOpportunity: CommercialOpportunity | null;
+
+  @Column({ type: 'integer', nullable: true })
+  commercialOpportunityId: number | null;
 
   @Column({ type: 'enum', enum: ActivityType, enumName: 'activity_type' })
   activityType: ActivityType;

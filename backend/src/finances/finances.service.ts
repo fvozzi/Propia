@@ -10,6 +10,7 @@ import {
   requireActiveTeamId,
   type AuthenticatedUser,
 } from '../auth/current-user.decorator';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import {
   ActivityType,
   FinancialEntryType,
@@ -32,6 +33,8 @@ export class FinancesService {
     private readonly activitiesRepository: Repository<Activity>,
     @InjectRepository(SearchRequirement)
     private readonly searchRequirementsRepository: Repository<SearchRequirement>,
+    @InjectRepository(CommercialOpportunity)
+    private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
   ) {}
 
   async getConfig(user: AuthenticatedUser) {
@@ -54,6 +57,7 @@ export class FinancesService {
       where: { teamId },
       relations: {
         activity: true,
+        commercialOpportunity: true,
         searchRequirement: {
           contact: true,
           property: true,
@@ -65,7 +69,7 @@ export class FinancesService {
 
   async createEntry(dto: CreateFinancialEntryDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    const [config, activity, searchRequirement] = await Promise.all([
+    const [config, activity, searchRequirement, commercialOpportunity] = await Promise.all([
       this.ensureConfig(teamId),
       dto.activityId
         ? this.activitiesRepository.findOne({
@@ -77,6 +81,11 @@ export class FinancesService {
             where: { id: dto.searchRequirementId, teamId },
           })
         : Promise.resolve(null),
+      dto.commercialOpportunityId
+        ? this.opportunitiesRepository.findOne({
+            where: { id: dto.commercialOpportunityId, teamId },
+          })
+        : Promise.resolve(null),
     ]);
 
     if (dto.activityId && !activity) {
@@ -86,6 +95,22 @@ export class FinancesService {
     if (dto.searchRequirementId && !searchRequirement) {
       throw new NotFoundException('Requerimiento no encontrado');
     }
+
+    if (dto.commercialOpportunityId && !commercialOpportunity) {
+      throw new NotFoundException('Oportunidad comercial no encontrada');
+    }
+
+    const resolvedOpportunityId =
+      commercialOpportunity?.id ??
+      activity?.commercialOpportunityId ??
+      (searchRequirement
+        ? (
+            await this.opportunitiesRepository.findOne({
+              where: { teamId, searchRequirementId: searchRequirement.id },
+            })
+          )?.id ??
+          null
+        : null);
 
     if (dto.entryType === FinancialEntryType.EXPENSE) {
       if (!dto.expenseCategory) {
@@ -105,6 +130,7 @@ export class FinancesService {
         expenseCategory: dto.expenseCategory,
         activityId: activity?.id ?? null,
         searchRequirementId: searchRequirement?.id ?? null,
+        commercialOpportunityId: resolvedOpportunityId,
         incomeOperationType: null,
         operationAmount: null,
         commissionPercent: null,
@@ -161,6 +187,7 @@ export class FinancesService {
       expenseCategory: null,
       activityId: activity.id,
       searchRequirementId: searchRequirement?.id ?? null,
+      commercialOpportunityId: resolvedOpportunityId,
       incomeOperationType,
       operationAmount: dto.operationAmount,
       commissionPercent,

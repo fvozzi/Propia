@@ -4,7 +4,13 @@ import { Repository } from 'typeorm';
 import { ActivityCalendarSyncService } from '../activities/activity-calendar-sync.service';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Activity } from '../activities/activity.entity';
-import { ActivityType } from '../common/enums';
+import {
+  ActivityType,
+  CommercialOpportunityStage,
+  CommercialOpportunityStatus,
+  OperationType,
+} from '../common/enums';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { Contact } from '../contacts/contact.entity';
 import { paginate } from '../common/pagination';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
@@ -31,6 +37,8 @@ export class AppraisalRequestsService {
     private readonly contactsRepository: Repository<Contact>,
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
+    @InjectRepository(CommercialOpportunity)
+    private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
     private readonly activityCalendarSyncService: ActivityCalendarSyncService,
     private readonly whatsappService: WhatsappService,
   ) {}
@@ -50,7 +58,8 @@ export class AppraisalRequestsService {
     });
 
     const saved = await this.appraisalRequestsRepository.save(request);
-    await this.syncActivityForRequest(saved);
+    const activity = await this.syncActivityForRequest(saved);
+    await this.upsertOpportunityForRequest(saved, activity.id);
     return this.findOne(saved.id, user);
   }
 
@@ -112,7 +121,8 @@ export class AppraisalRequestsService {
     });
 
     await this.appraisalRequestsRepository.save(request);
-    await this.syncActivityForRequest(request);
+    const activity = await this.syncActivityForRequest(request);
+    await this.upsertOpportunityForRequest(request, activity.id);
     return this.findOne(id, user);
   }
 
@@ -207,7 +217,8 @@ export class AppraisalRequestsService {
     });
     await this.appraisalRequestsRepository.save(request);
 
-    await this.syncActivityForRequest(request);
+    const activity = await this.syncActivityForRequest(request);
+    await this.upsertOpportunityForRequest(request, activity.id);
 
     return this.findPublicByToken(token);
   }
@@ -317,5 +328,61 @@ export class AppraisalRequestsService {
     const saved = await this.activitiesRepository.save(activity);
     await this.activityCalendarSyncService.syncById(saved.id, 'create');
     return saved;
+  }
+
+  private async upsertOpportunityForRequest(
+    request: AppraisalRequest,
+    sourceActivityId: number,
+  ) {
+    const linkedPropertyId = request.properties?.[0]?.id ?? null;
+    const stage = linkedPropertyId
+      ? CommercialOpportunityStage.PROPERTY_READY
+      : request.submittedAt
+        ? CommercialOpportunityStage.PRELISTING_COMPLETED
+        : CommercialOpportunityStage.PRELISTING_SENT;
+    const title = request.propertyAddress?.trim()
+      ? `Venta - ${request.propertyAddress.trim()}`
+      : 'Venta - Prelisting';
+
+    const existing = await this.opportunitiesRepository.findOne({
+      where: {
+        teamId: request.teamId,
+        appraisalRequestId: request.id,
+      },
+    });
+
+    if (existing) {
+      existing.contactId = request.contactId;
+      existing.operationType = request.operationType ?? OperationType.SALE;
+      existing.sourceActivityId = sourceActivityId;
+      existing.propertyId = linkedPropertyId;
+      existing.stage = stage;
+      existing.status = CommercialOpportunityStatus.OPEN;
+      existing.title = title;
+      existing.summary = request.additionalNotes?.trim() || existing.summary;
+      existing.closedAt = null;
+      existing.lostReason = null;
+      await this.opportunitiesRepository.save(existing);
+      return existing;
+    }
+
+    const created = this.opportunitiesRepository.create({
+      teamId: request.teamId,
+      ownerUserId: request.ownerUserId,
+      contactId: request.contactId,
+      operationType: request.operationType ?? OperationType.SALE,
+      stage,
+      status: CommercialOpportunityStatus.OPEN,
+      sourceActivityId,
+      searchRequirementId: null,
+      appraisalRequestId: request.id,
+      propertyId: linkedPropertyId,
+      title,
+      summary: request.additionalNotes?.trim() || null,
+      lostReason: null,
+      closedAt: null,
+    });
+
+    return this.opportunitiesRepository.save(created);
   }
 }
