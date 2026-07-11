@@ -9,8 +9,33 @@ import {
 import { ActivityType } from '../common/enums';
 import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
 import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
+import {
+  CurrencyType,
+  OperationType,
+  PropertyType,
+} from '../common/enums';
 import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
+
+export type ReservationActivityData = {
+  agentName: string | null;
+  operationType: OperationType | null;
+  operationAmount: number | null;
+  operationCurrency: CurrencyType | null;
+  propertyAddress: string | null;
+  propertyNeighborhood: string | null;
+  propertyType: PropertyType | null;
+  sidesCount: number | null;
+  commissionPercent: number | null;
+  reservationAmount: number | null;
+  reservationCurrency: CurrencyType | null;
+  sharedWithRealEstate: boolean | null;
+  conformed: boolean | null;
+  credit: boolean | null;
+  relocation: boolean | null;
+  estimatedClosingMonth: string | null;
+  observations: string | null;
+};
 
 @Entity('activities')
 export class Activity {
@@ -102,6 +127,9 @@ export class Activity {
 
   @Column({ type: 'boolean', nullable: true })
   propertySearchLiked: boolean | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  reservationData: ReservationActivityData | null;
 
   @Column({ type: 'varchar', nullable: true })
   googleEventId: string | null;

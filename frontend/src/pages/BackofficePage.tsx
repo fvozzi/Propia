@@ -25,6 +25,7 @@ type AccountDraft = {
   whatsappPropertySearchImageTemplateName: string;
   whatsappAppraisalTemplateName: string;
   whatsappQualityRating: string;
+  whatsappTreasuryPhone: string;
 };
 
 export function BackofficePage() {
@@ -74,6 +75,7 @@ export function BackofficePage() {
               whatsappAppraisalTemplateName:
                 account.whatsappAppraisalTemplateName ?? '',
               whatsappQualityRating: account.whatsappQualityRating ?? '',
+              whatsappTreasuryPhone: account.whatsappTreasuryPhone ?? '',
             },
           ]),
         ),
@@ -133,6 +135,7 @@ export function BackofficePage() {
             draft.whatsappPropertySearchImageTemplateName || null,
           whatsappAppraisalTemplateName: draft.whatsappAppraisalTemplateName || null,
           whatsappQualityRating: draft.whatsappQualityRating || null,
+          whatsappTreasuryPhone: draft.whatsappTreasuryPhone || null,
         }),
       });
 
@@ -407,6 +410,18 @@ export function BackofficePage() {
                       })
                     }
                     placeholder="property_share_image"
+                  />
+                </label>
+                <label>
+                  WhatsApp tesoreria
+                  <input
+                    value={draft.whatsappTreasuryPhone}
+                    onChange={(event) =>
+                      updateAccountDraft(account.id, {
+                        whatsappTreasuryPhone: event.target.value,
+                      })
+                    }
+                    placeholder="+54911..."
                   />
                 </label>
                 <label>

@@ -113,6 +113,26 @@ export type CommercialOpportunityStage =
   | 'CLOSED_LOST';
 export type CommercialOpportunityStatus = 'OPEN' | 'WON' | 'LOST' | 'ARCHIVED';
 
+export interface ReservationActivityData {
+  agentName: string | null;
+  operationType: OperationType | null;
+  operationAmount: number | null;
+  operationCurrency: CurrencyType | null;
+  propertyAddress: string | null;
+  propertyNeighborhood: string | null;
+  propertyType: PropertyType | null;
+  sidesCount: number | null;
+  commissionPercent: number | null;
+  reservationAmount: number | null;
+  reservationCurrency: CurrencyType | null;
+  sharedWithRealEstate: boolean | null;
+  conformed: boolean | null;
+  credit: boolean | null;
+  relocation: boolean | null;
+  estimatedClosingMonth: string | null;
+  observations: string | null;
+}
+
 export interface SessionTeam {
   id: number;
   name: string;
@@ -301,6 +321,7 @@ export interface FinancialEntry {
   expenseCategory: ExpenseCategory | null;
   activityId: number | null;
   searchRequirementId: number | null;
+  commercialOpportunityId: number | null;
   incomeOperationType: OperationType | null;
   operationAmount: number | null;
   commissionPercent: number | null;
@@ -418,6 +439,7 @@ export interface Activity {
   whatsappComment: string | null;
   whatsappSharedAt: string | null;
   propertySearchLiked: boolean | null;
+  reservationData: ReservationActivityData | null;
   activityDate: string;
   nextFollowUpDate: string | null;
   createdAt: string;
@@ -672,5 +694,6 @@ export interface BackofficeAccount {
   whatsappPropertySearchImageTemplateName: string | null;
   whatsappAppraisalTemplateName: string | null;
   whatsappQualityRating: string | null;
+  whatsappTreasuryPhone: string | null;
   whatsappConnectedAt: string | null;
 }

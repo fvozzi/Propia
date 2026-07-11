@@ -25,6 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: {
     sub: number;
     email: string;
+    name?: string;
     appRole: 'ADMIN' | 'USER';
     backofficeAccess?: boolean;
     activeTeamId: number | null;
@@ -51,6 +52,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       sub: user.id,
       email: user.email,
+      name: user.name,
       appRole: user.appRole ?? AppUserRole.USER,
       backofficeAccess: Boolean(user.backofficeAccess),
       activeTeamId: user.activeTeamId,

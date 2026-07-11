@@ -1,14 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800;900&display=swap');
+
 :root {
-  --bg: #f6efe4;
-  --bg-accent: #ead9c1;
-  --surface: rgba(255, 252, 247, 0.84);
-  --surface-strong: #fffaf2;
-  --ink: #1d2a33;
-  --muted: #667785;
-  --line: rgba(29, 42, 51, 0.12);
-  --brand: #c0591a;
-  --brand-dark: #8e3f12;
-  --shadow: 0 28px 60px rgba(71, 42, 13, 0.14);
+  --bg: #fbf8f2;
+  --bg-accent: #ebf1f0;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: rgba(255, 253, 248, 0.94);
+  --ink: #18343d;
+  --muted: #5f7377;
+  --line: rgba(24, 52, 61, 0.12);
+  --brand: #2f6770;
+  --brand-dark: #1e4f56;
+  --warm: #c27a3c;
+  --warm-dark: #9d5c25;
+  --warm-soft: rgba(194, 122, 60, 0.12);
+  --shadow: 0 28px 60px rgba(24, 52, 61, 0.1);
 }
 
 * {
@@ -21,11 +26,12 @@ html {
 
 body {
   margin: 0;
-  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Nunito Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.8), transparent 32%),
-    linear-gradient(135deg, var(--bg) 0%, #f3e2c8 45%, var(--bg-accent) 100%);
+    radial-gradient(circle at top left, rgba(210, 168, 110, 0.18), transparent 26%),
+    radial-gradient(circle at right 14%, rgba(90, 131, 137, 0.14), transparent 22%),
+    linear-gradient(135deg, var(--bg) 0%, #f3eee4 46%, var(--bg-accent) 100%);
 }
 
 a {
@@ -75,7 +81,7 @@ a {
 
 .eyebrow,
 .panel-label {
-  color: var(--brand);
+  color: var(--warm);
 }
 
 .hero h1,
@@ -120,7 +126,7 @@ a {
 .primary-link {
   color: #fff;
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
-  box-shadow: 0 14px 24px rgba(192, 89, 26, 0.28);
+  box-shadow: 0 14px 24px rgba(47, 103, 112, 0.24);
 }
 
 .secondary-link {
@@ -148,7 +154,7 @@ a {
   gap: 18px;
   align-content: center;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 249, 240, 0.84)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 246, 245, 0.86)),
     var(--surface);
 }
 
@@ -257,7 +263,7 @@ a {
 .feature-kicker {
   display: inline-flex;
   margin-bottom: 14px;
-  color: var(--brand);
+  color: var(--warm);
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-size: 0.72rem;
@@ -265,7 +271,7 @@ a {
 }
 
 .pricing-card-accent {
-  background: linear-gradient(160deg, rgba(255, 244, 232, 0.94), rgba(255, 250, 244, 0.98));
+  background: linear-gradient(160deg, rgba(236, 245, 244, 0.94), rgba(255, 251, 245, 0.98));
 }
 
 .plan-badge {
@@ -301,8 +307,8 @@ a {
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  background: rgba(192, 89, 26, 0.12);
-  color: var(--brand-dark);
+  background: var(--warm-soft);
+  color: var(--warm-dark);
   font-weight: 800;
 }
 

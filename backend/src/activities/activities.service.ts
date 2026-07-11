@@ -9,7 +9,9 @@ import {
   CommercialOpportunityStage,
   CommercialOpportunityStatus,
   ActivityType,
+  CurrencyType,
   OperationType,
+  PropertyType,
 } from '../common/enums';
 import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { Property } from '../properties/property.entity';
@@ -21,7 +23,7 @@ import {
 } from '../use-cases/appraisal-initial-intake.use-case';
 import { ActivityCalendarSyncService } from './activity-calendar-sync.service';
 import { extractDomain, parseActivityPreviewMetadata } from './activity-preview.utils';
-import { Activity } from './activity.entity';
+import { Activity, type ReservationActivityData } from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
 import { ShareActivityDto } from './dto/share-activity.dto';
@@ -103,7 +105,11 @@ export class ActivitiesService {
       appraisalRequestId,
       commercialOpportunityId: commercialOpportunity?.id ?? null,
       title: nextTitle,
-      externalUrl: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.externalUrl?.trim() || null : null,
+      externalUrl:
+        dto.activityType === ActivityType.PROPERTY_SEARCH ||
+        dto.activityType === ActivityType.RESERVATION
+          ? dto.externalUrl?.trim() || null
+          : null,
       externalPreviewImageUrl: preview.imageUrl,
       externalPreviewTitle: preview.title,
       externalPreviewDescription: preview.description,
@@ -112,6 +118,10 @@ export class ActivitiesService {
       whatsappComment: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.whatsappComment?.trim() || null : null,
       whatsappSharedAt: dto.whatsappSharedAt ? new Date(dto.whatsappSharedAt) : null,
       propertySearchLiked: dto.activityType === ActivityType.PROPERTY_SEARCH ? dto.propertySearchLiked ?? null : null,
+      reservationData:
+        dto.activityType === ActivityType.RESERVATION
+          ? sanitizeReservationData(dto.reservationData, user.name ?? null)
+          : null,
     });
 
     const saved = await this.activitiesRepository.save(activity);
@@ -131,6 +141,13 @@ export class ActivitiesService {
         saved.commercialOpportunityId = opportunity.id;
         await this.activitiesRepository.save(saved);
       }
+    }
+
+    if (
+      dto.activityType === ActivityType.RESERVATION &&
+      saved.commercialOpportunityId
+    ) {
+      await this.markOpportunityAsReserved(saved.commercialOpportunityId);
     }
 
     await this.activityCalendarSyncService.syncById(saved.id, 'create');
@@ -275,7 +292,8 @@ export class ActivitiesService {
           )
         : dto.title ?? activity.title;
     const nextExternalUrl =
-      nextActivityType === ActivityType.PROPERTY_SEARCH
+      nextActivityType === ActivityType.PROPERTY_SEARCH ||
+      nextActivityType === ActivityType.RESERVATION
         ? dto.externalUrl === undefined
           ? activity.externalUrl
           : dto.externalUrl?.trim() || null
@@ -354,6 +372,12 @@ export class ActivitiesService {
           : dto.propertySearchLiked === undefined
             ? activity.propertySearchLiked
             : dto.propertySearchLiked,
+      reservationData:
+        nextActivityType !== ActivityType.RESERVATION
+          ? null
+          : dto.reservationData === undefined
+            ? activity.reservationData
+            : sanitizeReservationData(dto.reservationData, user.name ?? null),
     });
 
     await this.activitiesRepository.save(activity);
@@ -376,6 +400,13 @@ export class ActivitiesService {
         activity.commercialOpportunityId = opportunity.id;
         await this.activitiesRepository.save(activity);
       }
+    }
+
+    if (
+      nextActivityType === ActivityType.RESERVATION &&
+      activity.commercialOpportunityId
+    ) {
+      await this.markOpportunityAsReserved(activity.commercialOpportunityId);
     }
 
     await this.activityCalendarSyncService.syncById(activity.id, 'update');
@@ -474,6 +505,21 @@ export class ActivitiesService {
   private assertPropertySearchPayload(activityType: ActivityType, externalUrl?: string) {
     if (activityType === ActivityType.PROPERTY_SEARCH && !externalUrl?.trim()) {
       throw new BadRequestException('La actividad de busqueda de propiedad requiere un link');
+    }
+  }
+
+  private async markOpportunityAsReserved(commercialOpportunityId: number) {
+    const opportunity = await this.opportunitiesRepository.findOne({
+      where: { id: commercialOpportunityId },
+    });
+
+    if (!opportunity || opportunity.status !== CommercialOpportunityStatus.OPEN) {
+      return;
+    }
+
+    if (opportunity.stage !== CommercialOpportunityStage.RESERVED) {
+      opportunity.stage = CommercialOpportunityStage.RESERVED;
+      await this.opportunitiesRepository.save(opportunity);
     }
   }
 
@@ -637,6 +683,99 @@ export class ActivitiesService {
       }),
     );
   }
+}
+
+function sanitizeReservationData(
+  value: Record<string, unknown> | undefined,
+  defaultAgentName: string | null,
+): ReservationActivityData | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  return {
+    agentName: readOptionalString(value.agentName) ?? defaultAgentName,
+    operationType: readEnumValue<OperationType>(value.operationType, [
+      OperationType.SALE,
+      OperationType.BUY,
+      OperationType.RENT,
+    ]),
+    operationAmount: readOptionalNumber(value.operationAmount),
+    operationCurrency: readEnumValue<CurrencyType>(value.operationCurrency, [
+      CurrencyType.USD,
+      CurrencyType.ARS,
+    ]),
+    propertyAddress: readOptionalString(value.propertyAddress),
+    propertyNeighborhood: readOptionalString(value.propertyNeighborhood),
+    propertyType: readEnumValue<PropertyType>(value.propertyType, [
+      PropertyType.HOUSE,
+      PropertyType.APARTMENT,
+      PropertyType.PH,
+      PropertyType.LAND,
+      PropertyType.OFFICE,
+      PropertyType.COMMERCIAL,
+      PropertyType.OTHER,
+    ]),
+    sidesCount: readOptionalInteger(value.sidesCount),
+    commissionPercent: readOptionalNumber(value.commissionPercent),
+    reservationAmount: readOptionalNumber(value.reservationAmount),
+    reservationCurrency: readEnumValue<CurrencyType>(value.reservationCurrency, [
+      CurrencyType.USD,
+      CurrencyType.ARS,
+    ]),
+    sharedWithRealEstate: readOptionalBoolean(value.sharedWithRealEstate),
+    conformed: readOptionalBoolean(value.conformed),
+    credit: readOptionalBoolean(value.credit),
+    relocation: readOptionalBoolean(value.relocation),
+    estimatedClosingMonth: readOptionalString(value.estimatedClosingMonth),
+    observations: readOptionalString(value.observations),
+  };
+}
+
+function readOptionalString(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function readOptionalNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function readOptionalInteger(value: unknown) {
+  const numeric = readOptionalNumber(value);
+  return numeric === null ? null : Math.trunc(numeric);
+}
+
+function readOptionalBoolean(value: unknown) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    if (value === 'true') {
+      return true;
+    }
+    if (value === 'false') {
+      return false;
+    }
+  }
+
+  return null;
+}
+
+function readEnumValue<T extends string>(value: unknown, allowedValues: T[]) {
+  return typeof value === 'string' && allowedValues.includes(value as T)
+    ? (value as T)
+    : null;
 }
 
 type ActivityPreviewSnapshot = {

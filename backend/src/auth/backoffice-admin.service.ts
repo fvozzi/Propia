@@ -106,6 +106,7 @@ export class BackofficeAdminService {
         whatsappPropertySearchImageTemplateName: account.whatsappPropertySearchImageTemplateName,
         whatsappAppraisalTemplateName: account.whatsappAppraisalTemplateName,
         whatsappQualityRating: account.whatsappQualityRating,
+        whatsappTreasuryPhone: account.whatsappTreasuryPhone,
         whatsappConnectedAt: account.whatsappConnectedAt,
         createdAt: account.createdAt,
         memberCount: users.length,
@@ -204,6 +205,10 @@ export class BackofficeAdminService {
 
     if ('whatsappQualityRating' in dto) {
       account.whatsappQualityRating = dto.whatsappQualityRating?.trim() || null;
+    }
+
+    if ('whatsappTreasuryPhone' in dto) {
+      account.whatsappTreasuryPhone = dto.whatsappTreasuryPhone?.trim() || null;
     }
 
     if (account.status === AccountStatus.SUSPENDED) {
@@ -336,6 +341,7 @@ export class BackofficeAdminService {
         whatsappPropertySearchTemplateName: account.whatsappPropertySearchTemplateName,
         whatsappAppraisalTemplateName: account.whatsappAppraisalTemplateName,
         whatsappQualityRating: account.whatsappQualityRating,
+        whatsappTreasuryPhone: account.whatsappTreasuryPhone,
         whatsappConnectedAt: account.whatsappConnectedAt,
         createdAt: account.createdAt,
         memberCount: users.length,

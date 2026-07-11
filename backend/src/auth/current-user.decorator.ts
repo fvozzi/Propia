@@ -3,6 +3,7 @@ import { UnauthorizedException, createParamDecorator, ExecutionContext } from '@
 export interface AuthenticatedUser {
   sub: number;
   email: string;
+  name?: string;
   appRole: 'ADMIN' | 'USER';
   backofficeAccess?: boolean;
   activeTeamId: number | null;

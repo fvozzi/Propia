@@ -5,6 +5,7 @@ import { apiRequest } from '../lib/api';
 import { expenseCategoryOptions, useI18n } from '../lib/i18n';
 import type {
   Activity,
+  CommercialOpportunity,
   ExpenseCategory,
   FinanceConfig,
   FinancialEntry,
@@ -19,12 +20,21 @@ type EntryFormState = {
   currency: 'USD' | 'ARS';
   expenseCategory: ExpenseCategory;
   activityId: string;
-  searchRequirementId: string;
+  commercialOpportunityId: string;
   amount: string;
   operationAmount: string;
   commissionPercent: string;
   franchisePercent: string;
   notes: string;
+};
+
+type OpportunitySummary = {
+  key: string;
+  opportunity: CommercialOpportunity | null;
+  requirement: SearchRequirement | null;
+  currency: FinancialEntry['currency'];
+  expenses: number;
+  income: number;
 };
 
 const defaultFinanceConfig: FinanceConfig = {
@@ -44,7 +54,7 @@ function createInitialForm(config: FinanceConfig): EntryFormState {
     currency: 'ARS',
     expenseCategory: 'PHOTOGRAPHY',
     activityId: '',
-    searchRequirementId: '',
+    commercialOpportunityId: '',
     amount: '',
     operationAmount: '',
     commissionPercent: String(config.saleCommissionPercent),
@@ -55,10 +65,19 @@ function createInitialForm(config: FinanceConfig): EntryFormState {
 
 export function FinancesPage() {
   const { t, translateEnum } = useI18n();
+  const translateActivityType = (value: string) =>
+    translateEnum('activityType', value);
+  const translateOperationType = (value: string) =>
+    translateEnum('operationType', value);
+  const translateRequirementEnums = (
+    group: 'operationType' | 'propertyType',
+    value: string,
+  ) => translateEnum(group, value);
+
   const [financeConfig, setFinanceConfig] = useState<FinanceConfig>(defaultFinanceConfig);
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [requirements, setRequirements] = useState<SearchRequirement[]>([]);
+  const [opportunities, setOpportunities] = useState<CommercialOpportunity[]>([]);
   const [form, setForm] = useState<EntryFormState>(() =>
     createInitialForm(defaultFinanceConfig),
   );
@@ -97,23 +116,27 @@ export function FinancesPage() {
     };
   }, [form.operationAmount, form.commissionPercent, form.franchisePercent]);
 
-  const requirementSummaries = useMemo(() => {
-    const map = new Map<
-      number,
-      {
-        requirement: SearchRequirement;
-        expenses: number;
-        income: number;
-      }
-    >();
+  const opportunitySummaries = useMemo(() => {
+    const map = new Map<string, OpportunitySummary>();
 
     for (const entry of entries) {
-      if (!entry.searchRequirement) {
+      const linkedOpportunity = entry.commercialOpportunity ?? null;
+      const linkedRequirement = entry.searchRequirement ?? null;
+      const summaryKey = linkedOpportunity
+        ? `opportunity:${linkedOpportunity.id}:${entry.currency}`
+        : linkedRequirement
+          ? `requirement:${linkedRequirement.id}:${entry.currency}`
+          : null;
+
+      if (!summaryKey) {
         continue;
       }
 
-      const current = map.get(entry.searchRequirement.id) ?? {
-        requirement: entry.searchRequirement,
+      const current = map.get(summaryKey) ?? {
+        key: summaryKey,
+        opportunity: linkedOpportunity,
+        requirement: linkedRequirement,
+        currency: entry.currency,
         expenses: 0,
         income: 0,
       };
@@ -124,7 +147,7 @@ export function FinancesPage() {
         current.income += entry.netIncomeAmount ?? entry.amount;
       }
 
-      map.set(entry.searchRequirement.id, current);
+      map.set(summaryKey, current);
     }
 
     return Array.from(map.values()).sort((left, right) => {
@@ -139,20 +162,20 @@ export function FinancesPage() {
     setError('');
 
     try {
-      const [configResponse, entriesResponse, activitiesResponse, requirementsResponse] =
+      const [configResponse, entriesResponse, activitiesResponse, opportunitiesResponse] =
         await Promise.all([
           apiRequest<FinanceConfig>('/finance-config'),
           apiRequest<FinancialEntry[]>('/financial-entries'),
           apiRequest<Paginated<Activity>>('/activities?page=1&limit=100'),
-          apiRequest<Paginated<SearchRequirement>>(
-            '/search-requirements?page=1&limit=100',
+          apiRequest<Paginated<CommercialOpportunity>>(
+            '/commercial-opportunities?page=1&limit=100',
           ),
         ]);
 
       setFinanceConfig(configResponse);
       setEntries(entriesResponse);
       setActivities(activitiesResponse.items);
-      setRequirements(requirementsResponse.items);
+      setOpportunities(opportunitiesResponse.items);
       setForm(createInitialForm(configResponse));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t('finances.loadError'));
@@ -173,7 +196,6 @@ export function FinancesPage() {
       ...current,
       entryType,
       currency: entryType === 'EXPENSE' ? 'ARS' : current.currency,
-      expenseCategory: current.expenseCategory,
       amount: entryType === 'EXPENSE' ? current.amount : '',
       operationAmount: entryType === 'INCOME' ? current.operationAmount : '',
       commissionPercent:
@@ -203,8 +225,25 @@ export function FinancesPage() {
     setForm((current) => ({
       ...current,
       activityId,
+      commercialOpportunityId:
+        nextActivity?.commercialOpportunityId
+          ? String(nextActivity.commercialOpportunityId)
+          : current.commercialOpportunityId,
       commissionPercent: String(nextCommissionPercent),
       franchisePercent: String(financeConfig.franchisePercent),
+    }));
+  }
+
+  function handleExpenseActivityChange(activityId: string) {
+    const nextActivity = activities.find((activity) => String(activity.id) === activityId);
+
+    setForm((current) => ({
+      ...current,
+      activityId,
+      commercialOpportunityId:
+        nextActivity?.commercialOpportunityId
+          ? String(nextActivity.commercialOpportunityId)
+          : current.commercialOpportunityId,
     }));
   }
 
@@ -223,8 +262,8 @@ export function FinancesPage() {
           currency: form.currency,
           expenseCategory: form.entryType === 'EXPENSE' ? form.expenseCategory : undefined,
           activityId: form.activityId ? Number(form.activityId) : undefined,
-          searchRequirementId: form.searchRequirementId
-            ? Number(form.searchRequirementId)
+          commercialOpportunityId: form.commercialOpportunityId
+            ? Number(form.commercialOpportunityId)
             : undefined,
           amount: form.entryType === 'EXPENSE' ? Number(form.amount) : undefined,
           operationAmount:
@@ -351,17 +390,17 @@ export function FinancesPage() {
             </label>
 
             <label>
-              {t('finances.requirementOptional')}
+              {t('finances.opportunityOptional')}
               <select
-                value={form.searchRequirementId}
+                value={form.commercialOpportunityId}
                 onChange={(event) =>
-                  updateForm({ searchRequirementId: event.target.value })
+                  updateForm({ commercialOpportunityId: event.target.value })
                 }
               >
-                <option value="">{t('finances.noRequirementSelected')}</option>
-                {requirements.map((requirement) => (
-                  <option key={requirement.id} value={requirement.id}>
-                    {buildRequirementLabel(requirement, translateEnum)}
+                <option value="">{t('finances.noOpportunitySelected')}</option>
+                {opportunities.map((opportunity) => (
+                  <option key={opportunity.id} value={opportunity.id}>
+                    {buildOpportunityLabel(opportunity, translateOperationType)}
                   </option>
                 ))}
               </select>
@@ -391,12 +430,12 @@ export function FinancesPage() {
                   {t('finances.activityOptional')}
                   <select
                     value={form.activityId}
-                    onChange={(event) => updateForm({ activityId: event.target.value })}
+                    onChange={(event) => handleExpenseActivityChange(event.target.value)}
                   >
                     <option value="">{t('finances.noActivitySelected')}</option>
                     {activities.map((activity) => (
                       <option key={activity.id} value={activity.id}>
-                        {buildActivityLabel(activity, translateEnum)}
+                        {buildActivityLabel(activity, translateActivityType)}
                       </option>
                     ))}
                   </select>
@@ -428,7 +467,7 @@ export function FinancesPage() {
                     <option value="">{t('finances.noActivitySelected')}</option>
                     {deedActivities.map((activity) => (
                       <option key={activity.id} value={activity.id}>
-                        {buildActivityLabel(activity, translateEnum)}
+                        {buildActivityLabel(activity, translateActivityType)}
                       </option>
                     ))}
                   </select>
@@ -543,7 +582,7 @@ export function FinancesPage() {
                   <th>{t('finances.entryDate')}</th>
                   <th>{t('finances.entryType')}</th>
                   <th>{t('finances.entryConcept')}</th>
-                  <th>{t('finances.requirementColumn')}</th>
+                  <th>{t('finances.opportunityColumn')}</th>
                   <th>{t('finances.activityColumn')}</th>
                   <th>{t('finances.amountColumn')}</th>
                   <th>{t('common.notes')}</th>
@@ -577,13 +616,15 @@ export function FinancesPage() {
                       </div>
                     </td>
                     <td>
-                      {entry.searchRequirement
-                        ? buildRequirementLabel(entry.searchRequirement, translateEnum)
-                        : '-'}
+                      {buildEntryOpportunityLabel(
+                        entry,
+                        translateOperationType,
+                        translateRequirementEnums,
+                      )}
                     </td>
                     <td>
                       {entry.activity
-                        ? buildActivityLabel(entry.activity, translateEnum)
+                        ? buildActivityLabel(entry.activity, translateActivityType)
                         : '-'}
                     </td>
                     <td>
@@ -614,24 +655,34 @@ export function FinancesPage() {
 
       <section className="card">
         <h3>{t('finances.summaryTitle')}</h3>
-        {!loading && requirementSummaries.length === 0 ? (
+        {!loading && opportunitySummaries.length === 0 ? (
           <p className="muted">{t('finances.noSummary')}</p>
         ) : null}
         <div className="stack-gap">
-          {requirementSummaries.map(({ requirement, expenses, income }) => (
-            <article key={requirement.id} className="list-item">
-              <strong>{buildRequirementLabel(requirement, translateEnum)}</strong>
-              <p className="muted">
-                {t('finances.totalExpenses')}: {formatMoney(expenses, requirement.currency)}
-              </p>
-              <p className="muted">
-                {t('finances.totalIncome')}: {formatMoney(income, requirement.currency)}
-              </p>
-              <p className="muted">
-                {t('finances.balance')}: {formatMoney(income - expenses, requirement.currency)}
-              </p>
-            </article>
-          ))}
+          {opportunitySummaries.map(
+            ({ key, opportunity, requirement, currency, expenses, income }) => (
+              <article key={key} className="list-item">
+                <strong>
+                  {buildSummaryLabel(
+                    opportunity,
+                    requirement,
+                    translateOperationType,
+                    translateRequirementEnums,
+                  )}
+                </strong>
+                <span className="muted">{currency}</span>
+                <p className="muted">
+                  {t('finances.totalExpenses')}: {formatMoney(expenses, currency)}
+                </p>
+                <p className="muted">
+                  {t('finances.totalIncome')}: {formatMoney(income, currency)}
+                </p>
+                <p className="muted">
+                  {t('finances.balance')}: {formatMoney(income - expenses, currency)}
+                </p>
+              </article>
+            ),
+          )}
         </div>
       </section>
     </div>
@@ -640,23 +691,73 @@ export function FinancesPage() {
 
 function buildActivityLabel(
   activity: Activity,
-  translateEnum: (group: 'activityType', value: string) => string,
+  translateActivityType: (value: string) => string,
 ) {
-  return `${translateEnum('activityType', activity.activityType)} - ${activity.title}`;
+  return `${translateActivityType(activity.activityType)} - ${activity.title}`;
 }
 
 function buildRequirementLabel(
   requirement: SearchRequirement,
-  translateEnum: (
+  translateRequirementEnums: (
     group: 'operationType' | 'propertyType',
     value: string,
   ) => string,
 ) {
   return [
     requirement.contact?.displayName ?? `#${requirement.id}`,
-    translateEnum('operationType', requirement.operationType),
-    translateEnum('propertyType', requirement.propertyType),
-  ].join(' · ');
+    translateRequirementEnums('operationType', requirement.operationType),
+    translateRequirementEnums('propertyType', requirement.propertyType),
+  ].join(' - ');
+}
+
+function buildOpportunityLabel(
+  opportunity: CommercialOpportunity,
+  translateOperationType: (value: string) => string,
+) {
+  return [
+    opportunity.contact?.displayName ?? `#${opportunity.id}`,
+    translateOperationType(opportunity.operationType),
+    opportunity.property?.title ?? opportunity.title,
+  ].join(' - ');
+}
+
+function buildEntryOpportunityLabel(
+  entry: FinancialEntry,
+  translateOperationType: (value: string) => string,
+  translateRequirementEnums: (
+    group: 'operationType' | 'propertyType',
+    value: string,
+  ) => string,
+) {
+  if (entry.commercialOpportunity) {
+    return buildOpportunityLabel(entry.commercialOpportunity, translateOperationType);
+  }
+
+  if (entry.searchRequirement) {
+    return buildRequirementLabel(entry.searchRequirement, translateRequirementEnums);
+  }
+
+  return '-';
+}
+
+function buildSummaryLabel(
+  opportunity: CommercialOpportunity | null,
+  requirement: SearchRequirement | null,
+  translateOperationType: (value: string) => string,
+  translateRequirementEnums: (
+    group: 'operationType' | 'propertyType',
+    value: string,
+  ) => string,
+) {
+  if (opportunity) {
+    return buildOpportunityLabel(opportunity, translateOperationType);
+  }
+
+  if (requirement) {
+    return buildRequirementLabel(requirement, translateRequirementEnums);
+  }
+
+  return '-';
 }
 
 function formatMoney(value: number, currency: 'USD' | 'ARS') {

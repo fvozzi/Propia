@@ -96,4 +96,9 @@ export class UpdateAdminAccountDto {
   @IsString()
   @MaxLength(40)
   whatsappQualityRating?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  whatsappTreasuryPhone?: string | null;
 }

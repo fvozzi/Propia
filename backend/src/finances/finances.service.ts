@@ -57,7 +57,11 @@ export class FinancesService {
       where: { teamId },
       relations: {
         activity: true,
-        commercialOpportunity: true,
+        commercialOpportunity: {
+          contact: true,
+          property: true,
+          searchRequirement: true,
+        },
         searchRequirement: {
           contact: true,
           property: true,
@@ -69,7 +73,7 @@ export class FinancesService {
 
   async createEntry(dto: CreateFinancialEntryDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    const [config, activity, searchRequirement, commercialOpportunity] = await Promise.all([
+    const [config, activity, searchRequirement, selectedOpportunity] = await Promise.all([
       this.ensureConfig(teamId),
       dto.activityId
         ? this.activitiesRepository.findOne({
@@ -96,21 +100,47 @@ export class FinancesService {
       throw new NotFoundException('Requerimiento no encontrado');
     }
 
-    if (dto.commercialOpportunityId && !commercialOpportunity) {
+    if (dto.commercialOpportunityId && !selectedOpportunity) {
       throw new NotFoundException('Oportunidad comercial no encontrada');
     }
 
-    const resolvedOpportunityId =
-      commercialOpportunity?.id ??
-      activity?.commercialOpportunityId ??
-      (searchRequirement
-        ? (
-            await this.opportunitiesRepository.findOne({
-              where: { teamId, searchRequirementId: searchRequirement.id },
-            })
-          )?.id ??
-          null
-        : null);
+    if (
+      selectedOpportunity &&
+      activity?.commercialOpportunityId &&
+      activity.commercialOpportunityId !== selectedOpportunity.id
+    ) {
+      throw new BadRequestException(
+        'La actividad vinculada pertenece a otra oportunidad comercial',
+      );
+    }
+
+    if (
+      selectedOpportunity &&
+      searchRequirement?.id &&
+      selectedOpportunity.searchRequirementId &&
+      selectedOpportunity.searchRequirementId !== searchRequirement.id
+    ) {
+      throw new BadRequestException(
+        'El requerimiento vinculado no coincide con la oportunidad comercial',
+      );
+    }
+
+    let resolvedOpportunity = selectedOpportunity;
+
+    if (!resolvedOpportunity && activity?.commercialOpportunityId) {
+      resolvedOpportunity = await this.opportunitiesRepository.findOne({
+        where: { id: activity.commercialOpportunityId, teamId },
+      });
+    }
+
+    if (!resolvedOpportunity && searchRequirement) {
+      resolvedOpportunity = await this.opportunitiesRepository.findOne({
+        where: { teamId, searchRequirementId: searchRequirement.id },
+      });
+    }
+
+    const resolvedSearchRequirementId =
+      searchRequirement?.id ?? resolvedOpportunity?.searchRequirementId ?? null;
 
     if (dto.entryType === FinancialEntryType.EXPENSE) {
       if (!dto.expenseCategory) {
@@ -129,8 +159,8 @@ export class FinancesService {
         amount: dto.amount,
         expenseCategory: dto.expenseCategory,
         activityId: activity?.id ?? null,
-        searchRequirementId: searchRequirement?.id ?? null,
-        commercialOpportunityId: resolvedOpportunityId,
+        searchRequirementId: resolvedSearchRequirementId,
+        commercialOpportunityId: resolvedOpportunity?.id ?? null,
         incomeOperationType: null,
         operationAmount: null,
         commissionPercent: null,
@@ -186,8 +216,8 @@ export class FinancesService {
       amount: netIncomeAmount,
       expenseCategory: null,
       activityId: activity.id,
-      searchRequirementId: searchRequirement?.id ?? null,
-      commercialOpportunityId: resolvedOpportunityId,
+      searchRequirementId: resolvedSearchRequirementId,
+      commercialOpportunityId: resolvedOpportunity?.id ?? null,
       incomeOperationType,
       operationAmount: dto.operationAmount,
       commissionPercent,

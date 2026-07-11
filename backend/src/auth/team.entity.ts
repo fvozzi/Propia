@@ -76,6 +76,9 @@ export class Team {
   @Column({ type: 'varchar', nullable: true })
   whatsappQualityRating: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  whatsappTreasuryPhone: string | null;
+
   @Column({ type: 'timestamp with time zone', nullable: true })
   whatsappConnectedAt: Date | null;
 

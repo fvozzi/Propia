@@ -5,36 +5,91 @@ import { useAuth } from '../lib/auth';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { useI18n } from '../lib/i18n';
 
+type NavItem = {
+  to: string;
+  label: string;
+};
+
+type NavGroup = {
+  id: string;
+  label: string;
+  links: NavItem[];
+};
+
 export function Layout() {
   const { user, logout, switchTeam } = useAuth();
   const { locale, setLocale, t } = useI18n();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const links = [
+  const primaryLinks: NavItem[] = [
     { to: '/', label: t('nav.dashboard') },
     { to: '/calendar', label: t('nav.calendar') },
-    { to: '/contacts', label: t('nav.contacts') },
-    { to: '/documents', label: t('nav.documents') },
-    { to: '/finances', label: t('nav.finances') },
-    { to: '/opportunities', label: t('nav.commercialOpportunities') },
-    { to: '/properties', label: t('nav.properties') },
-    { to: '/map', label: t('nav.map') },
-    { to: '/appraisals', label: t('nav.appraisals') },
-    { to: '/requirements', label: t('nav.requirements') },
-    { to: '/activities', label: t('nav.activities') },
-    { to: '/visits', label: t('nav.visits') },
-    { to: '/use-cases', label: t('nav.useCases') },
-    { to: '/settings', label: t('nav.settings') },
-    ...(user?.appRole === 'ADMIN' && user.backofficeAccess
-      ? [{ to: '/backoffice', label: 'Backoffice' }]
-      : []),
-    ...(user?.appRole === 'ADMIN' ? [{ to: '/users', label: t('nav.users') }] : []),
   ];
+
+  const groupedLinks: NavGroup[] = [
+    {
+      id: 'commercial',
+      label: t('navGroups.commercial'),
+      links: [
+        { to: '/contacts', label: t('nav.contacts') },
+        { to: '/opportunities', label: t('nav.commercialOpportunities') },
+        { to: '/activities', label: t('nav.activities') },
+        { to: '/visits', label: t('nav.visits') },
+      ],
+    },
+    {
+      id: 'capture',
+      label: t('navGroups.capture'),
+      links: [
+        { to: '/properties', label: t('nav.properties') },
+        { to: '/map', label: t('nav.map') },
+        { to: '/appraisals', label: t('nav.appraisals') },
+        { to: '/requirements', label: t('nav.requirements') },
+      ],
+    },
+    {
+      id: 'operations',
+      label: t('navGroups.operations'),
+      links: [
+        { to: '/documents', label: t('nav.documents') },
+        { to: '/finances', label: t('nav.finances') },
+      ],
+    },
+    {
+      id: 'system',
+      label: t('navGroups.system'),
+      links: [
+        { to: '/use-cases', label: t('nav.useCases') },
+        { to: '/settings', label: t('nav.settings') },
+        ...(user?.appRole === 'ADMIN'
+          ? [{ to: '/users', label: t('nav.users') }]
+          : []),
+        ...(user?.appRole === 'ADMIN' && user.backofficeAccess
+          ? [{ to: '/backoffice', label: 'Backoffice' }]
+          : []),
+      ],
+    },
+  ].filter((group) => group.links.length > 0);
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    buildInitialOpenGroups(groupedLinks, location.pathname),
+  );
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setOpenGroups((current) =>
+      ensureActiveGroupOpen(current, groupedLinks, location.pathname),
+    );
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem('propia.sidebar.groups', JSON.stringify(openGroups));
+  }, [openGroups]);
 
   async function handleTeamChange(teamId: number) {
     if (teamId === user?.activeTeamId) {
@@ -43,6 +98,23 @@ export function Layout() {
 
     await switchTeam(teamId);
     window.location.reload();
+  }
+
+  function toggleGroup(groupId: string) {
+    setOpenGroups((current) => {
+      const nextOpen = !current[groupId];
+
+      if (window.matchMedia('(max-width: 960px)').matches && nextOpen) {
+        return Object.fromEntries(
+          Object.keys(current).map((key) => [key, key === groupId]),
+        );
+      }
+
+      return {
+        ...current,
+        [groupId]: nextOpen,
+      };
+    });
   }
 
   return (
@@ -82,16 +154,63 @@ export function Layout() {
           <img src={logo} alt="Propia" className="brand-logo" />
         </div>
         <nav className="nav">
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.to === '/'}
-              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-            >
-              {link.label}
-            </NavLink>
-          ))}
+          <div className="nav-primary-links">
+            {primaryLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.to === '/'}
+                className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </div>
+
+          {groupedLinks.map((group) => {
+            const isOpen = openGroups[group.id];
+            const hasActiveChild = group.links.some((link) =>
+              isRouteActive(location.pathname, link.to),
+            );
+
+            return (
+              <section
+                key={group.id}
+                className={hasActiveChild ? 'nav-group nav-group-active' : 'nav-group'}
+              >
+                <button
+                  type="button"
+                  className="nav-group-toggle"
+                  aria-expanded={isOpen}
+                  onClick={() => toggleGroup(group.id)}
+                >
+                  <span className="nav-group-label">{group.label}</span>
+                  <span className="nav-group-icon" aria-hidden="true">
+                    {isOpen ? '−' : '+'}
+                  </span>
+                </button>
+
+                {isOpen ? (
+                  <div className="nav-group-links">
+                    {group.links.map((link) => (
+                      <NavLink
+                        key={link.to}
+                        to={link.to}
+                        end={link.to === '/'}
+                        className={({ isActive }) =>
+                          isActive
+                            ? 'nav-link nav-link-grouped active'
+                            : 'nav-link nav-link-grouped'
+                        }
+                      >
+                        {link.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
         </nav>
         <div className="sidebar-footer">
           <label>
@@ -134,4 +253,54 @@ export function Layout() {
       </main>
     </div>
   );
+}
+
+function buildInitialOpenGroups(groups: NavGroup[], pathname: string) {
+  const fallbackState = Object.fromEntries(groups.map((group) => [group.id, false]));
+
+  if (typeof window === 'undefined') {
+    return ensureActiveGroupOpen(fallbackState, groups, pathname);
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem('propia.sidebar.groups');
+    if (!rawValue) {
+      return ensureActiveGroupOpen(fallbackState, groups, pathname);
+    }
+
+    const parsed = JSON.parse(rawValue) as Record<string, boolean>;
+    const merged = Object.fromEntries(
+      groups.map((group) => [group.id, Boolean(parsed[group.id])]),
+    );
+    return ensureActiveGroupOpen(merged, groups, pathname);
+  } catch {
+    return ensureActiveGroupOpen(fallbackState, groups, pathname);
+  }
+}
+
+function ensureActiveGroupOpen(
+  current: Record<string, boolean>,
+  groups: NavGroup[],
+  pathname: string,
+) {
+  const activeGroup = groups.find((group) =>
+    group.links.some((link) => isRouteActive(pathname, link.to)),
+  );
+
+  if (!activeGroup || current[activeGroup.id]) {
+    return current;
+  }
+
+  return {
+    ...current,
+    [activeGroup.id]: true,
+  };
+}
+
+function isRouteActive(pathname: string, to: string) {
+  if (to === '/') {
+    return pathname === '/';
+  }
+
+  return pathname === to || pathname.startsWith(`${to}/`);
 }

@@ -265,4 +265,81 @@ describe('WhatsappService', () => {
       'Venta departamento. Luminoso y bien ubicado',
     );
   });
+
+  it('sends reservation treasury text including the document link', async () => {
+    const { service, teamsRepository, activitiesRepository, whatsappMessagesRepository } =
+      await createService();
+
+    activitiesRepository.findOne
+      .mockResolvedValueOnce({
+        id: 21,
+        teamId: 1,
+        contactId: null,
+        activityType: ActivityType.RESERVATION,
+        title: 'Reserva Caballito',
+        whatsappSharedAt: null,
+        externalUrl: 'https://drive.google.com/file/d/reserva-caballito/view',
+        reservationData: {
+          agentName: 'Victoria Arque',
+          operationType: 'BUY',
+          operationAmount: 92000,
+          operationCurrency: 'USD',
+          propertyAddress: 'Av. La Plata 249 11 B',
+          propertyNeighborhood: 'Caballito',
+          propertyType: 'APARTMENT',
+          sidesCount: 1,
+          commissionPercent: 2,
+          reservationAmount: 1400,
+          reservationCurrency: 'USD',
+          sharedWithRealEstate: true,
+          conformed: false,
+          credit: false,
+          relocation: false,
+          estimatedClosingMonth: 'Agosto',
+          observations: '75% Lila, 25% Victoria',
+        },
+        property: {
+          address: 'Av. La Plata 249 11 B',
+          neighborhood: 'Caballito',
+        },
+      })
+      .mockResolvedValueOnce({
+        id: 21,
+        teamId: 1,
+        contactId: null,
+        activityType: ActivityType.RESERVATION,
+        whatsappSharedAt: new Date().toISOString(),
+      });
+
+    teamsRepository.findOne.mockResolvedValue({
+      id: 1,
+      whatsappEnabled: true,
+      whatsappPhoneNumberId: '1139020899293300',
+      whatsappAccessToken: 'token',
+      whatsappTemplateLanguageCode: 'es_AR',
+      whatsappTreasuryPhone: '+5491130276632',
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ messages: [{ id: 'wamid-text' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await service.sendActivityMessage(21, {
+      sub: 1,
+      name: 'Victoria Arque',
+      activeTeamId: 1,
+    } as never);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const firstBody = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
+    expect(firstBody.type).toBe('text');
+    expect(firstBody.text.body).toContain('* Agente: Victoria Arque');
+    expect(firstBody.text.body).toContain('* Operacion: Compra');
+    expect(firstBody.text.body).toContain(
+      '* Documento reserva: https://drive.google.com/file/d/reserva-caballito/view',
+    );
+    expect(whatsappMessagesRepository.save).toHaveBeenCalledTimes(1);
+  });
 });

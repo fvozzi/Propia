@@ -164,6 +164,11 @@ export function ActivitiesPage() {
           buildAppraisalShareMessage(activity.contact),
         );
         openWhatsAppShareUrl(buildWhatsAppShareUrl(activity.contact, message));
+      } else if (activity.activityType === 'RESERVATION') {
+        await apiRequest<Activity>(`/activities/${activity.id}/send-whatsapp`, {
+          method: 'POST',
+        });
+        await load(page);
       } else {
         throw new Error(t('common.whatsappSendFailed'));
       }
@@ -347,6 +352,17 @@ export function ActivitiesPage() {
                 ) : null}
                 {activity.whatsappComment ? <p className="muted">{activity.whatsappComment}</p> : null}
                 {activity.description ? <p className="muted">{activity.description}</p> : null}
+                {activity.activityType === 'RESERVATION' && activity.reservationData ? (
+                  <p className="muted">
+                    {activity.reservationData.operationType
+                      ? `${translateEnum('operationType', activity.reservationData.operationType)} · `
+                      : ''}
+                    {activity.reservationData.propertyAddress ?? activity.property?.address ?? ''}
+                    {activity.reservationData.propertyNeighborhood
+                      ? ` · ${activity.reservationData.propertyNeighborhood}`
+                      : ''}
+                  </p>
+                ) : null}
                 {activity.activityType === 'PROPERTY_SEARCH' ? (
                   <ActivityPreviewCard activity={activity} title={t('activities.listingPreview')} />
                 ) : null}
@@ -357,11 +373,18 @@ export function ActivitiesPage() {
                       : t('activities.pendingShare')}
                   </p>
                 ) : null}
+                {activity.activityType === 'RESERVATION' && activity.whatsappSharedAt ? (
+                  <p className="muted">
+                    {t('activities.reservationSentAt')}: {formatDateTime(activity.whatsappSharedAt)}
+                  </p>
+                ) : null}
                 <div className="candidate-actions">
                   <StatusPill value={activity.activityType} />
                   {activity.externalUrl ? (
                     <a href={activity.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
-                      {t('activities.openListing')}
+                      {activity.activityType === 'RESERVATION'
+                        ? t('activities.reservationDocumentOpen')
+                        : t('activities.openListing')}
                     </a>
                   ) : null}
                   {appraisalRequest ? (
@@ -409,6 +432,20 @@ export function ActivitiesPage() {
                 {canShareAppraisal && activity.contact && canShareAppraisalByEmail(activity.contact) ? (
                   <button type="button" className="ghost-button" onClick={() => handleShareAppraisalEmail(activity)}>
                     {t('appraisals.shareEmail')}
+                  </button>
+                ) : null}
+                {activity.activityType === 'RESERVATION' && activity.externalUrl ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => handleSendWhatsapp(activity)}
+                    disabled={sharingActivityId === activity.id}
+                  >
+                    {sharingActivityId === activity.id
+                      ? t('common.loading')
+                      : activity.whatsappSharedAt
+                        ? t('activities.reservationResendTreasury')
+                        : t('activities.reservationSendTreasury')}
                   </button>
                 ) : null}
                 <button type="button" className="ghost-button" onClick={() => handleDelete(activity.id)}>

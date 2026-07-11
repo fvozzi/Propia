@@ -12,6 +12,9 @@ import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-use
 import { Activity } from '../activities/activity.entity';
 import {
   ActivityType,
+  CurrencyType,
+  OperationType,
+  PropertyType,
   WhatsappMessageDirection,
   WhatsappMessageStatus,
 } from '../common/enums';
@@ -36,6 +39,7 @@ export class WhatsappService {
       relations: {
         contact: true,
         appraisalRequest: true,
+        property: true,
       },
     });
 
@@ -45,14 +49,18 @@ export class WhatsappService {
 
     if (
       activity.activityType !== ActivityType.PROPERTY_SEARCH &&
-      activity.activityType !== ActivityType.APPRAISAL_REQUEST
+      activity.activityType !== ActivityType.APPRAISAL_REQUEST &&
+      activity.activityType !== ActivityType.RESERVATION
     ) {
       throw new BadRequestException(
-        'Solo las actividades de busqueda de propiedad y prelistings se pueden enviar por WhatsApp',
+        'Solo las actividades de busqueda de propiedad, prelistings y reservas se pueden enviar por WhatsApp',
       );
     }
 
-    if (!activity.contact) {
+    if (
+      activity.activityType !== ActivityType.RESERVATION &&
+      !activity.contact
+    ) {
       throw new BadRequestException('La actividad necesita un contacto para enviar WhatsApp');
     }
 
@@ -66,9 +74,21 @@ export class WhatsappService {
 
     this.assertTeamWhatsappConfiguration(team, activity);
 
-    const toPhone = normalizePhone(activity.contact.whatsapp || activity.contact.phone || '');
+    const toPhone = normalizePhone(
+      activity.activityType === ActivityType.RESERVATION
+        ? team.whatsappTreasuryPhone || ''
+        : activity.contact?.whatsapp || activity.contact?.phone || '',
+    );
     if (!toPhone) {
-      throw new BadRequestException('El contacto no tiene un numero de WhatsApp valido');
+      throw new BadRequestException(
+        activity.activityType === ActivityType.RESERVATION
+          ? 'No hay un numero de WhatsApp valido configurado para tesoreria'
+          : 'El contacto no tiene un numero de WhatsApp valido',
+      );
+    }
+
+    if (activity.activityType === ActivityType.RESERVATION) {
+      return this.sendReservationMessage(activity, team, user, toPhone);
     }
 
     let templatePayload = this.buildTemplatePayload(team, activity, toPhone);
@@ -129,30 +149,96 @@ export class WhatsappService {
     const waMessageId = getNestedString(data, ['messages', '0', 'id']);
     const now = new Date();
 
-    await this.whatsappMessagesRepository.save(
-      this.whatsappMessagesRepository.create({
-        teamId: activity.teamId,
-        contactId: activity.contactId,
-        activityId: activity.id,
-        direction: WhatsappMessageDirection.OUTBOUND,
-        messageType: 'TEMPLATE',
-        templateName: getPayloadTemplateName(templatePayload),
-        templateLanguage: team.whatsappTemplateLanguageCode ?? defaultTemplateLanguage,
-        toPhone,
-        waMessageId,
-        status: WhatsappMessageStatus.SENT,
-        payload: templatePayload,
-        statusPayload: data,
-        sentAt: now,
-        errorMessage: null,
-      }),
-    );
+    await this.registerSuccessfulMessage({
+      activity,
+      team,
+      toPhone,
+      messageType: 'TEMPLATE',
+      templatePayload,
+      templateName: getPayloadTemplateName(templatePayload),
+      waMessageId,
+      statusPayload: data,
+      sentAt: now,
+    });
 
     activity.whatsappSharedAt = now;
     await this.activitiesRepository.save(activity);
 
     return this.activitiesRepository.findOne({
       where: { id: activity.id, teamId },
+      relations: {
+        contact: true,
+        property: true,
+        appraisalRequest: true,
+      },
+    });
+  }
+
+  private async sendReservationMessage(
+    activity: Activity,
+    team: Team,
+    user: AuthenticatedUser,
+    toPhone: string,
+  ) {
+    if (!activity.reservationData) {
+      throw new BadRequestException(
+        'La actividad de reserva necesita los datos de tesoreria completos',
+      );
+    }
+
+    if (!activity.externalUrl?.trim()) {
+      throw new BadRequestException(
+        'La actividad de reserva necesita el link al documento para enviarlo a tesoreria',
+      );
+    }
+
+    const textPayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'text',
+      text: {
+        preview_url: false,
+        body: buildReservationTreasuryMessage(activity, user.name ?? null),
+      },
+    };
+
+    const textResponse = await this.sendJsonMessageRequest(team, textPayload);
+    const textData = (await safeJson(textResponse)) as Record<string, unknown> | null;
+    if (!textResponse.ok) {
+      const errorMessage =
+        extractMetaErrorMessage(textData) ??
+        'No se pudo enviar el mensaje de reserva a tesoreria';
+      await this.registerFailedMessage({
+        activity,
+        team,
+        toPhone,
+        templatePayload: textPayload,
+        errorMessage,
+        statusPayload: textData,
+      });
+      throw new BadRequestException(errorMessage);
+    }
+
+    const textMessageId = getNestedString(textData, ['messages', '0', 'id']);
+    const now = new Date();
+    await this.registerSuccessfulMessage({
+      activity,
+      team,
+      toPhone,
+      messageType: 'TEXT',
+      templatePayload: textPayload,
+      templateName: null,
+      waMessageId: textMessageId,
+      statusPayload: textData,
+      sentAt: now,
+    });
+
+    activity.whatsappSharedAt = new Date();
+    await this.activitiesRepository.save(activity);
+
+    return this.activitiesRepository.findOne({
+      where: { id: activity.id, teamId: activity.teamId },
       relations: {
         contact: true,
         property: true,
@@ -266,6 +352,15 @@ export class WhatsappService {
         'Falta configurar la plantilla de WhatsApp para prelisting',
       );
     }
+
+    if (
+      activity.activityType === ActivityType.RESERVATION &&
+      !team.whatsappTreasuryPhone?.trim()
+    ) {
+      throw new BadRequestException(
+        'Falta configurar el numero de WhatsApp de tesoreria para este equipo',
+      );
+    }
   }
 
   private buildTemplatePayload(
@@ -315,6 +410,13 @@ export class WhatsappService {
   }
 
   private async sendTemplateRequest(team: Team, templatePayload: Record<string, unknown>) {
+    return this.sendJsonMessageRequest(team, templatePayload);
+  }
+
+  private async sendJsonMessageRequest(
+    team: Team,
+    templatePayload: Record<string, unknown>,
+  ) {
     return fetch(
       `https://graph.facebook.com/${this.getGraphApiVersion()}/${team.whatsappPhoneNumberId}/messages`,
       {
@@ -354,6 +456,37 @@ export class WhatsappService {
         statusPayload: input.statusPayload,
         failedAt: now,
         errorMessage: input.errorMessage,
+      }),
+    );
+  }
+
+  private async registerSuccessfulMessage(input: {
+    activity: Activity;
+    team: Team;
+    toPhone: string;
+    messageType: string;
+    templatePayload: Record<string, unknown>;
+    templateName: string | null;
+    waMessageId: string | null;
+    statusPayload: Record<string, unknown> | null;
+    sentAt: Date;
+  }) {
+    await this.whatsappMessagesRepository.save(
+      this.whatsappMessagesRepository.create({
+        teamId: input.activity.teamId,
+        contactId: input.activity.contactId,
+        activityId: input.activity.id,
+        direction: WhatsappMessageDirection.OUTBOUND,
+        messageType: input.messageType,
+        templateName: input.templateName,
+        templateLanguage: input.team.whatsappTemplateLanguageCode ?? defaultTemplateLanguage,
+        toPhone: input.toPhone,
+        waMessageId: input.waMessageId,
+        status: WhatsappMessageStatus.SENT,
+        payload: input.templatePayload,
+        statusPayload: input.statusPayload,
+        sentAt: input.sentAt,
+        errorMessage: null,
       }),
     );
   }
@@ -449,6 +582,99 @@ function normalizePhone(value: string) {
   }
 
   return digits;
+}
+
+function buildReservationTreasuryMessage(
+  activity: Activity,
+  fallbackAgentName: string | null,
+) {
+  const reservation = activity.reservationData;
+  if (!reservation) {
+    return '';
+  }
+
+  return [
+    `* Agente: ${reservation.agentName || fallbackAgentName || '-'}`,
+    `* Monto operacion: ${formatMoney(reservation.operationAmount, reservation.operationCurrency)}`,
+    `* Direccion: ${reservation.propertyAddress || activity.property?.address || '-'}`,
+    `* Barrio: ${reservation.propertyNeighborhood || activity.property?.neighborhood || '-'}`,
+    `* Operacion: ${formatOperationType(reservation.operationType)}`,
+    `* Puntas: ${formatScalar(reservation.sidesCount)}`,
+    `* Porcentaje: ${formatPercent(reservation.commissionPercent)}`,
+    `* Cuanto dejaron de reserva: ${formatMoney(reservation.reservationAmount, reservation.reservationCurrency)}`,
+    `* Compartida con Inmobiliaria: ${formatYesNo(reservation.sharedWithRealEstate)}`,
+    `* Conformada: ${formatYesNo(reservation.conformed)}`,
+    `* Credito: ${formatYesNo(reservation.credit)}`,
+    `* Tipo propiedad: ${formatPropertyType(reservation.propertyType)}`,
+    `* Reubicacion: ${formatYesNo(reservation.relocation)}`,
+    `* Mes estimado de Cierre: ${reservation.estimatedClosingMonth || '-'}`,
+    `* Documento reserva: ${activity.externalUrl?.trim() || '-'}`,
+    `* Observaciones: ${reservation.observations || '-'}`,
+  ].join('\n');
+}
+
+function formatMoney(amount: number | null | undefined, currency: CurrencyType | null | undefined) {
+  if (amount === null || amount === undefined) {
+    return '-';
+  }
+
+  const formattedAmount = new Intl.NumberFormat('es-AR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${currency === CurrencyType.ARS ? '$' : 'U$S'} ${formattedAmount}`;
+}
+
+function formatYesNo(value: boolean | null | undefined) {
+  if (value === true) {
+    return 'Si';
+  }
+  if (value === false) {
+    return 'No';
+  }
+  return '-';
+}
+
+function formatPercent(value: number | null | undefined) {
+  return value === null || value === undefined ? '-' : `${value}%`;
+}
+
+function formatScalar(value: number | string | null | undefined) {
+  return value === null || value === undefined || value === '' ? '-' : String(value);
+}
+
+function formatOperationType(value: OperationType | null | undefined) {
+  switch (value) {
+    case OperationType.SALE:
+      return 'Venta';
+    case OperationType.BUY:
+      return 'Compra';
+    case OperationType.RENT:
+      return 'Alquiler';
+    default:
+      return '-';
+  }
+}
+
+function formatPropertyType(value: PropertyType | null | undefined) {
+  switch (value) {
+    case PropertyType.HOUSE:
+      return 'Casa';
+    case PropertyType.APARTMENT:
+      return 'Departamento';
+    case PropertyType.PH:
+      return 'PH';
+    case PropertyType.LAND:
+      return 'Lote';
+    case PropertyType.OFFICE:
+      return 'Oficina';
+    case PropertyType.COMMERCIAL:
+      return 'Local comercial';
+    case PropertyType.OTHER:
+      return 'Otro';
+    default:
+      return '-';
+  }
 }
 
 async function safeJson(response: Response) {

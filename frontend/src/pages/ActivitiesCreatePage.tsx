@@ -2,9 +2,20 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { buildPropertySearchMessage, buildWhatsAppShareUrl, getContactWhatsappPhone, openWhatsAppShareUrl } from '../lib/whatsapp';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
-import type { Activity, ActivityType, Contact, Paginated, Property } from '../types';
+import type {
+  Activity,
+  ActivityType,
+  Contact,
+  CurrencyType,
+  OperationType,
+  Paginated,
+  Property,
+  PropertyType,
+  ReservationActivityData,
+} from '../types';
 
 type PropertySearchFeedback = '' | 'LIKED' | 'DISLIKED';
 
@@ -21,6 +32,23 @@ type ActivityFormState = {
   whatsappComment: string;
   markShared: boolean;
   propertySearchFeedback: PropertySearchFeedback;
+  reservationAgentName: string;
+  reservationOperationType: '' | OperationType;
+  reservationOperationAmount: string;
+  reservationOperationCurrency: CurrencyType;
+  reservationPropertyAddress: string;
+  reservationPropertyNeighborhood: string;
+  reservationPropertyType: '' | PropertyType;
+  reservationSidesCount: string;
+  reservationCommissionPercent: string;
+  reservationAmount: string;
+  reservationCurrency: CurrencyType;
+  reservationSharedWithRealEstate: boolean;
+  reservationConformed: boolean;
+  reservationCredit: boolean;
+  reservationRelocation: boolean;
+  reservationEstimatedClosingMonth: string;
+  reservationObservations: string;
 };
 
 const initialForm: ActivityFormState = {
@@ -36,12 +64,30 @@ const initialForm: ActivityFormState = {
   whatsappComment: '',
   markShared: false,
   propertySearchFeedback: '',
+  reservationAgentName: '',
+  reservationOperationType: '',
+  reservationOperationAmount: '',
+  reservationOperationCurrency: 'USD',
+  reservationPropertyAddress: '',
+  reservationPropertyNeighborhood: '',
+  reservationPropertyType: '',
+  reservationSidesCount: '',
+  reservationCommissionPercent: '',
+  reservationAmount: '',
+  reservationCurrency: 'USD',
+  reservationSharedWithRealEstate: false,
+  reservationConformed: false,
+  reservationCredit: false,
+  reservationRelocation: false,
+  reservationEstimatedClosingMonth: '',
+  reservationObservations: '',
 };
 
 export function ActivitiesCreatePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t, translateEnum } = useI18n();
+  const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [activity, setActivity] = useState<Activity | null>(null);
@@ -56,7 +102,9 @@ export function ActivitiesCreatePage() {
   const isEditing = Boolean(activityId);
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
+  const isReservation = form.activityType === 'RESERVATION';
   const selectedContact = contacts.find((contact) => String(contact.id) === form.contactId) ?? null;
+  const selectedProperty = properties.find((property) => String(property.id) === form.propertyId) ?? null;
   const showSavedPreview =
     isPropertySearch &&
     activity &&
@@ -108,6 +156,49 @@ export function ActivitiesCreatePage() {
               : activityData.propertySearchLiked === false
                 ? 'DISLIKED'
                 : '',
+          reservationAgentName:
+            activityData.reservationData?.agentName ?? user?.name ?? '',
+          reservationOperationType:
+            activityData.reservationData?.operationType ?? '',
+          reservationOperationAmount: toInputNumberValue(
+            activityData.reservationData?.operationAmount,
+          ),
+          reservationOperationCurrency:
+            activityData.reservationData?.operationCurrency ?? 'USD',
+          reservationPropertyAddress:
+            activityData.reservationData?.propertyAddress ??
+            activityData.property?.address ??
+            '',
+          reservationPropertyNeighborhood:
+            activityData.reservationData?.propertyNeighborhood ??
+            activityData.property?.neighborhood ??
+            '',
+          reservationPropertyType:
+            activityData.reservationData?.propertyType ??
+            activityData.property?.propertyType ??
+            '',
+          reservationSidesCount: toInputNumberValue(
+            activityData.reservationData?.sidesCount,
+          ),
+          reservationCommissionPercent: toInputNumberValue(
+            activityData.reservationData?.commissionPercent,
+          ),
+          reservationAmount: toInputNumberValue(
+            activityData.reservationData?.reservationAmount,
+          ),
+          reservationCurrency:
+            activityData.reservationData?.reservationCurrency ?? 'USD',
+          reservationSharedWithRealEstate:
+            activityData.reservationData?.sharedWithRealEstate ?? false,
+          reservationConformed:
+            activityData.reservationData?.conformed ?? false,
+          reservationCredit: activityData.reservationData?.credit ?? false,
+          reservationRelocation:
+            activityData.reservationData?.relocation ?? false,
+          reservationEstimatedClosingMonth:
+            activityData.reservationData?.estimatedClosingMonth ?? '',
+          reservationObservations:
+            activityData.reservationData?.observations ?? '',
         });
       }
 
@@ -115,7 +206,25 @@ export function ActivitiesCreatePage() {
     }
 
     void loadDependencies();
-  }, [activityId, isEditing]);
+  }, [activityId, isEditing, user?.name]);
+
+  useEffect(() => {
+    if (!isReservation || !selectedProperty) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      reservationPropertyAddress:
+        current.reservationPropertyAddress || selectedProperty.address || '',
+      reservationPropertyNeighborhood:
+        current.reservationPropertyNeighborhood || selectedProperty.neighborhood || '',
+      reservationPropertyType:
+        current.reservationPropertyType || selectedProperty.propertyType || '',
+      reservationOperationType:
+        current.reservationOperationType || selectedProperty.operationType || '',
+    }));
+  }, [isReservation, selectedProperty]);
 
   async function saveActivity(shareNow: boolean) {
     const saved = await apiRequest<Activity>(
@@ -126,15 +235,16 @@ export function ActivitiesCreatePage() {
       },
     );
 
-    setActivity(saved);
+    const nextActivity = saved;
+    setActivity(nextActivity);
 
     if (shareNow && selectedContact) {
-      const message = buildPropertySearchMessage(saved);
+      const message = buildPropertySearchMessage(nextActivity);
       openWhatsAppShareUrl(buildWhatsAppShareUrl(selectedContact, message));
-      const shared = await apiRequest<Activity>(`/activities/${saved.id}/share`, {
+      const shared = await apiRequest<Activity>(`/activities/${nextActivity.id}/share`, {
         method: 'PATCH',
         body: JSON.stringify({
-          whatsappComment: saved.whatsappComment ?? undefined,
+          whatsappComment: nextActivity.whatsappComment ?? undefined,
         }),
       });
       window.alert(t('common.whatsappSent'));
@@ -142,7 +252,16 @@ export function ActivitiesCreatePage() {
       return shared;
     }
 
-    return saved;
+    if (shareNow && isReservation) {
+      const shared = await apiRequest<Activity>(`/activities/${nextActivity.id}/send-whatsapp`, {
+        method: 'POST',
+      });
+      window.alert(t('common.whatsappSent'));
+      setActivity(shared);
+      return shared;
+    }
+
+    return nextActivity;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -163,7 +282,7 @@ export function ActivitiesCreatePage() {
   }
 
   async function handleSaveAndShare() {
-    if (!canShareNow) return;
+    if (!canShareNow && !isReservation) return;
     if (!formRef.current?.reportValidity()) return;
 
     setSavingAndSharing(true);
@@ -225,9 +344,16 @@ export function ActivitiesCreatePage() {
                   markShared:
                     event.target.value === 'PROPERTY_SEARCH' ? current.markShared : false,
                   externalUrl:
-                    event.target.value === 'PROPERTY_SEARCH' ? current.externalUrl : '',
+                    event.target.value === 'PROPERTY_SEARCH' ||
+                    event.target.value === 'RESERVATION'
+                      ? current.externalUrl
+                      : '',
                   whatsappComment:
                     event.target.value === 'PROPERTY_SEARCH' ? current.whatsappComment : '',
+                  reservationAgentName:
+                    event.target.value === 'RESERVATION'
+                      ? current.reservationAgentName || user?.name || ''
+                      : current.reservationAgentName,
                 }))
               }
               disabled={isEditing && activity?.activityType === 'APPRAISAL_REQUEST'}
@@ -411,6 +537,288 @@ export function ActivitiesCreatePage() {
                 />
               </label>
             </>
+          ) : isReservation ? (
+            <>
+              <div className="full-span stack-gap">
+                <strong>{t('activities.reservationDataTitle')}</strong>
+              </div>
+              <label>
+                {t('activities.reservationAgentName')}
+                <input
+                  value={form.reservationAgentName}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationAgentName: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                {t('activities.reservationOperationType')}
+                <select
+                  value={form.reservationOperationType}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationOperationType: event.target.value as '' | OperationType,
+                    }))
+                  }
+                  required
+                >
+                  <option value="">{t('common.unassigned')}</option>
+                  <option value="SALE">{translateEnum('operationType', 'SALE')}</option>
+                  <option value="BUY">{translateEnum('operationType', 'BUY')}</option>
+                  <option value="RENT">{translateEnum('operationType', 'RENT')}</option>
+                </select>
+              </label>
+              <label>
+                {t('activities.reservationOperationAmount')}
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.reservationOperationAmount}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationOperationAmount: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {t('activities.reservationOperationCurrency')}
+                <select
+                  value={form.reservationOperationCurrency}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationOperationCurrency: event.target.value as CurrencyType,
+                    }))
+                  }
+                >
+                  <option value="USD">USD</option>
+                  <option value="ARS">ARS</option>
+                </select>
+              </label>
+              <label>
+                {t('activities.reservationPropertyAddress')}
+                <input
+                  value={form.reservationPropertyAddress}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationPropertyAddress: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {t('activities.reservationPropertyNeighborhood')}
+                <input
+                  value={form.reservationPropertyNeighborhood}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationPropertyNeighborhood: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {t('activities.reservationPropertyType')}
+                <select
+                  value={form.reservationPropertyType}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationPropertyType: event.target.value as '' | PropertyType,
+                    }))
+                  }
+                >
+                  <option value="">{t('common.unassigned')}</option>
+                  {propertyTypeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {translateEnum('propertyType', option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t('activities.reservationSidesCount')}
+                <input
+                  type="number"
+                  min="0"
+                  value={form.reservationSidesCount}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationSidesCount: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {t('activities.reservationCommissionPercent')}
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.reservationCommissionPercent}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationCommissionPercent: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {t('activities.reservationAmount')}
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.reservationAmount}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationAmount: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {t('activities.reservationCurrency')}
+                <select
+                  value={form.reservationCurrency}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationCurrency: event.target.value as CurrencyType,
+                    }))
+                  }
+                >
+                  <option value="USD">USD</option>
+                  <option value="ARS">ARS</option>
+                </select>
+              </label>
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={form.reservationSharedWithRealEstate}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationSharedWithRealEstate: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{t('activities.reservationSharedWithRealEstate')}</span>
+              </label>
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={form.reservationConformed}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationConformed: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{t('activities.reservationConformed')}</span>
+              </label>
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={form.reservationCredit}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationCredit: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{t('activities.reservationCredit')}</span>
+              </label>
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={form.reservationRelocation}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationRelocation: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{t('activities.reservationRelocation')}</span>
+              </label>
+              <label>
+                {t('activities.reservationEstimatedClosingMonth')}
+                <input
+                  value={form.reservationEstimatedClosingMonth}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationEstimatedClosingMonth: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="full-span">
+                {t('activities.reservationObservations')}
+                <textarea
+                  rows={4}
+                  value={form.reservationObservations}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reservationObservations: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="full-span">
+                {t('activities.reservationDocument')}
+                <input
+                  type="url"
+                  value={form.externalUrl}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      externalUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://drive.google.com/..."
+                  required
+                />
+                <p className="muted">{t('activities.reservationDocumentHint')}</p>
+                {activity?.externalUrl ? (
+                  <p className="muted">
+                    {t('activities.reservationDocumentCurrent')}:{' '}
+                    <a
+                      href={activity.externalUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="agenda-link"
+                    >
+                      {activity.externalUrl}
+                    </a>
+                  </p>
+                ) : null}
+              </label>
+              <label className="full-span">
+                {t('common.description')}
+                <textarea
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, description: event.target.value }))
+                  }
+                  rows={3}
+                />
+              </label>
+            </>
           ) : (
             <label className="full-span">
               {t('common.description')}
@@ -443,6 +851,18 @@ export function ActivitiesCreatePage() {
                 {savingAndSharing ? t('common.loading') : t('activities.saveAndShare')}
               </button>
             ) : null}
+            {isReservation ? (
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={savingAndSharing}
+                onClick={handleSaveAndShare}
+              >
+                {savingAndSharing
+                  ? t('common.loading')
+                  : t('activities.reservationSaveAndSend')}
+              </button>
+            ) : null}
           </div>
         </form>
       </section>
@@ -457,6 +877,7 @@ function buildActivityPayload(
 ) {
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
+  const isReservation = form.activityType === 'RESERVATION';
   const activityDate = isAppraisalRequest
     ? activity?.activityDate ?? new Date().toISOString()
     : form.activityDate;
@@ -469,7 +890,8 @@ function buildActivityPayload(
     title: isAppraisalRequest ? 'Prelisting' : form.title,
     description: isAppraisalRequest ? null : form.description || null,
     appraisalPropertyAddress: isAppraisalRequest ? form.appraisalPropertyAddress || null : null,
-    externalUrl: isPropertySearch ? form.externalUrl || null : null,
+    externalUrl:
+      isPropertySearch || isReservation ? form.externalUrl || null : null,
     whatsappComment: isPropertySearch ? form.whatsappComment || null : null,
     whatsappSharedAt:
       !isPropertySearch
@@ -485,10 +907,58 @@ function buildActivityPayload(
           : form.propertySearchFeedback === 'DISLIKED'
             ? false
             : null,
+    reservationData: isReservation ? buildReservationDataPayload(form) : null,
     activityDate,
     nextFollowUpDate: isAppraisalRequest ? null : form.nextFollowUpDate || null,
   };
 }
+
+function buildReservationDataPayload(
+  form: ActivityFormState,
+): ReservationActivityData {
+  return {
+    agentName: form.reservationAgentName.trim() || null,
+    operationType: form.reservationOperationType || null,
+    operationAmount: parseOptionalNumber(form.reservationOperationAmount),
+    operationCurrency: form.reservationOperationCurrency,
+    propertyAddress: form.reservationPropertyAddress.trim() || null,
+    propertyNeighborhood: form.reservationPropertyNeighborhood.trim() || null,
+    propertyType: form.reservationPropertyType || null,
+    sidesCount: parseOptionalNumber(form.reservationSidesCount),
+    commissionPercent: parseOptionalNumber(form.reservationCommissionPercent),
+    reservationAmount: parseOptionalNumber(form.reservationAmount),
+    reservationCurrency: form.reservationCurrency,
+    sharedWithRealEstate: form.reservationSharedWithRealEstate,
+    conformed: form.reservationConformed,
+    credit: form.reservationCredit,
+    relocation: form.reservationRelocation,
+    estimatedClosingMonth: form.reservationEstimatedClosingMonth.trim() || null,
+    observations: form.reservationObservations.trim() || null,
+  };
+}
+
+function parseOptionalNumber(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function toInputNumberValue(value: number | null | undefined) {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+const propertyTypeOptions: PropertyType[] = [
+  'HOUSE',
+  'APARTMENT',
+  'PH',
+  'LAND',
+  'OFFICE',
+  'COMMERCIAL',
+  'OTHER',
+];
 
 function toDateTimeLocalValue(value: string | null) {
   if (!value) return '';

@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   IsUrl,
@@ -57,6 +58,10 @@ export class CreateActivityDto {
   @IsOptional()
   @IsBoolean()
   propertySearchLiked?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  reservationData?: Record<string, unknown>;
 
   @IsDateString()
   activityDate: string;
