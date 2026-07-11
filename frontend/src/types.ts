@@ -618,6 +618,7 @@ export interface LoginResponse {
     status: UserStatus;
     activeTeamId: number | null;
     activeTeamName: string | null;
+    activeTeamWhatsappTreasuryPhone: string | null;
     googleCalendarConnected: boolean;
     teams: SessionTeam[];
   };

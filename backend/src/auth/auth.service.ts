@@ -191,6 +191,8 @@ export class AuthService {
         status: hydratedUser.status ?? UserStatus.ACTIVE,
         activeTeamId: hydratedUser.activeTeamId,
         activeTeamName: hydratedUser.activeTeam?.name ?? null,
+        activeTeamWhatsappTreasuryPhone:
+          hydratedUser.activeTeam?.whatsappTreasuryPhone ?? null,
         googleCalendarConnected: Boolean(googleConnection),
         teams: (hydratedUser.memberships ?? []).map((membership) => ({
           id: membership.team.id,

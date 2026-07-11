@@ -19,6 +19,7 @@ describe('api helpers', () => {
         status: 'ACTIVE',
         activeTeamId: 2,
         activeTeamName: 'Demo Team',
+        activeTeamWhatsappTreasuryPhone: '+5491130276632',
         teams: [],
         googleCalendarConnected: false,
       },

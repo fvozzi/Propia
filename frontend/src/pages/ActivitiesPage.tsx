@@ -16,14 +16,17 @@ import {
 import { activityTypeOptions, useI18n } from '../lib/i18n';
 import {
   buildPropertySearchMessage,
+  buildReservationTreasuryWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
 } from '../lib/whatsapp';
+import { useAuth } from '../lib/auth';
 import type { Activity, Contact, Paginated } from '../types';
 
 export function ActivitiesPage() {
   const { formatDateTime, t, translateEnum } = useI18n();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialFilters = parseActivityFilters(searchParams);
   const processedSearchStringRef = useRef(searchParams.toString());
@@ -165,8 +168,24 @@ export function ActivitiesPage() {
         );
         openWhatsAppShareUrl(buildWhatsAppShareUrl(activity.contact, message));
       } else if (activity.activityType === 'RESERVATION') {
-        await apiRequest<Activity>(`/activities/${activity.id}/send-whatsapp`, {
-          method: 'POST',
+        const treasuryPhone = user?.activeTeamWhatsappTreasuryPhone?.trim() || '';
+        if (!treasuryPhone) {
+          throw new Error('Falta configurar el numero de WhatsApp de tesoreria para este equipo');
+        }
+
+        const message = buildReservationTreasuryWhatsappMessage(
+          activity,
+          user?.name ?? null,
+        );
+        openWhatsAppShareUrl(
+          buildWhatsAppShareUrl(
+            { whatsapp: treasuryPhone, phone: null },
+            message,
+          ),
+        );
+        await apiRequest<Activity>(`/activities/${activity.id}/share`, {
+          method: 'PATCH',
+          body: JSON.stringify({}),
         });
         await load(page);
       } else {

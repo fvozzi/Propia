@@ -3,7 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { buildPropertySearchMessage, buildWhatsAppShareUrl, getContactWhatsappPhone, openWhatsAppShareUrl } from '../lib/whatsapp';
+import {
+  buildPropertySearchMessage,
+  buildReservationTreasuryWhatsappMessage,
+  buildWhatsAppShareUrl,
+  getContactWhatsappPhone,
+  openWhatsAppShareUrl,
+} from '../lib/whatsapp';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
 import type {
   Activity,
@@ -238,7 +244,32 @@ export function ActivitiesCreatePage() {
     const nextActivity = saved;
     setActivity(nextActivity);
 
-    if (shareNow && selectedContact) {
+    if (shareNow && isReservation) {
+      const treasuryPhone = user?.activeTeamWhatsappTreasuryPhone?.trim() || '';
+      if (!treasuryPhone) {
+        throw new Error('Falta configurar el numero de WhatsApp de tesoreria para este equipo');
+      }
+
+      const message = buildReservationTreasuryWhatsappMessage(
+        nextActivity,
+        user?.name ?? null,
+      );
+      openWhatsAppShareUrl(
+        buildWhatsAppShareUrl(
+          { whatsapp: treasuryPhone, phone: null },
+          message,
+        ),
+      );
+      const shared = await apiRequest<Activity>(`/activities/${nextActivity.id}/share`, {
+        method: 'PATCH',
+        body: JSON.stringify({}),
+      });
+      window.alert(t('common.whatsappSent'));
+      setActivity(shared);
+      return shared;
+    }
+
+    if (shareNow && isPropertySearch && selectedContact) {
       const message = buildPropertySearchMessage(nextActivity);
       openWhatsAppShareUrl(buildWhatsAppShareUrl(selectedContact, message));
       const shared = await apiRequest<Activity>(`/activities/${nextActivity.id}/share`, {
@@ -246,15 +277,6 @@ export function ActivitiesCreatePage() {
         body: JSON.stringify({
           whatsappComment: nextActivity.whatsappComment ?? undefined,
         }),
-      });
-      window.alert(t('common.whatsappSent'));
-      setActivity(shared);
-      return shared;
-    }
-
-    if (shareNow && isReservation) {
-      const shared = await apiRequest<Activity>(`/activities/${nextActivity.id}/send-whatsapp`, {
-        method: 'POST',
       });
       window.alert(t('common.whatsappSent'));
       setActivity(shared);

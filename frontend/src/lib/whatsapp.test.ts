@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPropertySearchMessage,
+  buildReservationTreasuryWhatsappMessage,
   buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
@@ -45,6 +46,60 @@ describe('whatsapp helpers', () => {
         '🕒 11:30 hs',
         '📍 Av Dorrego 1653 timbre 5, Palermo Hollywood',
         '🔗 https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+      ].join('\n'),
+    );
+  });
+
+  it('builds the full treasury reservation message for manual WhatsApp Web sending', () => {
+    expect(
+      buildReservationTreasuryWhatsappMessage(
+        {
+          externalUrl: 'https://drive.google.com/file/d/reserva-caballito/view',
+          description: null,
+          reservationData: {
+            agentName: 'Victoria Arque',
+            operationType: 'BUY',
+            operationAmount: 92000,
+            operationCurrency: 'USD',
+            propertyAddress: 'Av. La Plata 249 11 B',
+            propertyNeighborhood: 'Caballito',
+            propertyType: 'APARTMENT',
+            sidesCount: 1,
+            commissionPercent: 2,
+            reservationAmount: 1400,
+            reservationCurrency: 'USD',
+            sharedWithRealEstate: true,
+            conformed: false,
+            credit: false,
+            relocation: false,
+            estimatedClosingMonth: 'Agosto',
+            observations: '75% Lila, 25% Victoria',
+          },
+          property: {
+            address: 'Av. La Plata 249 11 B',
+            neighborhood: 'Caballito',
+          },
+        },
+        'Victoria Arque',
+      ),
+    ).toBe(
+      [
+        '* Agente: Victoria Arque',
+        '* Monto operación: U$S 92.000',
+        '* Dirección: Av. La Plata 249 11 B',
+        '* Barrio: Caballito',
+        '* Operación: Compra',
+        '* Puntas: 1',
+        '* Porcentaje: 2%',
+        '* Cuánto dejaron de reserva: U$S 1.400',
+        '* Compartida con Inmobiliaria: Si',
+        '* Conformada: No',
+        '* Crédito: No',
+        '* Tipo propiedad: Departamento',
+        '* Reubicación: No',
+        '* Mes estimado de Cierre: Agosto',
+        '* Documento reserva: https://drive.google.com/file/d/reserva-caballito/view',
+        '* Observaciones: 75% Lila, 25% Victoria',
       ].join('\n'),
     );
   });

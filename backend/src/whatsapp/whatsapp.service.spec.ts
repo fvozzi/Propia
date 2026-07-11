@@ -266,7 +266,7 @@ describe('WhatsappService', () => {
     );
   });
 
-  it('sends reservation treasury text including the document link', async () => {
+  it('sends the full reservation treasury text including all required fields and the document link', async () => {
     const { service, teamsRepository, activitiesRepository, whatsappMessagesRepository } =
       await createService();
 
@@ -277,6 +277,7 @@ describe('WhatsappService', () => {
         contactId: null,
         activityType: ActivityType.RESERVATION,
         title: 'Reserva Caballito',
+        description: '75% Lila, 25% Victoria',
         whatsappSharedAt: null,
         externalUrl: 'https://drive.google.com/file/d/reserva-caballito/view',
         reservationData: {
@@ -335,10 +336,25 @@ describe('WhatsappService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const firstBody = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
     expect(firstBody.type).toBe('text');
-    expect(firstBody.text.body).toContain('* Agente: Victoria Arque');
-    expect(firstBody.text.body).toContain('* Operacion: Compra');
-    expect(firstBody.text.body).toContain(
-      '* Documento reserva: https://drive.google.com/file/d/reserva-caballito/view',
+    expect(firstBody.text.body).toBe(
+      [
+        '* Agente: Victoria Arque',
+        '* Monto operación: U$S 92.000',
+        '* Dirección: Av. La Plata 249 11 B',
+        '* Barrio: Caballito',
+        '* Operación: Compra',
+        '* Puntas: 1',
+        '* Porcentaje: 2%',
+        '* Cuánto dejaron de reserva: U$S 1.400',
+        '* Compartida con Inmobiliaria: Si',
+        '* Conformada: No',
+        '* Crédito: No',
+        '* Tipo propiedad: Departamento',
+        '* Reubicación: No',
+        '* Mes estimado de Cierre: Agosto',
+        '* Documento reserva: https://drive.google.com/file/d/reserva-caballito/view',
+        '* Observaciones: 75% Lila, 25% Victoria',
+      ].join('\n'),
     );
     expect(whatsappMessagesRepository.save).toHaveBeenCalledTimes(1);
   });

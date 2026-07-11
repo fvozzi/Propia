@@ -593,23 +593,28 @@ function buildReservationTreasuryMessage(
     return '';
   }
 
+  const observations =
+    reservation.observations?.trim() ||
+    activity.description?.trim() ||
+    '-';
+
   return [
     `* Agente: ${reservation.agentName || fallbackAgentName || '-'}`,
-    `* Monto operacion: ${formatMoney(reservation.operationAmount, reservation.operationCurrency)}`,
-    `* Direccion: ${reservation.propertyAddress || activity.property?.address || '-'}`,
+    `* Monto operación: ${formatMoney(reservation.operationAmount, reservation.operationCurrency)}`,
+    `* Dirección: ${reservation.propertyAddress || activity.property?.address || '-'}`,
     `* Barrio: ${reservation.propertyNeighborhood || activity.property?.neighborhood || '-'}`,
-    `* Operacion: ${formatOperationType(reservation.operationType)}`,
+    `* Operación: ${formatOperationType(reservation.operationType)}`,
     `* Puntas: ${formatScalar(reservation.sidesCount)}`,
     `* Porcentaje: ${formatPercent(reservation.commissionPercent)}`,
-    `* Cuanto dejaron de reserva: ${formatMoney(reservation.reservationAmount, reservation.reservationCurrency)}`,
+    `* Cuánto dejaron de reserva: ${formatMoney(reservation.reservationAmount, reservation.reservationCurrency)}`,
     `* Compartida con Inmobiliaria: ${formatYesNo(reservation.sharedWithRealEstate)}`,
     `* Conformada: ${formatYesNo(reservation.conformed)}`,
-    `* Credito: ${formatYesNo(reservation.credit)}`,
+    `* Crédito: ${formatYesNo(reservation.credit)}`,
     `* Tipo propiedad: ${formatPropertyType(reservation.propertyType)}`,
-    `* Reubicacion: ${formatYesNo(reservation.relocation)}`,
+    `* Reubicación: ${formatYesNo(reservation.relocation)}`,
     `* Mes estimado de Cierre: ${reservation.estimatedClosingMonth || '-'}`,
     `* Documento reserva: ${activity.externalUrl?.trim() || '-'}`,
-    `* Observaciones: ${reservation.observations || '-'}`,
+    `* Observaciones: ${observations}`,
   ].join('\n');
 }
 

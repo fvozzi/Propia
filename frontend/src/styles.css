@@ -545,6 +545,10 @@ label {
   border-bottom: 0;
 }
 
+.data-row-selected td {
+  background: rgba(47, 103, 112, 0.06);
+}
+
 .table-cell-stack {
   display: grid;
   gap: 0.25rem;

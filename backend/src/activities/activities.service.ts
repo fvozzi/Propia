@@ -424,15 +424,26 @@ export class ActivitiesService {
       throw new NotFoundException('Actividad no encontrada');
     }
 
-    if (activity.activityType !== ActivityType.PROPERTY_SEARCH) {
-      throw new BadRequestException('Solo las actividades de busqueda de propiedad se pueden compartir por WhatsApp');
+    if (
+      activity.activityType !== ActivityType.PROPERTY_SEARCH &&
+      activity.activityType !== ActivityType.RESERVATION
+    ) {
+      throw new BadRequestException(
+        'Solo las actividades de busqueda de propiedad y reservas se pueden compartir por WhatsApp',
+      );
     }
 
-    if (!activity.externalUrl) {
+    if (
+      (activity.activityType === ActivityType.PROPERTY_SEARCH ||
+        activity.activityType === ActivityType.RESERVATION) &&
+      !activity.externalUrl
+    ) {
       throw new BadRequestException('La actividad no tiene link para compartir');
     }
 
-    activity.whatsappComment = dto.whatsappComment?.trim() || activity.whatsappComment;
+    if (activity.activityType === ActivityType.PROPERTY_SEARCH) {
+      activity.whatsappComment = dto.whatsappComment?.trim() || activity.whatsappComment;
+    }
     activity.whatsappSharedAt = new Date();
     await this.activitiesRepository.save(activity);
     await this.activityCalendarSyncService.syncById(activity.id, 'update');

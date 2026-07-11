@@ -1,4 +1,13 @@
-import type { Activity, Contact, Property, Visit } from '../types';
+import type {
+  Activity,
+  Contact,
+  CurrencyType,
+  OperationType,
+  Property,
+  PropertyType,
+  ReservationActivityData,
+  Visit,
+} from '../types';
 
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
 type ShareableVisit = Pick<Visit, 'scheduledAt' | 'status' | 'notes' | 'externalUrl'> & {
@@ -44,6 +53,41 @@ export function buildVisitWhatsappMessage(visit: ShareableVisit) {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+export function buildReservationTreasuryWhatsappMessage(
+  activity: Pick<Activity, 'externalUrl' | 'description'> & {
+    reservationData: ReservationActivityData | null;
+    property?: Pick<Property, 'address' | 'neighborhood'> | null;
+  },
+  fallbackAgentName: string | null,
+) {
+  const reservation = activity.reservationData;
+  if (!reservation) {
+    return '';
+  }
+
+  const observations =
+    reservation.observations?.trim() || activity.description?.trim() || '-';
+
+  return [
+    `* Agente: ${reservation.agentName || fallbackAgentName || '-'}`,
+    `* Monto operación: ${formatMoney(reservation.operationAmount, reservation.operationCurrency)}`,
+    `* Dirección: ${reservation.propertyAddress || activity.property?.address || '-'}`,
+    `* Barrio: ${reservation.propertyNeighborhood || activity.property?.neighborhood || '-'}`,
+    `* Operación: ${formatOperationType(reservation.operationType)}`,
+    `* Puntas: ${formatScalar(reservation.sidesCount)}`,
+    `* Porcentaje: ${formatPercent(reservation.commissionPercent)}`,
+    `* Cuánto dejaron de reserva: ${formatMoney(reservation.reservationAmount, reservation.reservationCurrency)}`,
+    `* Compartida con Inmobiliaria: ${formatYesNo(reservation.sharedWithRealEstate)}`,
+    `* Conformada: ${formatYesNo(reservation.conformed)}`,
+    `* Crédito: ${formatYesNo(reservation.credit)}`,
+    `* Tipo propiedad: ${formatPropertyType(reservation.propertyType)}`,
+    `* Reubicación: ${formatYesNo(reservation.relocation)}`,
+    `* Mes estimado de Cierre: ${reservation.estimatedClosingMonth || '-'}`,
+    `* Documento reserva: ${activity.externalUrl?.trim() || '-'}`,
+    `* Observaciones: ${observations}`,
+  ].join('\n');
 }
 
 export function getContactWhatsappPhone(contact: ShareableContact) {
@@ -124,4 +168,64 @@ function normalizeMobileWhatsappPhone(rawPhone: string) {
   }
 
   return '';
+}
+
+function formatMoney(amount: number | null | undefined, currency: CurrencyType | null | undefined) {
+  if (amount === null || amount === undefined) {
+    return '-';
+  }
+
+  const formattedAmount = new Intl.NumberFormat('es-AR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${currency === 'ARS' ? '$' : 'U$S'} ${formattedAmount}`;
+}
+
+function formatYesNo(value: boolean | null | undefined) {
+  if (value === true) return 'Si';
+  if (value === false) return 'No';
+  return '-';
+}
+
+function formatPercent(value: number | null | undefined) {
+  return value === null || value === undefined ? '-' : `${value}%`;
+}
+
+function formatScalar(value: number | string | null | undefined) {
+  return value === null || value === undefined || value === '' ? '-' : String(value);
+}
+
+function formatOperationType(value: OperationType | null | undefined) {
+  switch (value) {
+    case 'SALE':
+      return 'Venta';
+    case 'BUY':
+      return 'Compra';
+    case 'RENT':
+      return 'Alquiler';
+    default:
+      return '-';
+  }
+}
+
+function formatPropertyType(value: PropertyType | null | undefined) {
+  switch (value) {
+    case 'HOUSE':
+      return 'Casa';
+    case 'APARTMENT':
+      return 'Departamento';
+    case 'PH':
+      return 'PH';
+    case 'LAND':
+      return 'Lote';
+    case 'OFFICE':
+      return 'Oficina';
+    case 'COMMERCIAL':
+      return 'Local comercial';
+    case 'OTHER':
+      return 'Otro';
+    default:
+      return '-';
+  }
 }
