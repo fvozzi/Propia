@@ -78,11 +78,8 @@ export function Layout() {
             Cerrar
           </button>
         </div>
-        <div>
+        <div className="sidebar-brand">
           <img src={logo} alt="Propia" className="brand-logo" />
-          <p className="eyebrow">Propia</p>
-          <h1>{t('layout.title')}</h1>
-          <p className="muted">{t('layout.subtitle')}</p>
         </div>
         <nav className="nav">
           {links.map((link) => (

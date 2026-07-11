@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Activity } from '../activities/activity.entity';
 import { ActivityGoal } from '../activity-goals/activity-goal.entity';
-import { ActivityType, PropertyStatus, SearchRequirementStatus } from '../common/enums';
-import { AppraisalRequest } from '../appraisal-requests/appraisal-request.entity';
+import {
+  ActivityType,
+  CommercialOpportunityStatus,
+  PropertyStatus,
+  SearchRequirementStatus,
+} from '../common/enums';
+import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
-import { buildRequirementPipelineGroups } from '../use-cases/requirement-pipeline.use-case';
+import { buildOpportunityPipelineGroups } from '../use-cases/commercial-opportunity-pipeline.use-case';
 import { Visit } from '../visits/visit.entity';
 
 @Injectable()
@@ -24,8 +29,8 @@ export class DashboardService {
     private readonly propertiesRepository: Repository<Property>,
     @InjectRepository(SearchRequirement)
     private readonly requirementsRepository: Repository<SearchRequirement>,
-    @InjectRepository(AppraisalRequest)
-    private readonly appraisalRequestsRepository: Repository<AppraisalRequest>,
+    @InjectRepository(CommercialOpportunity)
+    private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
   ) {}
 
   async getToday(user: AuthenticatedUser) {
@@ -45,7 +50,7 @@ export class DashboardService {
       activePropertiesCount,
       activeSearchRequirementsCount,
       pendingBuyerPropertyShares,
-      activeRequirements,
+      activeOpportunities,
       activityGoals,
     ] =
       await Promise.all([
@@ -96,14 +101,16 @@ export class DashboardService {
           .andWhere('activity.whatsappSharedAt IS NULL')
           .orderBy('activity.activityDate', 'DESC')
           .getMany(),
-        this.requirementsRepository.find({
+        this.opportunitiesRepository.find({
           where: {
-            status: SearchRequirementStatus.ACTIVE,
             teamId,
+            status: Not(CommercialOpportunityStatus.ARCHIVED),
           },
           relations: {
             contact: true,
             property: true,
+            appraisalRequest: true,
+            searchRequirement: true,
           },
           order: {
             updatedAt: 'DESC',
@@ -115,30 +122,27 @@ export class DashboardService {
         }),
       ]);
 
-    const requirementContactIds = [...new Set(activeRequirements.map((requirement) => requirement.contactId))];
-    const [propertySearchActivities, appraisalRequests] =
-      requirementContactIds.length > 0
-        ? await Promise.all([
-            this.activitiesRepository.find({
-              where: {
-                teamId,
-                activityType: ActivityType.PROPERTY_SEARCH,
-                contactId: In(requirementContactIds),
-              },
-            }),
-            this.appraisalRequestsRepository.find({
-              where: {
-                teamId,
-                contactId: In(requirementContactIds),
-              },
-            }),
-          ])
-        : [[], []];
+    const opportunityIds = activeOpportunities.map(
+      (opportunity) => opportunity.id,
+    );
+    const opportunityActivities =
+      opportunityIds.length > 0
+        ? await this.activitiesRepository.find({
+            where: {
+              teamId,
+              commercialOpportunityId: In(opportunityIds),
+              activityType: In([
+                ActivityType.PROPERTY_SEARCH,
+                ActivityType.VISIT,
+                ActivityType.RESERVATION,
+              ]),
+            },
+          })
+        : [];
 
-    const requirementPipelineGroups = buildRequirementPipelineGroups(
-      activeRequirements,
-      propertySearchActivities,
-      appraisalRequests,
+    const opportunityPipelineGroups = buildOpportunityPipelineGroups(
+      activeOpportunities,
+      opportunityActivities,
     );
     const weeklyActivityGoals = await this.buildWeeklyActivityGoals(
       teamId,
@@ -156,7 +160,7 @@ export class DashboardService {
       pendingBuyerPropertySharesCount: pendingBuyerPropertyShares.length,
       pendingBuyerPropertyShares,
       weeklyActivityGoals,
-      requirementPipelineGroups,
+      opportunityPipelineGroups,
     };
   }
 

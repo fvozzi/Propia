@@ -4,8 +4,7 @@ import { apiRequest } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import type {
   DashboardData,
-  DashboardRequirementPipelineGroup,
-  DashboardRequirementPipelineStep,
+  DashboardOpportunityPipelineStep,
   OperationType,
 } from '../types';
 
@@ -15,7 +14,8 @@ export function DashboardPage() {
   const { formatDateTime, t, translateEnum } = useI18n();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedOperationType, setSelectedOperationType] = useState<OperationType>('SALE');
+  const [selectedOperationType, setSelectedOperationType] =
+    useState<OperationType>('SALE');
   const today = formatDateKey(new Date());
 
   useEffect(() => {
@@ -24,7 +24,9 @@ export function DashboardPage() {
         setData(nextData);
 
         const firstNonEmptyGroup = operationDisplayOrder.find((operationType) =>
-          nextData.requirementPipelineGroups.some((group) => group.operationType === operationType && group.total > 0),
+          nextData.opportunityPipelineGroups.some(
+            (group) => group.operationType === operationType && group.total > 0,
+          ),
         );
 
         if (firstNonEmptyGroup) {
@@ -34,8 +36,11 @@ export function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const selectedRequirementGroup = useMemo(
-    () => data?.requirementPipelineGroups.find((group) => group.operationType === selectedOperationType) ?? null,
+  const selectedOpportunityGroup = useMemo(
+    () =>
+      data?.opportunityPipelineGroups.find(
+        (group) => group.operationType === selectedOperationType,
+      ) ?? null,
     [data, selectedOperationType],
   );
 
@@ -87,7 +92,11 @@ export function DashboardPage() {
 
       <section className="stats-grid dashboard-stats-grid">
         {stats.map((stat) => (
-          <Link key={stat.label} to={stat.to} className="stat-card dashboard-stat-link">
+          <Link
+            key={stat.label}
+            to={stat.to}
+            className="stat-card dashboard-stat-link"
+          >
             <span>{stat.label}</span>
             <strong>{stat.value}</strong>
           </Link>
@@ -124,14 +133,16 @@ export function DashboardPage() {
 
       <section className="card">
         <div className="page-header">
-          <h3>{t('dashboard.requirementsByType')}</h3>
+          <h3>{t('dashboard.opportunitiesByType')}</h3>
         </div>
-        {(data?.requirementPipelineGroups ?? []).every((group) => group.total === 0) ? (
-          <p className="muted">{t('dashboard.requirementsEmpty')}</p>
+        {(data?.opportunityPipelineGroups ?? []).every(
+          (group) => group.total === 0,
+        ) ? (
+          <p className="muted">{t('dashboard.opportunitiesEmpty')}</p>
         ) : (
           <>
             <div className="dashboard-operation-grid">
-              {(data?.requirementPipelineGroups ?? []).map((group) => (
+              {(data?.opportunityPipelineGroups ?? []).map((group) => (
                 <button
                   key={group.operationType}
                   type="button"
@@ -141,40 +152,52 @@ export function DashboardPage() {
                   <strong>{translateEnum('operationType', group.operationType)}</strong>
                   <span>{group.total}</span>
                   <small>
-                    {group.fullyCompleted} {t('dashboard.requirementsCompleted')}
+                    {group.wonCount} {t('dashboard.opportunitiesWon')}
                   </small>
                 </button>
               ))}
             </div>
 
-            {selectedRequirementGroup ? (
+            {selectedOpportunityGroup ? (
               <div className="requirement-pipeline-list">
-                {selectedRequirementGroup.items.map((item) => (
-                  <article key={item.requirementId} className="list-item dashboard-pipeline-item">
+                {selectedOpportunityGroup.items.map((item) => (
+                  <article
+                    key={item.opportunityId}
+                    className="list-item dashboard-pipeline-item"
+                  >
                     <div className="dashboard-pipeline-header">
                       <div>
-                        <strong>{item.contactDisplayName}</strong>
+                        <strong>{item.title}</strong>
                         <p className="muted">
-                          {translateEnum('propertyType', item.propertyType)}
+                          {item.contactDisplayName}
                           {item.propertyTitle ? ` · ${item.propertyTitle}` : ''}
+                        </p>
+                        <p className="muted">
+                          {translateEnum('commercialOpportunityStage', item.stage)} ·{' '}
+                          {translateEnum('commercialOpportunityStatus', item.status)}
                         </p>
                       </div>
                       <div className="dashboard-pipeline-meta">
                         <span>
                           {item.completedStepsCount}/{item.totalStepsCount}
                         </span>
-                        <Link to="/requirements" className="agenda-link">
-                          {t('nav.requirements')}
+                        <Link to="/opportunities" className="agenda-link">
+                          {t('nav.commercialOpportunities')}
                         </Link>
                       </div>
                     </div>
                     <div className="requirement-step-row">
                       {item.steps.map((step) => (
-                        <div key={step.key} className={`requirement-step ${step.completed ? 'completed' : 'pending'}`}>
+                        <div
+                          key={step.key}
+                          className={`requirement-step ${step.completed ? 'completed' : 'pending'}`}
+                        >
                           <span className="requirement-step-state">
-                            {step.completed ? t('dashboard.requirementsCompleted') : t('dashboard.requirementsPending')}
+                            {step.completed
+                              ? t('dashboard.requirementsCompleted')
+                              : t('dashboard.requirementsPending')}
                           </span>
-                          <strong>{translateRequirementStep(step, t)}</strong>
+                          <strong>{translateOpportunityStep(step, t)}</strong>
                         </div>
                       ))}
                     </div>
@@ -214,7 +237,8 @@ export function DashboardPage() {
           <div key={visit.id} className="list-item">
             <strong>{visit.property?.title ?? t('dashboard.propertyFallback')}</strong>
             <span>
-              {visit.contact?.displayName ?? t('common.noContact')} · {formatDateTime(visit.scheduledAt)}
+              {visit.contact?.displayName ?? t('common.noContact')} ·{' '}
+              {formatDateTime(visit.scheduledAt)}
             </span>
           </div>
         ))}
@@ -245,20 +269,31 @@ function formatDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function translateRequirementStep(step: DashboardRequirementPipelineStep, t: (path: string) => string) {
+function translateOpportunityStep(
+  step: DashboardOpportunityPipelineStep,
+  t: (path: string) => string,
+) {
   switch (step.key) {
     case 'CONTACT_LINKED':
       return t('dashboard.stepContactLinked');
-    case 'CRITERIA_DEFINED':
-      return t('dashboard.stepCriteriaDefined');
+    case 'REQUIREMENT_LINKED':
+      return t('dashboard.stepRequirementLinked');
     case 'PROPERTIES_SHARED':
       return t('dashboard.stepPropertiesShared');
-    case 'PROPERTY_LINKED':
-      return t('dashboard.stepPropertyLinked');
-    case 'APPRAISAL_REQUEST_SENT':
-      return t('dashboard.stepAppraisalRequestSent');
-    case 'APPRAISAL_REQUEST_COMPLETED':
-      return t('dashboard.stepAppraisalRequestCompleted');
+    case 'VISITS_COMPLETED':
+      return t('dashboard.stepVisitsCompleted');
+    case 'PRELISTING_SENT':
+      return t('dashboard.stepPrelistingSent');
+    case 'PRELISTING_COMPLETED':
+      return t('dashboard.stepPrelistingCompleted');
+    case 'PROPERTY_READY':
+      return t('dashboard.stepPropertyReady');
+    case 'NEGOTIATING':
+      return t('dashboard.stepNegotiating');
+    case 'RESERVED':
+      return t('dashboard.stepReserved');
+    case 'CLOSED_WON':
+      return t('dashboard.stepClosedWon');
     default:
       return step.key;
   }

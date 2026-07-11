@@ -1,16 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  font-family: 'Manrope', sans-serif;
-  color: #152022;
+  font-family: 'Nunito Sans', sans-serif;
+  color: #173039;
   background:
-    radial-gradient(circle at top left, rgba(255, 202, 142, 0.65), transparent 26%),
-    linear-gradient(180deg, #fffdf8 0%, #f3eee4 100%);
-  --paper: rgba(255, 255, 255, 0.82);
-  --line: rgba(21, 32, 34, 0.12);
-  --accent: #b64d1b;
-  --accent-dark: #8d3710;
-  --ink-soft: #5f6d71;
+    radial-gradient(circle at 0% 0%, rgba(255, 190, 128, 0.42), transparent 24%),
+    radial-gradient(circle at 100% 16%, rgba(105, 170, 181, 0.18), transparent 22%),
+    radial-gradient(circle at 60% 100%, rgba(231, 149, 93, 0.14), transparent 26%),
+    linear-gradient(180deg, #fff8ef 0%, #f6efe3 48%, #f1f4f2 100%);
+  --paper: rgba(255, 255, 255, 0.78);
+  --line: rgba(23, 48, 57, 0.1);
+  --accent: #c35b24;
+  --accent-dark: #93401a;
+  --ink-soft: #61757c;
+  --sidebar-bg: linear-gradient(180deg, rgba(255, 248, 237, 0.98) 0%, rgba(245, 236, 223, 0.95) 100%);
+  --nav-active-bg: rgba(195, 91, 36, 0.14);
+  --nav-hover-bg: rgba(23, 48, 57, 0.05);
 }
 
 * {
@@ -20,6 +25,10 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(255, 184, 116, 0.28), transparent 22%),
+    radial-gradient(circle at right 12%, rgba(100, 164, 176, 0.14), transparent 18%),
+    linear-gradient(180deg, #fff8ef 0%, #f6efe3 48%, #f1f4f2 100%);
 }
 
 a {
@@ -83,7 +92,7 @@ label {
 .sidebar {
   padding: 2rem;
   border-right: 1px solid var(--line);
-  background: rgba(248, 241, 229, 0.92);
+  background: var(--sidebar-bg);
   backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
@@ -95,6 +104,12 @@ label {
   overflow-y: auto;
 }
 
+.sidebar-brand {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.25rem;
+}
+
 .sidebar h1,
 .page-header h2,
 .login-card h1 {
@@ -104,10 +119,11 @@ label {
 
 .brand-logo {
   display: block;
-  width: 96px;
+  width: 108px;
   height: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(22, 46, 54, 0.08));
 }
 
 .login-brand-logo {
@@ -118,19 +134,30 @@ label {
 .nav {
   display: grid;
   gap: 0.6rem;
-  margin-top: 2rem;
+  margin-top: 1.6rem;
 }
 
 .nav-link {
   padding: 0.9rem 1rem;
   border-radius: 16px;
   color: var(--ink-soft);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.nav-link:hover {
+  background: var(--nav-hover-bg);
+  color: #26434b;
+  transform: translateX(2px);
 }
 
 .nav-link.active {
-  background: rgba(182, 77, 27, 0.12);
-  color: #7f2d0a;
+  background: var(--nav-active-bg);
+  color: #8a3d15;
   font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(195, 91, 36, 0.08);
 }
 
 .sidebar-footer {
@@ -195,7 +222,7 @@ label {
   backdrop-filter: blur(18px);
   border-radius: 24px;
   padding: 1.5rem;
-  box-shadow: 0 20px 50px rgba(120, 90, 44, 0.08);
+  box-shadow: 0 20px 50px rgba(117, 88, 43, 0.08);
 }
 
 .stat-card {

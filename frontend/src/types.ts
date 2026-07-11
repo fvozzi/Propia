@@ -536,7 +536,7 @@ export interface DashboardData {
   pendingBuyerPropertySharesCount: number;
   pendingBuyerPropertyShares: Activity[];
   weeklyActivityGoals: WeeklyActivityGoalProgress[];
-  requirementPipelineGroups: DashboardRequirementPipelineGroup[];
+  opportunityPipelineGroups: DashboardOpportunityPipelineGroup[];
 }
 
 export interface WeeklyActivityGoalProgress {
@@ -547,36 +547,42 @@ export interface WeeklyActivityGoalProgress {
   remainingCount: number;
 }
 
-export interface DashboardRequirementPipelineStep {
+export interface DashboardOpportunityPipelineStep {
   key:
     | 'CONTACT_LINKED'
-    | 'CRITERIA_DEFINED'
+    | 'REQUIREMENT_LINKED'
     | 'PROPERTIES_SHARED'
-    | 'PROPERTY_LINKED'
-    | 'APPRAISAL_REQUEST_SENT'
-    | 'APPRAISAL_REQUEST_COMPLETED';
+    | 'VISITS_COMPLETED'
+    | 'PRELISTING_SENT'
+    | 'PRELISTING_COMPLETED'
+    | 'PROPERTY_READY'
+    | 'NEGOTIATING'
+    | 'RESERVED'
+    | 'CLOSED_WON';
   completed: boolean;
 }
 
-export interface DashboardRequirementPipelineItem {
-  requirementId: number;
+export interface DashboardOpportunityPipelineItem {
+  opportunityId: number;
   contactId: number;
   contactDisplayName: string;
   operationType: OperationType;
-  propertyType: PropertyType;
-  status: SearchRequirementStatus;
+  title: string;
+  stage: CommercialOpportunityStage;
+  status: CommercialOpportunityStatus;
   propertyId: number | null;
   propertyTitle: string | null;
   completedStepsCount: number;
   totalStepsCount: number;
-  steps: DashboardRequirementPipelineStep[];
+  steps: DashboardOpportunityPipelineStep[];
 }
 
-export interface DashboardRequirementPipelineGroup {
+export interface DashboardOpportunityPipelineGroup {
   operationType: OperationType;
   total: number;
-  fullyCompleted: number;
-  items: DashboardRequirementPipelineItem[];
+  wonCount: number;
+  openCount: number;
+  items: DashboardOpportunityPipelineItem[];
 }
 
 export interface LoginResponse {
