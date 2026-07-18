@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import type {
+  Activity,
+  ActivityType,
   DashboardData,
   DashboardOpportunityPipelineStep,
   OperationType,
@@ -42,6 +44,14 @@ export function DashboardPage() {
         (group) => group.operationType === selectedOperationType,
       ) ?? null,
     [data, selectedOperationType],
+  );
+  const dueTodayGroups = useMemo(
+    () => groupActivitiesByType(data?.followUpsDueToday ?? []),
+    [data?.followUpsDueToday],
+  );
+  const overdueGroups = useMemo(
+    () => groupActivitiesByType(data?.overdueFollowUps ?? []),
+    [data?.overdueFollowUps],
   );
 
   if (loading) {
@@ -212,22 +222,28 @@ export function DashboardPage() {
       <div className="two-column">
         <section className="card">
           <h3>{t('dashboard.dueToday')}</h3>
-          {(data?.followUpsDueToday ?? []).map((activity) => (
-            <div key={activity.id} className="list-item">
-              <strong>{activity.title}</strong>
-              <span>{activity.contact?.displayName ?? t('common.noContact')}</span>
-            </div>
-          ))}
+          <GroupedActivityList
+            groups={dueTodayGroups}
+            emptyLabel={t('dashboard.pendingActivitiesEmpty')}
+            noContactLabel={t('common.noContact')}
+            openContactLabel={t('calendar.openContact')}
+            translateActivityType={(activityType) =>
+              translateEnum('activityType', activityType)
+            }
+          />
         </section>
 
         <section className="card">
           <h3>{t('dashboard.overdue')}</h3>
-          {(data?.overdueFollowUps ?? []).map((activity) => (
-            <div key={activity.id} className="list-item">
-              <strong>{activity.title}</strong>
-              <span>{activity.contact?.displayName ?? t('common.noContact')}</span>
-            </div>
-          ))}
+          <GroupedActivityList
+            groups={overdueGroups}
+            emptyLabel={t('dashboard.pendingActivitiesEmpty')}
+            noContactLabel={t('common.noContact')}
+            openContactLabel={t('calendar.openContact')}
+            translateActivityType={(activityType) =>
+              translateEnum('activityType', activityType)
+            }
+          />
         </section>
       </div>
 
@@ -267,6 +283,63 @@ function formatDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function GroupedActivityList({
+  groups,
+  emptyLabel,
+  noContactLabel,
+  openContactLabel,
+  translateActivityType,
+}: {
+  groups: Array<{ activityType: ActivityType; items: Activity[] }>;
+  emptyLabel: string;
+  noContactLabel: string;
+  openContactLabel: string;
+  translateActivityType: (activityType: ActivityType) => string;
+}) {
+  if (groups.length === 0) {
+    return <p className="muted">{emptyLabel}</p>;
+  }
+
+  return (
+    <div className="dashboard-activity-groups">
+      {groups.map((group) => (
+        <div key={group.activityType} className="dashboard-activity-group">
+          <div className="dashboard-activity-group-header">
+            <strong>{translateActivityType(group.activityType)}</strong>
+            <span>{group.items.length}</span>
+          </div>
+          {group.items.map((activity) => (
+            <div key={activity.id} className="list-item">
+              <strong>{activity.title}</strong>
+              <span>{activity.contact?.displayName ?? noContactLabel}</span>
+              {activity.contactId ? (
+                <Link to={`/contacts/${activity.contactId}`} className="agenda-link">
+                  {openContactLabel}
+                </Link>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function groupActivitiesByType(activities: Activity[]) {
+  const groups = new Map<ActivityType, Activity[]>();
+
+  for (const activity of activities) {
+    const current = groups.get(activity.activityType) ?? [];
+    current.push(activity);
+    groups.set(activity.activityType, current);
+  }
+
+  return Array.from(groups.entries()).map(([activityType, items]) => ({
+    activityType,
+    items,
+  }));
 }
 
 function translateOpportunityStep(

@@ -13,6 +13,7 @@
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
     "seed:prod": "node dist/database/seed.js",
     "backfill:commercial-opportunities": "ts-node -r tsconfig-paths/register src/database/backfill-commercial-opportunities.ts",
+    "backfill:commercial-opportunities:prod": "node dist/database/backfill-commercial-opportunities.js",
     "playwright:install": "playwright install chromium",
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "typeorm:prod": "typeorm -d dist/database/data-source.js",

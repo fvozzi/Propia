@@ -167,6 +167,7 @@ El workflow:
 - los sube por `scp`
 - sincroniza `BOOTSTRAP_ADMIN_EMAILS` en `/var/www/propia/shared/backend/.env` si el secret existe
 - ejecuta migraciones productivas en el Droplet
+- ejecuta el backfill idempotente de `commercial_opportunities` para datos previos
 - reinicia backend y recarga `nginx`
 
 ## 5. Fallback manual en el servidor

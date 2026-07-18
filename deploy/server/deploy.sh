@@ -93,6 +93,7 @@ fi
 chown -R "$APP_USER:$APP_GROUP" "$APP_DIR/app/backend" "$APP_DIR/app/frontend/dist" "$APP_DIR/app/deploy"
 
 sudo -u "$APP_USER" npm --prefix backend run migration:run:prod
+sudo -u "$APP_USER" npm --prefix backend run backfill:commercial-opportunities:prod
 
 systemctl restart "${APP_NAME}-backend"
 nginx -t

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
@@ -14,6 +14,7 @@ import {
   isAppraisalRequestAvailable,
 } from '../lib/appraisals';
 import { activityTypeOptions, useI18n } from '../lib/i18n';
+import { useAuth } from '../lib/auth';
 import {
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
@@ -21,8 +22,9 @@ import {
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
 } from '../lib/whatsapp';
-import { useAuth } from '../lib/auth';
 import type { Activity, Contact, Paginated } from '../types';
+
+type ActivityGroupBy = 'NONE' | 'ACTIVITY_TYPE' | 'CONTACT' | 'ACTIVITY_DATE';
 
 export function ActivitiesPage() {
   const { formatDateTime, t, translateEnum } = useI18n();
@@ -37,11 +39,29 @@ export function ActivitiesPage() {
   const [activityDate, setActivityDate] = useState(initialFilters.activityDate);
   const [contactId, setContactId] = useState(initialFilters.contactId);
   const [activityType, setActivityType] = useState(initialFilters.activityType);
-  const [propertySearchFeedback, setPropertySearchFeedback] = useState(initialFilters.propertySearchFeedback);
-  const [nextFollowUpStatus, setNextFollowUpStatus] = useState(initialFilters.nextFollowUpStatus);
-  const [whatsappShareStatus, setWhatsappShareStatus] = useState(initialFilters.whatsappShareStatus);
+  const [propertySearchFeedback, setPropertySearchFeedback] = useState(
+    initialFilters.propertySearchFeedback,
+  );
+  const [nextFollowUpStatus, setNextFollowUpStatus] = useState(
+    initialFilters.nextFollowUpStatus,
+  );
+  const [whatsappShareStatus, setWhatsappShareStatus] = useState(
+    initialFilters.whatsappShareStatus,
+  );
+  const [groupBy, setGroupBy] = useState<ActivityGroupBy>('ACTIVITY_TYPE');
   const [sharingActivityId, setSharingActivityId] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
+
+  const groupedActivities = useMemo(
+    () =>
+      buildActivityGroups(response?.items ?? [], groupBy, {
+        listTitle: t('activities.listTitle'),
+        withoutContact: t('activities.withoutContact'),
+        translateActivityType: (value) => translateEnum('activityType', value),
+        formatGroupDate: formatActivityGroupDate,
+      }),
+    [groupBy, response?.items, t, translateEnum],
+  );
 
   async function load(
     nextPage = page,
@@ -62,9 +82,12 @@ export function ActivitiesPage() {
     const nextActivityDate = filters.activityDate ?? activityDate;
     const nextContactId = filters.contactId ?? contactId;
     const nextActivityType = filters.activityType ?? activityType;
-    const nextPropertySearchFeedback = filters.propertySearchFeedback ?? propertySearchFeedback;
-    const nextNextFollowUpStatus = filters.nextFollowUpStatus ?? nextFollowUpStatus;
-    const nextWhatsappShareStatus = filters.whatsappShareStatus ?? whatsappShareStatus;
+    const nextPropertySearchFeedback =
+      filters.propertySearchFeedback ?? propertySearchFeedback;
+    const nextNextFollowUpStatus =
+      filters.nextFollowUpStatus ?? nextFollowUpStatus;
+    const nextWhatsappShareStatus =
+      filters.whatsappShareStatus ?? whatsappShareStatus;
 
     if (nextActivityDate) {
       params.set('fromDate', nextActivityDate);
@@ -73,11 +96,19 @@ export function ActivitiesPage() {
 
     if (nextContactId) params.set('contactId', nextContactId);
     if (nextActivityType) params.set('activityType', nextActivityType);
-    if (nextPropertySearchFeedback) params.set('propertySearchFeedback', nextPropertySearchFeedback);
-    if (nextNextFollowUpStatus) params.set('nextFollowUpStatus', nextNextFollowUpStatus);
-    if (nextWhatsappShareStatus) params.set('whatsappShareStatus', nextWhatsappShareStatus);
+    if (nextPropertySearchFeedback) {
+      params.set('propertySearchFeedback', nextPropertySearchFeedback);
+    }
+    if (nextNextFollowUpStatus) {
+      params.set('nextFollowUpStatus', nextNextFollowUpStatus);
+    }
+    if (nextWhatsappShareStatus) {
+      params.set('whatsappShareStatus', nextWhatsappShareStatus);
+    }
 
-    const data = await apiRequest<Paginated<Activity>>(`/activities?${params.toString()}`);
+    const data = await apiRequest<Paginated<Activity>>(
+      `/activities?${params.toString()}`,
+    );
     setResponse(data);
   }
 
@@ -87,7 +118,9 @@ export function ActivitiesPage() {
 
   useEffect(() => {
     async function loadContacts() {
-      const data = await apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100');
+      const data = await apiRequest<Paginated<Contact>>(
+        '/contacts?page=1&limit=100',
+      );
       setContacts(data.items);
     }
 
@@ -147,7 +180,11 @@ export function ActivitiesPage() {
     setActionError('');
 
     try {
-      if (activity.activityType === 'PROPERTY_SEARCH' && activity.contact && activity.externalUrl) {
+      if (
+        activity.activityType === 'PROPERTY_SEARCH' &&
+        activity.contact &&
+        activity.externalUrl
+      ) {
         const message = buildPropertySearchMessage(activity);
         openWhatsAppShareUrl(buildWhatsAppShareUrl(activity.contact, message));
         await apiRequest<Activity>(`/activities/${activity.id}/share`, {
@@ -168,9 +205,12 @@ export function ActivitiesPage() {
         );
         openWhatsAppShareUrl(buildWhatsAppShareUrl(activity.contact, message));
       } else if (activity.activityType === 'RESERVATION') {
-        const treasuryPhone = user?.activeTeamWhatsappTreasuryPhone?.trim() || '';
+        const treasuryPhone =
+          user?.activeTeamWhatsappTreasuryPhone?.trim() || '';
         if (!treasuryPhone) {
-          throw new Error('Falta configurar el numero de WhatsApp de tesoreria para este equipo');
+          throw new Error(
+            'Falta configurar el numero de WhatsApp de tesoreria para este equipo',
+          );
         }
 
         const message = buildReservationTreasuryWhatsappMessage(
@@ -195,7 +235,9 @@ export function ActivitiesPage() {
       window.alert(t('common.whatsappSent'));
     } catch (sendError) {
       setActionError(
-        sendError instanceof Error ? sendError.message : t('common.whatsappSendFailed'),
+        sendError instanceof Error
+          ? sendError.message
+          : t('common.whatsappSendFailed'),
       );
     } finally {
       setSharingActivityId(null);
@@ -204,7 +246,9 @@ export function ActivitiesPage() {
 
   async function handleCopyAppraisalLink(activity: Activity) {
     if (!activity.appraisalRequest) return;
-    await navigator.clipboard.writeText(buildPublicAppraisalUrl(activity.appraisalRequest.publicToken));
+    await navigator.clipboard.writeText(
+      buildPublicAppraisalUrl(activity.appraisalRequest.publicToken),
+    );
     window.alert(t('appraisals.copySuccess'));
   }
 
@@ -214,7 +258,14 @@ export function ActivitiesPage() {
   }
 
   function handleShareAppraisalEmail(activity: Activity) {
-    if (!activity.contact || !activity.appraisalRequest || !canShareAppraisalByEmail(activity.contact)) return;
+    if (
+      !activity.contact ||
+      !activity.appraisalRequest ||
+      !canShareAppraisalByEmail(activity.contact)
+    ) {
+      return;
+    }
+
     window.location.href = buildAppraisalMailtoUrl(
       activity.contact,
       activity.appraisalRequest.publicToken,
@@ -230,7 +281,11 @@ export function ActivitiesPage() {
         title={t('activities.title')}
         actions={
           <>
-            <button type="button" className="ghost-button" onClick={() => setFiltersOpen((current) => !current)}>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setFiltersOpen((current) => !current)}
+            >
               {filtersOpen ? t('activities.hideFilters') : t('activities.filters')}
             </button>
             <Link to="/activities/new" className="button-link">
@@ -245,7 +300,11 @@ export function ActivitiesPage() {
           <div className="filters-grid">
             <label>
               {t('common.contact')}
-              <select value={contactId} onChange={(event) => setContactId(event.target.value)} aria-label={t('common.contact')}>
+              <select
+                value={contactId}
+                onChange={(event) => setContactId(event.target.value)}
+                aria-label={t('common.contact')}
+              >
                 <option value="">{t('activities.allContacts')}</option>
                 {contacts.map((contact) => (
                   <option key={contact.id} value={contact.id}>
@@ -273,7 +332,9 @@ export function ActivitiesPage() {
               {t('activities.buyerFeedback')}
               <select
                 value={propertySearchFeedback}
-                onChange={(event) => setPropertySearchFeedback(event.target.value)}
+                onChange={(event) =>
+                  setPropertySearchFeedback(event.target.value)
+                }
                 aria-label={t('activities.buyerFeedback')}
               >
                 <option value="">{t('activities.allResponses')}</option>
@@ -284,7 +345,12 @@ export function ActivitiesPage() {
             </label>
             <label>
               {t('activities.activityDate')}
-              <input type="date" value={activityDate} onChange={(event) => setActivityDate(event.target.value)} aria-label={t('activities.activityDate')} />
+              <input
+                type="date"
+                value={activityDate}
+                onChange={(event) => setActivityDate(event.target.value)}
+                aria-label={t('activities.activityDate')}
+              />
             </label>
             <label>
               {t('activities.followUpFilter')}
@@ -315,7 +381,11 @@ export function ActivitiesPage() {
             <button type="button" onClick={handleApplyFilters}>
               {t('common.apply')}
             </button>
-            <button type="button" className="ghost-button" onClick={handleClearFilters}>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={handleClearFilters}
+            >
               {t('common.clear')}
             </button>
           </div>
@@ -334,146 +404,67 @@ export function ActivitiesPage() {
         onPrevious={() => setPage((current) => current - 1)}
         onNext={() => setPage((current) => current + 1)}
       >
-        {(response?.items ?? []).map((activity) => {
-          const appraisalRequest = activity.appraisalRequest;
-          const appraisalStatus = appraisalRequest ? getAppraisalRequestStatus(appraisalRequest) : null;
-          const canShareAppraisal =
-            activity.activityType === 'APPRAISAL_REQUEST' &&
-            appraisalRequest &&
-            isAppraisalRequestAvailable(appraisalRequest) &&
-            Boolean(activity.contact);
+        <div className="activities-list-toolbar">
+          <label className="activities-group-by">
+            <span>{t('activities.groupBy')}</span>
+            <select
+              value={groupBy}
+              onChange={(event) =>
+                setGroupBy(event.target.value as ActivityGroupBy)
+              }
+              aria-label={t('activities.groupBy')}
+            >
+              <option value="ACTIVITY_TYPE">
+                {t('activities.groupByActivityType')}
+              </option>
+              <option value="CONTACT">{t('activities.groupByContact')}</option>
+              <option value="ACTIVITY_DATE">
+                {t('activities.groupByActivityDate')}
+              </option>
+              <option value="NONE">{t('activities.groupByNone')}</option>
+            </select>
+          </label>
+        </div>
 
-          return (
-            <article key={activity.id} className="list-item list-item-actions">
-              <div>
-                <strong>{activity.title}</strong>
-                <p className="muted">
-                  {activity.contact?.displayName ?? t('activities.withoutContact')} · {formatDateTime(activity.activityDate)}
-                </p>
-                {activity.property ? (
-                  <p className="muted">
-                    {t('activities.linkedProperty')}: {activity.property.title}
-                  </p>
-                ) : null}
-                {activity.activityType === 'PROPERTY_SEARCH' && activity.propertySearchLiked !== null ? (
-                  <p className="muted">
-                    {activity.propertySearchLiked ? t('activities.likedProperty') : t('activities.dislikedProperty')}
-                  </p>
-                ) : null}
-                {activity.activityType === 'APPRAISAL_REQUEST' && appraisalStatus ? (
-                  <p className="muted">
-                    {appraisalStatus === 'COMPLETED'
-                      ? t('activities.appraisalCompleted')
-                      : appraisalStatus === 'EXPIRED'
-                        ? t('activities.appraisalExpired')
-                        : t('activities.appraisalPending')}
-                  </p>
-                ) : null}
-                {activity.whatsappComment ? <p className="muted">{activity.whatsappComment}</p> : null}
-                {activity.description ? <p className="muted">{activity.description}</p> : null}
-                {activity.activityType === 'RESERVATION' && activity.reservationData ? (
-                  <p className="muted">
-                    {activity.reservationData.operationType
-                      ? `${translateEnum('operationType', activity.reservationData.operationType)} · `
-                      : ''}
-                    {activity.reservationData.propertyAddress ?? activity.property?.address ?? ''}
-                    {activity.reservationData.propertyNeighborhood
-                      ? ` · ${activity.reservationData.propertyNeighborhood}`
-                      : ''}
-                  </p>
-                ) : null}
-                {activity.activityType === 'PROPERTY_SEARCH' ? (
-                  <ActivityPreviewCard activity={activity} title={t('activities.listingPreview')} />
-                ) : null}
-                {activity.activityType === 'PROPERTY_SEARCH' ? (
-                  <p className="muted">
-                    {activity.whatsappSharedAt
-                      ? `${t('activities.sharedAt')}: ${formatDateTime(activity.whatsappSharedAt)}`
-                      : t('activities.pendingShare')}
-                  </p>
-                ) : null}
-                {activity.activityType === 'RESERVATION' && activity.whatsappSharedAt ? (
-                  <p className="muted">
-                    {t('activities.reservationSentAt')}: {formatDateTime(activity.whatsappSharedAt)}
-                  </p>
-                ) : null}
-                <div className="candidate-actions">
-                  <StatusPill value={activity.activityType} />
-                  {activity.externalUrl ? (
-                    <a href={activity.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
-                      {activity.activityType === 'RESERVATION'
-                        ? t('activities.reservationDocumentOpen')
-                        : t('activities.openListing')}
-                    </a>
-                  ) : null}
-                  {appraisalRequest ? (
-                    <Link to={`/appraisals/${appraisalRequest.id}/edit`} className="agenda-link">
-                      {t('activities.openAppraisalRequest')}
-                    </Link>
-                  ) : null}
+        {groupBy === 'NONE'
+          ? (response?.items ?? []).map((activity) => (
+              <ActivityListItem
+                key={activity.id}
+                activity={activity}
+                formatDateTime={formatDateTime}
+                onCopyAppraisalLink={handleCopyAppraisalLink}
+                onDelete={handleDelete}
+                onSendWhatsapp={handleSendWhatsapp}
+                onShareAppraisalEmail={handleShareAppraisalEmail}
+                sharingActivityId={sharingActivityId}
+                t={t}
+                translateEnum={translateEnum}
+              />
+            ))
+          : groupedActivities.map((group) => (
+              <section key={group.key} className="activities-group">
+                <div className="activities-group-header">
+                  <strong>{group.label}</strong>
+                  <span className="activities-group-count">{group.items.length}</span>
                 </div>
-              </div>
-              <div className="candidate-actions">
-                <Link to={`/activities/${activity.id}/edit`} className="ghost-button button-link">
-                  {t('activities.editActivity')}
-                </Link>
-                {activity.activityType === 'PROPERTY_SEARCH' &&
-                activity.externalUrl &&
-                !activity.whatsappSharedAt &&
-                activity.contact &&
-                getContactWhatsappPhone(activity.contact) ? (
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => handleSendWhatsapp(activity)}
-                    disabled={sharingActivityId === activity.id}
-                  >
-                    {sharingActivityId === activity.id ? t('common.loading') : t('activities.shareNow')}
-                  </button>
-                ) : null}
-                {activity.activityType === 'APPRAISAL_REQUEST' && appraisalRequest ? (
-                  <button type="button" className="ghost-button" onClick={() => handleCopyAppraisalLink(activity)}>
-                    {t('appraisals.copyLink')}
-                  </button>
-                ) : null}
-                {canShareAppraisal && activity.contact && canShareAppraisalByWhatsApp(activity.contact) ? (
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => handleSendWhatsapp(activity)}
-                    disabled={sharingActivityId === activity.id}
-                  >
-                    {sharingActivityId === activity.id
-                      ? t('common.loading')
-                      : t('appraisals.shareWhatsApp')}
-                  </button>
-                ) : null}
-                {canShareAppraisal && activity.contact && canShareAppraisalByEmail(activity.contact) ? (
-                  <button type="button" className="ghost-button" onClick={() => handleShareAppraisalEmail(activity)}>
-                    {t('appraisals.shareEmail')}
-                  </button>
-                ) : null}
-                {activity.activityType === 'RESERVATION' && activity.externalUrl ? (
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => handleSendWhatsapp(activity)}
-                    disabled={sharingActivityId === activity.id}
-                  >
-                    {sharingActivityId === activity.id
-                      ? t('common.loading')
-                      : activity.whatsappSharedAt
-                        ? t('activities.reservationResendTreasury')
-                        : t('activities.reservationSendTreasury')}
-                  </button>
-                ) : null}
-                <button type="button" className="ghost-button" onClick={() => handleDelete(activity.id)}>
-                  {t('common.delete')}
-                </button>
-              </div>
-            </article>
-          );
-        })}
+                <div className="activities-group-items">
+                  {group.items.map((activity) => (
+                    <ActivityListItem
+                      key={activity.id}
+                      activity={activity}
+                      formatDateTime={formatDateTime}
+                      onCopyAppraisalLink={handleCopyAppraisalLink}
+                      onDelete={handleDelete}
+                      onSendWhatsapp={handleSendWhatsapp}
+                      onShareAppraisalEmail={handleShareAppraisalEmail}
+                      sharingActivityId={sharingActivityId}
+                      t={t}
+                      translateEnum={translateEnum}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
       </PaginatedListCard>
     </div>
   );
@@ -492,6 +483,304 @@ function parseActivityFilters(searchParams: URLSearchParams) {
 
 function hasAnyActivityFilter(filters: ReturnType<typeof parseActivityFilters>) {
   return Object.values(filters).some(Boolean);
+}
+
+function ActivityListItem({
+  activity,
+  formatDateTime,
+  onCopyAppraisalLink,
+  onDelete,
+  onSendWhatsapp,
+  onShareAppraisalEmail,
+  sharingActivityId,
+  t,
+  translateEnum,
+}: {
+  activity: Activity;
+  formatDateTime: (value: string) => string;
+  onCopyAppraisalLink: (activity: Activity) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+  onSendWhatsapp: (activity: Activity) => Promise<void>;
+  onShareAppraisalEmail: (activity: Activity) => void;
+  sharingActivityId: number | null;
+  t: (path: string) => string;
+  translateEnum: (group: 'activityType' | 'operationType', value: string) => string;
+}) {
+  const appraisalRequest = activity.appraisalRequest;
+  const appraisalStatus = appraisalRequest
+    ? getAppraisalRequestStatus(appraisalRequest)
+    : null;
+  const canShareAppraisal =
+    activity.activityType === 'APPRAISAL_REQUEST' &&
+    appraisalRequest &&
+    isAppraisalRequestAvailable(appraisalRequest) &&
+    Boolean(activity.contact);
+
+  return (
+    <article className="list-item list-item-actions">
+      <div>
+        <strong>{activity.title}</strong>
+        <p className="muted">
+          {activity.contact?.displayName ?? t('activities.withoutContact')} -{' '}
+          {formatDateTime(activity.activityDate)}
+        </p>
+        {activity.property ? (
+          <p className="muted">
+            {t('activities.linkedProperty')}: {activity.property.title}
+          </p>
+        ) : null}
+        {activity.activityType === 'PROPERTY_SEARCH' &&
+        activity.propertySearchLiked !== null ? (
+          <p className="muted">
+            {activity.propertySearchLiked
+              ? t('activities.likedProperty')
+              : t('activities.dislikedProperty')}
+          </p>
+        ) : null}
+        {activity.activityType === 'APPRAISAL_REQUEST' && appraisalStatus ? (
+          <p className="muted">
+            {appraisalStatus === 'COMPLETED'
+              ? t('activities.appraisalCompleted')
+              : appraisalStatus === 'EXPIRED'
+                ? t('activities.appraisalExpired')
+                : t('activities.appraisalPending')}
+          </p>
+        ) : null}
+        {activity.whatsappComment ? (
+          <p className="muted">{activity.whatsappComment}</p>
+        ) : null}
+        {activity.description ? <p className="muted">{activity.description}</p> : null}
+        {activity.activityType === 'RESERVATION' && activity.reservationData ? (
+          <p className="muted">
+            {activity.reservationData.operationType
+              ? `${translateEnum('operationType', activity.reservationData.operationType)} - `
+              : ''}
+            {activity.reservationData.propertyAddress ?? activity.property?.address ?? ''}
+            {activity.reservationData.propertyNeighborhood
+              ? ` - ${activity.reservationData.propertyNeighborhood}`
+              : ''}
+          </p>
+        ) : null}
+        {activity.activityType === 'PROPERTY_SEARCH' ? (
+          <ActivityPreviewCard
+            activity={activity}
+            title={t('activities.listingPreview')}
+          />
+        ) : null}
+        {activity.activityType === 'PROPERTY_SEARCH' ? (
+          <p className="muted">
+            {activity.whatsappSharedAt
+              ? `${t('activities.sharedAt')}: ${formatDateTime(activity.whatsappSharedAt)}`
+              : t('activities.pendingShare')}
+          </p>
+        ) : null}
+        {activity.activityType === 'RESERVATION' && activity.whatsappSharedAt ? (
+          <p className="muted">
+            {t('activities.reservationSentAt')}:{' '}
+            {formatDateTime(activity.whatsappSharedAt)}
+          </p>
+        ) : null}
+        <div className="candidate-actions">
+          <StatusPill value={activity.activityType} />
+          {activity.externalUrl ? (
+            <a
+              href={activity.externalUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="agenda-link"
+            >
+              {activity.activityType === 'RESERVATION'
+                ? t('activities.reservationDocumentOpen')
+                : t('activities.openListing')}
+            </a>
+          ) : null}
+          {appraisalRequest ? (
+            <Link
+              to={`/appraisals/${appraisalRequest.id}/edit`}
+              className="agenda-link"
+            >
+              {t('activities.openAppraisalRequest')}
+            </Link>
+          ) : null}
+        </div>
+      </div>
+      <div className="candidate-actions">
+        <Link to={`/activities/${activity.id}/edit`} className="ghost-button button-link">
+          {t('activities.editActivity')}
+        </Link>
+        {activity.activityType === 'PROPERTY_SEARCH' &&
+        activity.externalUrl &&
+        !activity.whatsappSharedAt &&
+        activity.contact &&
+        getContactWhatsappPhone(activity.contact) ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void onSendWhatsapp(activity)}
+            disabled={sharingActivityId === activity.id}
+          >
+            {sharingActivityId === activity.id
+              ? t('common.loading')
+              : t('activities.shareNow')}
+          </button>
+        ) : null}
+        {activity.activityType === 'APPRAISAL_REQUEST' && appraisalRequest ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void onCopyAppraisalLink(activity)}
+          >
+            {t('appraisals.copyLink')}
+          </button>
+        ) : null}
+        {canShareAppraisal &&
+        activity.contact &&
+        canShareAppraisalByWhatsApp(activity.contact) ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void onSendWhatsapp(activity)}
+            disabled={sharingActivityId === activity.id}
+          >
+            {sharingActivityId === activity.id
+              ? t('common.loading')
+              : t('appraisals.shareWhatsApp')}
+          </button>
+        ) : null}
+        {canShareAppraisal &&
+        activity.contact &&
+        canShareAppraisalByEmail(activity.contact) ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => onShareAppraisalEmail(activity)}
+          >
+            {t('appraisals.shareEmail')}
+          </button>
+        ) : null}
+        {activity.activityType === 'RESERVATION' && activity.externalUrl ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void onSendWhatsapp(activity)}
+            disabled={sharingActivityId === activity.id}
+          >
+            {sharingActivityId === activity.id
+              ? t('common.loading')
+              : activity.whatsappSharedAt
+                ? t('activities.reservationResendTreasury')
+                : t('activities.reservationSendTreasury')}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() => void onDelete(activity.id)}
+        >
+          {t('common.delete')}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function buildActivityGroups(
+  activities: Activity[],
+  groupBy: ActivityGroupBy,
+  labels: {
+    listTitle: string;
+    withoutContact: string;
+    translateActivityType: (value: string) => string;
+    formatGroupDate: (value: string) => string;
+  },
+) {
+  if (groupBy === 'NONE') {
+    return [];
+  }
+
+  const groups = new Map<string, { key: string; label: string; items: Activity[] }>();
+
+  for (const activity of activities) {
+    const descriptor = getActivityGroupDescriptor(activity, groupBy, labels);
+    const current = groups.get(descriptor.key);
+
+    if (current) {
+      current.items.push(activity);
+      continue;
+    }
+
+    groups.set(descriptor.key, {
+      key: descriptor.key,
+      label: descriptor.label,
+      items: [activity],
+    });
+  }
+
+  return Array.from(groups.values());
+}
+
+function getActivityGroupDescriptor(
+  activity: Activity,
+  groupBy: Exclude<ActivityGroupBy, 'NONE'>,
+  labels: {
+    listTitle: string;
+    withoutContact: string;
+    translateActivityType: (value: string) => string;
+    formatGroupDate: (value: string) => string;
+  },
+) {
+  switch (groupBy) {
+    case 'CONTACT':
+      return {
+        key: `contact:${activity.contactId ?? 'none'}`,
+        label: activity.contact?.displayName ?? labels.withoutContact,
+      };
+    case 'ACTIVITY_DATE': {
+      const dateGroup = buildActivityDateGroup(activity.activityDate);
+      return {
+        key: `activity-date:${dateGroup.key}`,
+        label: labels.formatGroupDate(dateGroup.labelSource),
+      };
+    }
+    case 'ACTIVITY_TYPE':
+    default:
+      return {
+        key: `activity-type:${activity.activityType}`,
+        label: labels.translateActivityType(activity.activityType),
+      };
+  }
+}
+
+function buildActivityDateGroup(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return {
+      key: value,
+      labelSource: value,
+    };
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return {
+    key: `${year}-${month}-${day}`,
+    labelSource: value,
+  };
+}
+
+function formatActivityGroupDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
 }
 
 function ActivityPreviewCard({
@@ -515,11 +804,21 @@ function ActivityPreviewCard({
 
   return (
     <div className={previewCardClassName}>
-      {previewImageUrl ? <img src={previewImageUrl} alt={previewTitle ?? title} className="activity-preview-image" /> : null}
+      {previewImageUrl ? (
+        <img
+          src={previewImageUrl}
+          alt={previewTitle ?? title}
+          className="activity-preview-image"
+        />
+      ) : null}
       <div className="activity-preview-copy">
         <p className="eyebrow activity-preview-eyebrow">{title}</p>
         {previewTitle ? <strong>{previewTitle}</strong> : null}
-        {previewDescription ? <p className="muted activity-preview-description">{previewDescription}</p> : null}
+        {previewDescription ? (
+          <p className="muted activity-preview-description">
+            {previewDescription}
+          </p>
+        ) : null}
         {previewDomain ? <p className="muted">{previewDomain}</p> : null}
       </div>
     </div>

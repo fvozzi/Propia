@@ -987,6 +987,64 @@ label {
   align-items: center;
 }
 
+.activities-list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.activities-group-by {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.activities-group-by span {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.activities-group {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.activities-group:last-of-type {
+  margin-bottom: 0;
+}
+
+.activities-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid rgba(21, 32, 34, 0.08);
+}
+
+.activities-group-header strong {
+  font-size: 1rem;
+}
+
+.activities-group-count {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(47, 103, 112, 0.12);
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
+.activities-group-items {
+  display: grid;
+}
+
 .appraisal-request-actions {
   margin-bottom: 1.25rem;
 }
@@ -1157,6 +1215,42 @@ label {
   display: grid;
   gap: 0.35rem;
   justify-items: end;
+}
+
+.dashboard-activity-groups {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-activity-group {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.dashboard-activity-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(21, 32, 34, 0.08);
+}
+
+.dashboard-activity-group-header strong {
+  font-size: 0.95rem;
+}
+
+.dashboard-activity-group-header span {
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+  background: rgba(182, 77, 27, 0.08);
+  color: var(--accent-strong);
+  font-weight: 700;
 }
 
 .requirement-step-row {
