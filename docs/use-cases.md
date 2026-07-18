@@ -6,6 +6,7 @@
 - [UC2. Cargar requerimiento de busqueda para un contacto comprador](#uc2-cargar-requerimiento-de-busqueda-para-un-contacto-comprador)
 - [UC3. Prelisting: preguntas iniciales](#uc3-prelisting-preguntas-iniciales)
 - [UC4. Dashboard de requerimientos por tipo y pipeline](#uc4-dashboard-de-requerimientos-por-tipo-y-pipeline)
+- [UC5. Crear requerimiento desde una llamada en curso](#uc5-crear-requerimiento-desde-una-llamada-en-curso)
 - [Criterio transversal. Requerimiento vs oportunidad comercial](#criterio-transversal-requerimiento-vs-oportunidad-comercial)
 - [Criterio transversal. Diferencia entre Visita y Muestra](#criterio-transversal-diferencia-entre-visita-y-muestra)
 - [UC7. Navegacion por mapa](#uc7-navegacion-por-mapa)
@@ -170,6 +171,42 @@
   - pipeline de venta con hitos de prelisting
   - pipeline de compra/alquiler con criterios y propiedades compartidas
   - agrupacion por tipo de operacion y conteo de completitud
+
+## UC5. Crear requerimiento desde una llamada en curso
+
+- Objetivo: permitir que la usuaria cree un requerimiento de busqueda mientras registra una actividad de llamada, sin perder el contexto de la conversacion ni tener que volver a elegir el contacto.
+- Actor principal: usuaria comercial.
+- Entidades principales propuestas: `Activity` de tipo `CALL` y `SearchRequirement`.
+
+### Flujo esperado
+
+1. La usuaria abre una nueva actividad de tipo `Llamada` o edita una llamada ya en curso.
+2. La usuaria selecciona el contacto asociado a esa llamada.
+3. Desde la misma pantalla de la llamada, la usuaria ejecuta la accion `Nuevo requerimiento`.
+4. El sistema abre el alta de requerimiento con el contacto ya precargado.
+5. La pantalla original de la llamada debe seguir visible para que la usuaria conserve sus notas o complete la actividad despues.
+6. La usuaria guarda el requerimiento y luego retoma la carga de la llamada.
+
+### Primera version implementada
+
+- La accion `Nuevo requerimiento` aparece en la carga de actividades cuando el tipo es `CALL` y ya hay un contacto seleccionado.
+- El alta de requerimiento se abre en otra pestaña para no tapar la pantalla de la llamada.
+- El formulario de requerimiento recibe `contactId` por query string y lo usa para precargar el contacto.
+
+### Criterios de aceptacion
+
+- La accion debe estar disponible solo cuando la actividad sea una llamada y exista un contacto seleccionado.
+- El alta del requerimiento no debe obligar a volver a elegir el contacto si ya viene desde la llamada.
+- La apertura del requerimiento no debe hacer perder el borrador visible de la llamada.
+- La usuaria debe poder volver a la llamada y terminar de guardar la actividad despues de crear el requerimiento.
+- La solucion inicial puede resolverse con una nueva pestaña; a futuro podria evolucionar a modal lateral o layout dividido.
+
+### Cobertura unitaria
+
+- Archivo sugerido: `frontend/src/pages/SearchRequirementCreatePage.tsx`
+- Reglas a cubrir:
+  - precarga de `contactId` al abrir un requerimiento nuevo desde query string
+  - visibilidad condicional de la accion `Nuevo requerimiento` en actividades de llamada con contacto seleccionado
 
 ## Criterio transversal. Requerimiento vs oportunidad comercial
 

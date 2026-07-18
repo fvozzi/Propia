@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
@@ -87,6 +87,7 @@ function toggleOption<T extends string>(currentValues: T[], value: T) {
 
 export function SearchRequirementCreatePage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, translateEnum } = useI18n();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -97,6 +98,7 @@ export function SearchRequirementCreatePage() {
 
   const requirementId = id ? Number(id) : null;
   const isEditing = Boolean(requirementId);
+  const initialContactId = searchParams.get('contactId') ?? '';
 
   useEffect(() => {
     async function loadDependencies() {
@@ -138,6 +140,11 @@ export function SearchRequirementCreatePage() {
             notes: requirementData.notes ?? '',
             status: requirementData.status,
           });
+        } else if (initialContactId) {
+          setForm((current) => ({
+            ...current,
+            contactId: initialContactId,
+          }));
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el requerimiento');
@@ -147,7 +154,7 @@ export function SearchRequirementCreatePage() {
     }
 
     void loadDependencies();
-  }, [isEditing, requirementId]);
+  }, [initialContactId, isEditing, requirementId]);
 
   const selectedProperty =
     properties.find((property) => String(property.id) === form.selectedPropertyId) ?? null;

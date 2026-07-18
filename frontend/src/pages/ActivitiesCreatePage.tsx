@@ -855,6 +855,16 @@ export function ActivitiesCreatePage() {
           )}
           <div className="full-span calendar-related-actions">
             <button type="submit">{isEditing ? t('common.update') : t('activities.save')}</button>
+            {form.activityType === 'CALL' && selectedContact ? (
+              <Link
+                to={buildRequirementCreateLink(selectedContact.id)}
+                target="_blank"
+                rel="noreferrer"
+                className="ghost-button button-link"
+              >
+                {t('requirements.newRequirement')}
+              </Link>
+            ) : null}
             {isAppraisalRequest && activity?.appraisalRequestId ? (
               <Link
                 to={`/appraisals/${activity.appraisalRequestId}/edit`}
@@ -1003,6 +1013,14 @@ function formatPropertyOptionLabel(
   details.push(translateEnum('propertyStatus', property.status));
 
   return `${property.title} - ${details.filter(Boolean).join(' - ')}`;
+}
+
+function buildRequirementCreateLink(contactId: number) {
+  const params = new URLSearchParams({
+    contactId: String(contactId),
+  });
+
+  return `/requirements/new?${params.toString()}`;
 }
 
 function ActivityPreviewCard({

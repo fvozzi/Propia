@@ -524,6 +524,14 @@ function ActivityListItem({
           {activity.contact?.displayName ?? t('activities.withoutContact')} -{' '}
           {formatDateTime(activity.activityDate)}
         </p>
+        {activity.contactId ? (
+          <Link
+            to={buildContactHistoryLink(activity.contactId)}
+            className="agenda-link"
+          >
+            {t('activities.openContactHistory')}
+          </Link>
+        ) : null}
         {activity.property ? (
           <p className="muted">
             {t('activities.linkedProperty')}: {activity.property.title}
@@ -781,6 +789,14 @@ function formatActivityGroupDate(value: string) {
     month: '2-digit',
     year: 'numeric',
   }).format(date);
+}
+
+function buildContactHistoryLink(contactId: number) {
+  const params = new URLSearchParams({
+    contactId: String(contactId),
+  });
+
+  return `/activities?${params.toString()}`;
 }
 
 function ActivityPreviewCard({
