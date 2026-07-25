@@ -25,6 +25,7 @@ export function ContactsPage() {
   const googleAuthEnabled = isGoogleAuthEnabled();
   const [response, setResponse] = useState<Paginated<Contact> | null>(null);
   const [search, setSearch] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
   const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -39,6 +40,10 @@ export function ContactsPage() {
 
     if (search) {
       params.set('search', search);
+    }
+
+    if (tagFilter) {
+      params.set('tag', tagFilter);
     }
 
     const data = await apiRequest<Paginated<Contact>>(`/contacts?${params.toString()}`);
@@ -59,6 +64,21 @@ export function ContactsPage() {
 
   async function handleSearch() {
     setError('');
+    setPage(1);
+    await load(1);
+  }
+
+  async function handleQuickTagFilter(tag: string) {
+    setError('');
+    setTagFilter(tag);
+    setPage(1);
+    await load(1);
+  }
+
+  async function handleClearFilters() {
+    setError('');
+    setSearch('');
+    setTagFilter('');
     setPage(1);
     await load(1);
   }
@@ -128,8 +148,24 @@ export function ContactsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <input
+              placeholder={t('contacts.tagFilterPlaceholder')}
+              value={tagFilter}
+              onChange={(event) => setTagFilter(event.target.value)}
+              aria-label={t('contacts.tagFilter')}
+            />
             <button type="button" onClick={handleSearch}>
               {t('common.search')}
+            </button>
+            <button
+              type="button"
+              className={tagFilter === 'No Contactables' ? 'active-toggle' : 'ghost-button'}
+              onClick={() => void handleQuickTagFilter('No Contactables')}
+            >
+              {t('contacts.noContactablesFilter')}
+            </button>
+            <button type="button" className="ghost-button" onClick={() => void handleClearFilters()}>
+              {t('contacts.clearFilters')}
             </button>
             {googleAuthEnabled ? (
               googleStatus?.connected && googleStatus.contactsScopeGranted ? (

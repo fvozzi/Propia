@@ -84,6 +84,17 @@ export class ContactsService {
       );
     }
 
+    if (query.tag) {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM unnest(contact."googleTags") AS tag
+          WHERE tag ILIKE :tag
+        )`,
+        { tag: `%${query.tag}%` },
+      );
+    }
+
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const total = await qb.getCount();

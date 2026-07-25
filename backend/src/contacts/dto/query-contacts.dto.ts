@@ -5,4 +5,8 @@ export class QueryContactsDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  tag?: string;
 }
