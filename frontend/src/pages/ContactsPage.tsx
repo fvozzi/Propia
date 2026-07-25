@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest, getGoogleAuthUrl, isGoogleAuthEnabled } from '../lib/api';
-import { useI18n } from '../lib/i18n';
-import type { Contact, Paginated } from '../types';
+import { roleOptions, useI18n } from '../lib/i18n';
+import type { Contact, Paginated, Role } from '../types';
 
 type GoogleStatus = {
   connected: boolean;
@@ -24,13 +24,20 @@ export function ContactsPage() {
   const { t, translateEnum, formatDateTime } = useI18n();
   const googleAuthEnabled = isGoogleAuthEnabled();
   const [response, setResponse] = useState<Paginated<Contact> | null>(null);
-  const [search, setSearch] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
   const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
+  const [filters, setFilters] = useState({
+    displayName: '',
+    role: '',
+    birthdayMonth: '',
+    tag: '',
+    lastContact: '',
+    nextContact: '',
+    phone: '',
+  });
 
   async function load(nextPage = page) {
     const params = new URLSearchParams({
@@ -38,13 +45,13 @@ export function ContactsPage() {
       limit: '8',
     });
 
-    if (search) {
-      params.set('search', search);
-    }
-
-    if (tagFilter) {
-      params.set('tag', tagFilter);
-    }
+    if (filters.displayName) params.set('displayName', filters.displayName);
+    if (filters.role) params.set('role', filters.role);
+    if (filters.birthdayMonth) params.set('birthdayMonth', filters.birthdayMonth);
+    if (filters.tag) params.set('tag', filters.tag);
+    if (filters.lastContact) params.set('lastContact', filters.lastContact);
+    if (filters.nextContact) params.set('nextContact', filters.nextContact);
+    if (filters.phone) params.set('phone', filters.phone);
 
     const data = await apiRequest<Paginated<Contact>>(`/contacts?${params.toString()}`);
     setResponse(data);
@@ -61,27 +68,6 @@ export function ContactsPage() {
 
     void loadGoogleStatus();
   }, [googleAuthEnabled]);
-
-  async function handleSearch() {
-    setError('');
-    setPage(1);
-    await load(1);
-  }
-
-  async function handleQuickTagFilter(tag: string) {
-    setError('');
-    setTagFilter(tag);
-    setPage(1);
-    await load(1);
-  }
-
-  async function handleClearFilters() {
-    setError('');
-    setSearch('');
-    setTagFilter('');
-    setPage(1);
-    await load(1);
-  }
 
   async function handleDelete(id: number) {
     if (!window.confirm(t('common.yesDeleteContact'))) {
@@ -136,6 +122,57 @@ export function ContactsPage() {
     window.location.href = getGoogleAuthUrl();
   }
 
+  async function applyFilter(
+    key: keyof typeof filters,
+    value: string,
+  ) {
+    setError('');
+    const nextFilters = {
+      ...filters,
+      [key]: value,
+    };
+    setFilters(nextFilters);
+    setPage(1);
+    await loadWithFilters(nextFilters, 1);
+  }
+
+  async function clearColumnFilters() {
+    setError('');
+    const nextFilters = {
+      displayName: '',
+      role: '',
+      birthdayMonth: '',
+      tag: '',
+      lastContact: '',
+      nextContact: '',
+      phone: '',
+    };
+    setFilters(nextFilters);
+    setPage(1);
+    await loadWithFilters(nextFilters, 1);
+  }
+
+  async function loadWithFilters(
+    nextFilters: typeof filters,
+    nextPage: number,
+  ) {
+    const params = new URLSearchParams({
+      page: String(nextPage),
+      limit: '8',
+    });
+
+    if (nextFilters.displayName) params.set('displayName', nextFilters.displayName);
+    if (nextFilters.role) params.set('role', nextFilters.role);
+    if (nextFilters.birthdayMonth) params.set('birthdayMonth', nextFilters.birthdayMonth);
+    if (nextFilters.tag) params.set('tag', nextFilters.tag);
+    if (nextFilters.lastContact) params.set('lastContact', nextFilters.lastContact);
+    if (nextFilters.nextContact) params.set('nextContact', nextFilters.nextContact);
+    if (nextFilters.phone) params.set('phone', nextFilters.phone);
+
+    const data = await apiRequest<Paginated<Contact>>(`/contacts?${params.toString()}`);
+    setResponse(data);
+  }
+
   return (
     <div className="page-stack">
       <ResourcePageHeader
@@ -143,30 +180,6 @@ export function ContactsPage() {
         title={t('contacts.title')}
         actions={
           <>
-            <input
-              placeholder={t('contacts.searchPlaceholder')}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <input
-              placeholder={t('contacts.tagFilterPlaceholder')}
-              value={tagFilter}
-              onChange={(event) => setTagFilter(event.target.value)}
-              aria-label={t('contacts.tagFilter')}
-            />
-            <button type="button" onClick={handleSearch}>
-              {t('common.search')}
-            </button>
-            <button
-              type="button"
-              className={tagFilter === 'No Contactables' ? 'active-toggle' : 'ghost-button'}
-              onClick={() => void handleQuickTagFilter('No Contactables')}
-            >
-              {t('contacts.noContactablesFilter')}
-            </button>
-            <button type="button" className="ghost-button" onClick={() => void handleClearFilters()}>
-              {t('contacts.clearFilters')}
-            </button>
             {googleAuthEnabled ? (
               googleStatus?.connected && googleStatus.contactsScopeGranted ? (
                 <button
@@ -231,6 +244,94 @@ export function ContactsPage() {
                   <th>{t('common.phone')}</th>
                   <th>{t('common.actions')}</th>
                 </tr>
+                <tr className="table-filter-row">
+                  <th>
+                    <input
+                      className="table-filter-control"
+                      placeholder={t('contacts.displayName')}
+                      value={filters.displayName}
+                      onChange={(event) => void applyFilter('displayName', event.target.value)}
+                    />
+                  </th>
+                  <th>
+                    <select
+                      className="table-filter-control"
+                      value={filters.role}
+                      onChange={(event) => void applyFilter('role', event.target.value)}
+                    >
+                      <option value="">{t('contacts.allRoles')}</option>
+                      {roleOptions.map((role) => (
+                        <option key={role} value={role}>
+                          {translateEnum('role', role)}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <select
+                      className="table-filter-control"
+                      value={filters.birthdayMonth}
+                      onChange={(event) => void applyFilter('birthdayMonth', event.target.value)}
+                    >
+                      <option value="">{t('contacts.allMonths')}</option>
+                      {monthOptions.map((month) => (
+                        <option key={month.value} value={month.value}>
+                          {month.label}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <input
+                      className="table-filter-control"
+                      placeholder={t('contacts.tagFilterPlaceholder')}
+                      value={filters.tag}
+                      onChange={(event) => void applyFilter('tag', event.target.value)}
+                    />
+                  </th>
+                  <th>
+                    <select
+                      className="table-filter-control"
+                      value={filters.lastContact}
+                      onChange={(event) => void applyFilter('lastContact', event.target.value)}
+                    >
+                      <option value="">{t('contacts.allValues')}</option>
+                      <option value="WITH_VALUE">{t('contacts.withValue')}</option>
+                      <option value="WITHOUT_VALUE">{t('contacts.withoutValue')}</option>
+                    </select>
+                  </th>
+                  <th>
+                    <select
+                      className="table-filter-control"
+                      value={filters.nextContact}
+                      onChange={(event) => void applyFilter('nextContact', event.target.value)}
+                    >
+                      <option value="">{t('contacts.allValues')}</option>
+                      <option value="WITH_VALUE">{t('contacts.withValue')}</option>
+                      <option value="WITHOUT_VALUE">{t('contacts.withoutValue')}</option>
+                      <option value="OVERDUE">{t('contacts.overdue')}</option>
+                    </select>
+                  </th>
+                  <th>
+                    <input
+                      className="table-filter-control"
+                      placeholder={t('common.phone')}
+                      value={filters.phone}
+                      onChange={(event) => void applyFilter('phone', event.target.value)}
+                    />
+                  </th>
+                  <th>
+                    <div className="table-filter-actions">
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => void clearColumnFilters()}
+                      >
+                        {t('contacts.clearColumnFilters')}
+                      </button>
+                    </div>
+                  </th>
+                </tr>
               </thead>
               <tbody>
                 {(response?.items ?? []).map((contact) => (
@@ -286,6 +387,21 @@ export function ContactsPage() {
     </div>
   );
 }
+
+const monthOptions = [
+  { value: '01', label: 'Enero' },
+  { value: '02', label: 'Febrero' },
+  { value: '03', label: 'Marzo' },
+  { value: '04', label: 'Abril' },
+  { value: '05', label: 'Mayo' },
+  { value: '06', label: 'Junio' },
+  { value: '07', label: 'Julio' },
+  { value: '08', label: 'Agosto' },
+  { value: '09', label: 'Septiembre' },
+  { value: '10', label: 'Octubre' },
+  { value: '11', label: 'Noviembre' },
+  { value: '12', label: 'Diciembre' },
+] as const;
 
 function formatBirthday(value: string | null, emptyLabel: string) {
   if (!value) {

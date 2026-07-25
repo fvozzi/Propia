@@ -44,6 +44,7 @@ export class ContactsService {
 
   async findAll(query: QueryContactsDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
+    const now = new Date().toISOString();
     const qb = this.contactsRepository
       .createQueryBuilder('contact')
       .leftJoinAndSelect('contact.roles', 'roles')
@@ -84,6 +85,22 @@ export class ContactsService {
       );
     }
 
+    if (query.displayName) {
+      qb.andWhere('contact.displayName ILIKE :displayName', {
+        displayName: `%${query.displayName}%`,
+      });
+    }
+
+    if (query.role) {
+      qb.andWhere('roles.role = :role', { role: query.role });
+    }
+
+    if (query.birthdayMonth) {
+      qb.andWhere('contact.birthday ILIKE :birthdayMonth', {
+        birthdayMonth: `%-${query.birthdayMonth}-%`,
+      });
+    }
+
     if (query.tag) {
       qb.andWhere(
         `EXISTS (
@@ -92,6 +109,68 @@ export class ContactsService {
           WHERE tag ILIKE :tag
         )`,
         { tag: `%${query.tag}%` },
+      );
+    }
+
+    if (query.lastContact === 'WITH_VALUE') {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM activities activity
+          WHERE activity."contactId" = contact.id
+        )`,
+      );
+    }
+
+    if (query.lastContact === 'WITHOUT_VALUE') {
+      qb.andWhere(
+        `NOT EXISTS (
+          SELECT 1
+          FROM activities activity
+          WHERE activity."contactId" = contact.id
+        )`,
+      );
+    }
+
+    if (query.nextContact === 'WITH_VALUE') {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM activities activity
+          WHERE activity."contactId" = contact.id
+            AND activity."nextFollowUpDate" IS NOT NULL
+        )`,
+      );
+    }
+
+    if (query.nextContact === 'WITHOUT_VALUE') {
+      qb.andWhere(
+        `NOT EXISTS (
+          SELECT 1
+          FROM activities activity
+          WHERE activity."contactId" = contact.id
+            AND activity."nextFollowUpDate" IS NOT NULL
+        )`,
+      );
+    }
+
+    if (query.nextContact === 'OVERDUE') {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM activities activity
+          WHERE activity."contactId" = contact.id
+            AND activity."nextFollowUpDate" IS NOT NULL
+            AND activity."nextFollowUpDate" < :now
+        )`,
+        { now },
+      );
+    }
+
+    if (query.phone) {
+      qb.andWhere(
+        '(contact.phone ILIKE :phone OR contact.whatsapp ILIKE :phone)',
+        { phone: `%${query.phone}%` },
       );
     }
 
