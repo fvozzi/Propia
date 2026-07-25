@@ -32,6 +32,11 @@ export class ContactsController {
     return this.contactsService.findAll(query, user);
   }
 
+  @Get('tags')
+  findTags(@CurrentUser() user: AuthenticatedUser) {
+    return this.contactsService.findAvailableTags(user);
+  }
+
   @Post('google/sync')
   syncGoogleContacts(@CurrentUser() user: AuthenticatedUser) {
     return this.contactsService.syncGoogleContacts(user);

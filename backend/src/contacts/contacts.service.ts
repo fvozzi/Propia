@@ -202,6 +202,22 @@ export class ContactsService {
     };
   }
 
+  async findAvailableTags(user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const rows = await this.contactsRepository.query(
+      `SELECT DISTINCT tag
+       FROM contacts contact
+       CROSS JOIN LATERAL unnest(contact."googleTags") AS tag
+       WHERE contact."teamId" = $1
+         AND tag IS NOT NULL
+         AND btrim(tag) <> ''
+       ORDER BY tag ASC`,
+      [teamId],
+    );
+
+    return rows.map((row: { tag: string }) => row.tag);
+  }
+
   async findOne(id: number, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
     const contact = await this.contactsRepository.findOne({

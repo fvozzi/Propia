@@ -4,7 +4,7 @@ import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest, getGoogleAuthUrl, isGoogleAuthEnabled } from '../lib/api';
 import { roleOptions, useI18n } from '../lib/i18n';
-import type { Contact, Paginated, Role } from '../types';
+import type { Contact, Paginated } from '../types';
 
 type GoogleStatus = {
   connected: boolean;
@@ -29,6 +29,7 @@ export function ContactsPage() {
   const [notice, setNotice] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     displayName: '',
     role: '',
@@ -69,6 +70,10 @@ export function ContactsPage() {
     void loadGoogleStatus();
   }, [googleAuthEnabled]);
 
+  useEffect(() => {
+    void loadAvailableTags();
+  }, []);
+
   async function handleDelete(id: number) {
     if (!window.confirm(t('common.yesDeleteContact'))) {
       return;
@@ -84,6 +89,15 @@ export function ContactsPage() {
       setGoogleStatus(status);
     } catch {
       setGoogleStatus(null);
+    }
+  }
+
+  async function loadAvailableTags() {
+    try {
+      const tags = await apiRequest<string[]>('/contacts/tags');
+      setAvailableTags(tags);
+    } catch {
+      setAvailableTags([]);
     }
   }
 
@@ -106,6 +120,7 @@ export function ContactsPage() {
       );
       setPage(1);
       await load(1);
+      await loadAvailableTags();
       await loadGoogleStatus();
     } catch (syncError) {
       setError(
@@ -282,12 +297,18 @@ export function ContactsPage() {
                     </select>
                   </th>
                   <th>
-                    <input
+                    <select
                       className="table-filter-control"
-                      placeholder={t('contacts.tagFilterPlaceholder')}
                       value={filters.tag}
                       onChange={(event) => void applyFilter('tag', event.target.value)}
-                    />
+                    >
+                      <option value="">{t('contacts.allTags')}</option>
+                      {availableTags.map((tag) => (
+                        <option key={tag} value={tag}>
+                          {tag}
+                        </option>
+                      ))}
+                    </select>
                   </th>
                   <th>
                     <select
@@ -364,16 +385,23 @@ export function ContactsPage() {
                     </td>
                     <td>{contact.phone || contact.whatsapp || t('common.noData')}</td>
                     <td>
-                      <div className="candidate-actions">
-                        <Link to={`/contacts/${contact.id}`} className="ghost-button button-link">
-                          {t('contacts.editContact')}
+                      <div className="candidate-actions contact-row-actions">
+                        <Link
+                          to={`/contacts/${contact.id}`}
+                          className="ghost-button button-link action-icon-button"
+                          aria-label={t('contacts.editContact')}
+                          title={t('contacts.editContact')}
+                        >
+                          <EditIcon />
                         </Link>
                         <button
                           type="button"
-                          className="ghost-button"
+                          className="ghost-button action-icon-button"
                           onClick={() => handleDelete(contact.id)}
+                          aria-label={t('common.delete')}
+                          title={t('common.delete')}
                         >
-                          {t('common.delete')}
+                          <DeleteIcon />
                         </button>
                       </div>
                     </td>
@@ -420,4 +448,25 @@ function formatBirthday(value: string | null, emptyLabel: string) {
   }
 
   return `${day}/${month}/${year}`;
+}
+
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4l10-10-4-4L4 16v4Z" />
+      <path d="m12 6 4 4" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M8 7l1 13h6l1-13" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
 }
