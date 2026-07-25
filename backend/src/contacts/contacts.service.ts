@@ -45,6 +45,8 @@ export class ContactsService {
   async findAll(query: QueryContactsDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
     const now = new Date().toISOString();
+    const sortBy = query.sortBy ?? 'UPDATED_AT';
+    const sortDirection = query.sortDirection ?? 'DESC';
     const qb = this.contactsRepository
       .createQueryBuilder('contact')
       .leftJoinAndSelect('contact.roles', 'roles')
@@ -65,8 +67,7 @@ export class ContactsService {
             .andWhere('activity."nextFollowUpDate" IS NOT NULL'),
         'contact_nextContactAt',
       )
-      .where('contact.teamId = :teamId', { teamId })
-      .orderBy('contact.updatedAt', 'DESC');
+      .where('contact.teamId = :teamId', { teamId });
 
     if (query.search) {
       qb.andWhere(
@@ -172,6 +173,12 @@ export class ContactsService {
         '(contact.phone ILIKE :phone OR contact.whatsapp ILIKE :phone)',
         { phone: `%${query.phone}%` },
       );
+    }
+
+    if (sortBy === 'DISPLAY_NAME') {
+      qb.orderBy('contact.displayName', sortDirection).addOrderBy('contact.id', 'ASC');
+    } else {
+      qb.orderBy('contact.updatedAt', sortDirection).addOrderBy('contact.id', 'DESC');
     }
 
     const page = query.page ?? 1;

@@ -541,6 +541,25 @@ label {
   color: var(--ink-soft);
 }
 
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.table-sort-indicator {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 .data-table thead .table-filter-row th {
   padding-top: 0.45rem;
   padding-bottom: 0.7rem;

@@ -7,6 +7,8 @@ const nextContactStatusOptions = [
   'WITHOUT_VALUE',
   'OVERDUE',
 ] as const;
+const contactSortByOptions = ['UPDATED_AT', 'DISPLAY_NAME'] as const;
+const contactSortDirectionOptions = ['ASC', 'DESC'] as const;
 
 export class QueryContactsDto extends PaginationQueryDto {
   @IsOptional()
@@ -40,4 +42,12 @@ export class QueryContactsDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsIn(contactSortByOptions)
+  sortBy?: (typeof contactSortByOptions)[number];
+
+  @IsOptional()
+  @IsIn(contactSortDirectionOptions)
+  sortDirection?: (typeof contactSortDirectionOptions)[number];
 }

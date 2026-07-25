@@ -20,6 +20,9 @@ type GoogleContactsSyncResult = {
   email: string | null;
 };
 
+type ContactSortBy = 'UPDATED_AT' | 'DISPLAY_NAME';
+type ContactSortDirection = 'ASC' | 'DESC';
+
 export function ContactsPage() {
   const { t, translateEnum, formatDateTime } = useI18n();
   const googleAuthEnabled = isGoogleAuthEnabled();
@@ -30,6 +33,13 @@ export function ContactsPage() {
   const [syncing, setSyncing] = useState(false);
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [sort, setSort] = useState<{
+    by: ContactSortBy;
+    direction: ContactSortDirection;
+  }>({
+    by: 'UPDATED_AT',
+    direction: 'DESC',
+  });
   const [filters, setFilters] = useState({
     displayName: '',
     role: '',
@@ -41,26 +51,15 @@ export function ContactsPage() {
   });
 
   async function load(nextPage = page) {
-    const params = new URLSearchParams({
-      page: String(nextPage),
-      limit: '8',
-    });
-
-    if (filters.displayName) params.set('displayName', filters.displayName);
-    if (filters.role) params.set('role', filters.role);
-    if (filters.birthdayMonth) params.set('birthdayMonth', filters.birthdayMonth);
-    if (filters.tag) params.set('tag', filters.tag);
-    if (filters.lastContact) params.set('lastContact', filters.lastContact);
-    if (filters.nextContact) params.set('nextContact', filters.nextContact);
-    if (filters.phone) params.set('phone', filters.phone);
-
-    const data = await apiRequest<Paginated<Contact>>(`/contacts?${params.toString()}`);
+    const data = await apiRequest<Paginated<Contact>>(
+      `/contacts?${buildContactParams(filters, sort, nextPage).toString()}`,
+    );
     setResponse(data);
   }
 
   useEffect(() => {
     void load(page);
-  }, [page]);
+  }, [page, sort]);
 
   useEffect(() => {
     if (!googleAuthEnabled) {
@@ -148,7 +147,7 @@ export function ContactsPage() {
     };
     setFilters(nextFilters);
     setPage(1);
-    await loadWithFilters(nextFilters, 1);
+    await loadWithState(nextFilters, sort, 1);
   }
 
   async function clearColumnFilters() {
@@ -164,28 +163,29 @@ export function ContactsPage() {
     };
     setFilters(nextFilters);
     setPage(1);
-    await loadWithFilters(nextFilters, 1);
+    await loadWithState(nextFilters, sort, 1);
   }
 
-  async function loadWithFilters(
+  async function loadWithState(
     nextFilters: typeof filters,
+    nextSort: typeof sort,
     nextPage: number,
   ) {
-    const params = new URLSearchParams({
-      page: String(nextPage),
-      limit: '8',
-    });
-
-    if (nextFilters.displayName) params.set('displayName', nextFilters.displayName);
-    if (nextFilters.role) params.set('role', nextFilters.role);
-    if (nextFilters.birthdayMonth) params.set('birthdayMonth', nextFilters.birthdayMonth);
-    if (nextFilters.tag) params.set('tag', nextFilters.tag);
-    if (nextFilters.lastContact) params.set('lastContact', nextFilters.lastContact);
-    if (nextFilters.nextContact) params.set('nextContact', nextFilters.nextContact);
-    if (nextFilters.phone) params.set('phone', nextFilters.phone);
-
-    const data = await apiRequest<Paginated<Contact>>(`/contacts?${params.toString()}`);
+    const data = await apiRequest<Paginated<Contact>>(
+      `/contacts?${buildContactParams(nextFilters, nextSort, nextPage).toString()}`,
+    );
     setResponse(data);
+  }
+
+  async function toggleDisplayNameSort() {
+    setError('');
+    const nextSort =
+      sort.by === 'DISPLAY_NAME' && sort.direction === 'ASC'
+        ? { by: 'DISPLAY_NAME' as const, direction: 'DESC' as const }
+        : { by: 'DISPLAY_NAME' as const, direction: 'ASC' as const };
+    setSort(nextSort);
+    setPage(1);
+    await loadWithState(filters, nextSort, 1);
   }
 
   return (
@@ -250,7 +250,27 @@ export function ContactsPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>{t('contacts.displayName')}</th>
+                  <th>
+                    <button
+                      type="button"
+                      className="table-sort-button"
+                      onClick={() => void toggleDisplayNameSort()}
+                      title={t(
+                        sort.by === 'DISPLAY_NAME' && sort.direction === 'ASC'
+                          ? 'contacts.sortDisplayNameDesc'
+                          : 'contacts.sortDisplayNameAsc',
+                      )}
+                    >
+                      <span>{t('contacts.displayName')}</span>
+                      <span className="table-sort-indicator" aria-hidden="true">
+                        {sort.by === 'DISPLAY_NAME'
+                          ? sort.direction === 'ASC'
+                            ? '↑'
+                            : '↓'
+                          : '↕'}
+                      </span>
+                    </button>
+                  </th>
                   <th>{t('contacts.roles')}</th>
                   <th>{t('contacts.birthday')}</th>
                   <th>{t('contacts.tags')}</th>
@@ -448,6 +468,40 @@ function formatBirthday(value: string | null, emptyLabel: string) {
   }
 
   return `${day}/${month}/${year}`;
+}
+
+function buildContactParams(
+  filters: {
+    displayName: string;
+    role: string;
+    birthdayMonth: string;
+    tag: string;
+    lastContact: string;
+    nextContact: string;
+    phone: string;
+  },
+  sort: {
+    by: ContactSortBy;
+    direction: ContactSortDirection;
+  },
+  page: number,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: '8',
+    sortBy: sort.by,
+    sortDirection: sort.direction,
+  });
+
+  if (filters.displayName) params.set('displayName', filters.displayName);
+  if (filters.role) params.set('role', filters.role);
+  if (filters.birthdayMonth) params.set('birthdayMonth', filters.birthdayMonth);
+  if (filters.tag) params.set('tag', filters.tag);
+  if (filters.lastContact) params.set('lastContact', filters.lastContact);
+  if (filters.nextContact) params.set('nextContact', filters.nextContact);
+  if (filters.phone) params.set('phone', filters.phone);
+
+  return params;
 }
 
 function EditIcon() {
