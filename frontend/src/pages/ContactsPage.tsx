@@ -21,7 +21,7 @@ type GoogleContactsSyncResult = {
 };
 
 export function ContactsPage() {
-  const { t, translateEnum } = useI18n();
+  const { t, translateEnum, formatDateTime } = useI18n();
   const googleAuthEnabled = isGoogleAuthEnabled();
   const [response, setResponse] = useState<Paginated<Contact> | null>(null);
   const [search, setSearch] = useState('');
@@ -37,7 +37,9 @@ export function ContactsPage() {
       limit: '8',
     });
 
-    if (search) params.set('search', search);
+    if (search) {
+      params.set('search', search);
+    }
 
     const data = await apiRequest<Paginated<Contact>>(`/contacts?${params.toString()}`);
     setResponse(data);
@@ -62,7 +64,10 @@ export function ContactsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!window.confirm(t('common.yesDeleteContact'))) return;
+    if (!window.confirm(t('common.yesDeleteContact'))) {
+      return;
+    }
+
     await apiRequest(`/contacts/${id}`, { method: 'DELETE' });
     await load(page);
   }
@@ -128,11 +133,21 @@ export function ContactsPage() {
             </button>
             {googleAuthEnabled ? (
               googleStatus?.connected && googleStatus.contactsScopeGranted ? (
-                <button type="button" onClick={() => void handleGoogleSync()} disabled={syncing}>
-                  {syncing ? t('contacts.syncGoogleContactsLoading') : t('contacts.syncGoogleContacts')}
+                <button
+                  type="button"
+                  onClick={() => void handleGoogleSync()}
+                  disabled={syncing}
+                >
+                  {syncing
+                    ? t('contacts.syncGoogleContactsLoading')
+                    : t('contacts.syncGoogleContacts')}
                 </button>
               ) : (
-                <button type="button" className="ghost-button" onClick={handleGoogleReconnect}>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={handleGoogleReconnect}
+                >
                   {t('contacts.reconnectGoogleContacts')}
                 </button>
               )
@@ -166,26 +181,91 @@ export function ContactsPage() {
         onPrevious={() => setPage((current) => current - 1)}
         onNext={() => setPage((current) => current + 1)}
       >
-        {(response?.items ?? []).map((contact) => (
-          <article key={contact.id} className="list-item list-item-actions">
-            <div>
-              <Link to={`/contacts/${contact.id}`}>{contact.displayName}</Link>
-              <p className="muted">
-                {contact.roles.map((role) => translateEnum('role', role.role)).join(', ')} ·{' '}
-                {contact.phone || contact.email || t('common.noData')}
-              </p>
-            </div>
-            <div className="candidate-actions">
-              <Link to={`/contacts/${contact.id}`} className="ghost-button button-link">
-                {t('contacts.editContact')}
-              </Link>
-              <button type="button" className="ghost-button" onClick={() => handleDelete(contact.id)}>
-                {t('common.delete')}
-              </button>
-            </div>
-          </article>
-        ))}
+        {response?.items.length ? (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{t('contacts.displayName')}</th>
+                  <th>{t('contacts.roles')}</th>
+                  <th>{t('contacts.birthday')}</th>
+                  <th>{t('contacts.tags')}</th>
+                  <th>{t('contacts.lastContact')}</th>
+                  <th>{t('contacts.nextContact')}</th>
+                  <th>{t('common.phone')}</th>
+                  <th>{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(response?.items ?? []).map((contact) => (
+                  <tr key={contact.id}>
+                    <td>
+                      <div className="table-cell-stack">
+                        <Link to={`/contacts/${contact.id}`}>{contact.displayName}</Link>
+                        <span className="muted">{contact.email || t('common.noData')}</span>
+                      </div>
+                    </td>
+                    <td>
+                      {contact.roles.map((role) => translateEnum('role', role.role)).join(', ') ||
+                        t('common.noData')}
+                    </td>
+                    <td>{formatBirthday(contact.birthday, t('common.noData'))}</td>
+                    <td>
+                      {contact.googleTags.length
+                        ? contact.googleTags.join(', ')
+                        : t('common.noData')}
+                    </td>
+                    <td>
+                      {contact.lastContactAt
+                        ? formatDateTime(contact.lastContactAt)
+                        : t('common.noData')}
+                    </td>
+                    <td>
+                      {contact.nextContactAt
+                        ? formatDateTime(contact.nextContactAt)
+                        : t('common.noData')}
+                    </td>
+                    <td>{contact.phone || contact.whatsapp || t('common.noData')}</td>
+                    <td>
+                      <div className="candidate-actions">
+                        <Link to={`/contacts/${contact.id}`} className="ghost-button button-link">
+                          {t('contacts.editContact')}
+                        </Link>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => handleDelete(contact.id)}
+                        >
+                          {t('common.delete')}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </PaginatedListCard>
     </div>
   );
+}
+
+function formatBirthday(value: string | null, emptyLabel: string) {
+  if (!value) {
+    return emptyLabel;
+  }
+
+  if (value.startsWith('--')) {
+    const match = value.match(/^--(\d{2})-(\d{2})$/);
+    return match ? `${match[2]}/${match[1]}` : value;
+  }
+
+  const [year, month, day] = value.split('-');
+
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return `${day}/${month}/${year}`;
 }

@@ -158,6 +158,10 @@ export interface Contact {
   whatsapp: string | null;
   email: string | null;
   documentNumber: string | null;
+  birthday: string | null;
+  googleTags: string[];
+  lastContactAt?: string | null;
+  nextContactAt?: string | null;
   source: string | null;
   notes: string | null;
   createdAt: string;

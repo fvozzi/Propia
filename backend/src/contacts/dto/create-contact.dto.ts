@@ -55,6 +55,18 @@ export class CreateContactDto {
   @Transform(({ value }) => normalizeOptionalString(value))
   @IsOptional()
   @IsString()
+  birthday?: string;
+
+  @IsOptional()
+  @Type(() => String)
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  googleTags?: string[];
+
+  @Transform(({ value }) => normalizeOptionalString(value))
+  @IsOptional()
+  @IsString()
   source?: string;
 
   @Transform(({ value }) => normalizeOptionalString(value))

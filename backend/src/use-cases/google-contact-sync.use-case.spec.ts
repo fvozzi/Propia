@@ -41,6 +41,8 @@ describe('google-contact-sync use case', () => {
       whatsapp: '+5491155551234',
       email: 'victoria@test.com',
       notes: 'Cliente de referencia',
+      birthday: null,
+      googleTags: [],
       normalizedPhone: '5491155551234',
     });
   });
@@ -56,6 +58,39 @@ describe('google-contact-sync use case', () => {
       lastName: 'Vozzi',
       displayName: 'Facundo Vozzi',
       normalizedPhone: '1144445555',
+    });
+  });
+
+  it('extracts birthday and tags from google contacts data', () => {
+    const groups = new Map<string, string>([
+      ['contactGroups/no-contactables', 'No Contactables'],
+      ['contactGroups/referidos', 'Referidos'],
+    ]);
+
+    expect(
+      buildGoogleContactCandidate(
+        {
+          names: [{ displayName: 'Lucia P', metadata: { primary: true } }],
+          phoneNumbers: [{ value: '+54 9 11 1234-5678', metadata: { primary: true } }],
+          birthdays: [{ date: { month: 8, day: 14 } }],
+          memberships: [
+            {
+              contactGroupMembership: {
+                contactGroupResourceName: 'contactGroups/no-contactables',
+              },
+            },
+            {
+              contactGroupMembership: {
+                contactGroupResourceName: 'contactGroups/referidos',
+              },
+            },
+          ],
+        },
+        groups,
+      ),
+    ).toMatchObject({
+      birthday: '--08-14',
+      googleTags: ['No Contactables', 'Referidos'],
     });
   });
 });

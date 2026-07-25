@@ -48,6 +48,12 @@ export class Contact {
   documentNumber: string | null;
 
   @Column({ type: 'varchar', nullable: true })
+  birthday: string | null;
+
+  @Column('text', { array: true, default: () => "'{}'" })
+  googleTags: string[];
+
+  @Column({ type: 'varchar', nullable: true })
   source: string | null;
 
   @Column({ type: 'text', nullable: true })

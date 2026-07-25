@@ -3,10 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { google } from 'googleapis';
 import { Repository } from 'typeorm';
+import { Activity } from '../activities/activity.entity';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { GoogleCalendarConnection } from '../auth/google-calendar-connection.entity';
 import { GOOGLE_CONTACTS_READONLY_SCOPE, hasGoogleScope } from '../auth/google-scopes';
-import { paginate } from '../common/pagination';
 import {
   buildGoogleContactCandidate,
   normalizeContactPhone,
@@ -47,6 +47,23 @@ export class ContactsService {
     const qb = this.contactsRepository
       .createQueryBuilder('contact')
       .leftJoinAndSelect('contact.roles', 'roles')
+      .addSelect(
+        (subQuery) =>
+          subQuery
+            .select('MAX(activity."activityDate")')
+            .from(Activity, 'activity')
+            .where('activity."contactId" = contact.id'),
+        'contact_lastContactAt',
+      )
+      .addSelect(
+        (subQuery) =>
+          subQuery
+            .select('MIN(activity."nextFollowUpDate")')
+            .from(Activity, 'activity')
+            .where('activity."contactId" = contact.id')
+            .andWhere('activity."nextFollowUpDate" IS NOT NULL'),
+        'contact_nextContactAt',
+      )
       .where('contact.teamId = :teamId', { teamId })
       .orderBy('contact.updatedAt', 'DESC');
 
@@ -57,12 +74,42 @@ export class ContactsService {
           OR contact.displayName ILIKE :search
           OR contact."documentNumber" ILIKE :search
           OR contact.phone ILIKE :search
-          OR contact.email ILIKE :search)`,
+          OR contact.email ILIKE :search
+          OR EXISTS (
+            SELECT 1
+            FROM unnest(contact."googleTags") AS tag
+            WHERE tag ILIKE :search
+          ))`,
         { search: `%${query.search}%` },
       );
     }
 
-    return paginate(qb, query);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const total = await qb.getCount();
+    const { entities, raw } = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getRawAndEntities();
+
+    const items = entities.map((contact) => {
+      const rawContact = raw.find((entry) => Number(entry.contact_id) === contact.id);
+
+      return Object.assign(contact, {
+        lastContactAt: rawContact?.contact_lastContactAt ?? null,
+        nextContactAt: rawContact?.contact_nextContactAt ?? null,
+      });
+    });
+
+    return {
+      items,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
   }
 
   async findOne(id: number, user: AuthenticatedUser) {
@@ -132,6 +179,8 @@ export class ContactsService {
       whatsapp: rest.whatsapp ?? contact.whatsapp ?? undefined,
       email: rest.email ?? contact.email ?? undefined,
       documentNumber: rest.documentNumber ?? contact.documentNumber ?? undefined,
+      birthday: rest.birthday ?? contact.birthday ?? undefined,
+      googleTags: rest.googleTags ?? contact.googleTags ?? [],
       source: rest.source ?? contact.source ?? undefined,
       notes: rest.notes ?? contact.notes ?? undefined,
     });
@@ -178,6 +227,7 @@ export class ContactsService {
     }
 
     const people = await this.createGooglePeopleClient(connection);
+    const contactGroupsByResourceName = await this.loadGoogleContactGroups(people);
     const existingContacts = await this.contactsRepository.find({
       where: { teamId },
     });
@@ -203,14 +253,14 @@ export class ContactsService {
       const response = await people.people.connections.list({
         resourceName: 'people/me',
         pageSize: 1000,
-        personFields: 'names,emailAddresses,phoneNumbers,biographies',
+        personFields: 'names,emailAddresses,phoneNumbers,biographies,birthdays,memberships',
         sortOrder: 'FIRST_NAME_ASCENDING',
         pageToken,
       });
 
       for (const person of response.data.connections ?? []) {
         processedCount += 1;
-        const candidate = buildGoogleContactCandidate(person);
+        const candidate = buildGoogleContactCandidate(person, contactGroupsByResourceName);
 
         if (!candidate.normalizedPhone) {
           skippedCount += 1;
@@ -234,6 +284,11 @@ export class ContactsService {
             whatsapp: candidate.whatsapp ?? existingContact.whatsapp ?? undefined,
             email: candidate.email ?? existingContact.email ?? undefined,
             documentNumber: existingContact.documentNumber ?? undefined,
+            birthday: candidate.birthday ?? existingContact.birthday ?? undefined,
+            googleTags:
+              candidate.googleTags.length > 0
+                ? candidate.googleTags
+                : existingContact.googleTags ?? [],
             source: this.mergeContactSource(existingContact.source, 'GOOGLE_CONTACTS'),
             notes: existingContact.notes ?? candidate.notes ?? undefined,
           });
@@ -252,6 +307,8 @@ export class ContactsService {
             phone: candidate.phone ?? undefined,
             whatsapp: candidate.whatsapp ?? undefined,
             email: candidate.email ?? undefined,
+            birthday: candidate.birthday ?? undefined,
+            googleTags: candidate.googleTags,
             source: 'GOOGLE_CONTACTS',
             notes: candidate.notes ?? undefined,
           }),
@@ -321,6 +378,31 @@ export class ContactsService {
     });
   }
 
+  private async loadGoogleContactGroups(people: ReturnType<typeof google.people>) {
+    const groups = new Map<string, string>();
+    let pageToken: string | undefined;
+
+    do {
+      const response = await people.contactGroups.list({
+        pageSize: 1000,
+        pageToken,
+        groupFields: 'name,groupType',
+      });
+
+      for (const group of response.data.contactGroups ?? []) {
+        if (!group.resourceName || !group.name) {
+          continue;
+        }
+
+        groups.set(group.resourceName, group.name);
+      }
+
+      pageToken = response.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    return groups;
+  }
+
   private mergeContactSource(
     currentSource: string | null | undefined,
     nextSource: string,
@@ -345,6 +427,8 @@ export class ContactsService {
     | 'whatsapp'
     | 'email'
     | 'documentNumber'
+    | 'birthday'
+    | 'googleTags'
     | 'source'
     | 'notes'
   >) {
@@ -360,6 +444,8 @@ export class ContactsService {
       whatsapp: dto.whatsapp ?? null,
       email: dto.email ?? null,
       documentNumber: dto.documentNumber ?? null,
+      birthday: dto.birthday ?? null,
+      googleTags: dto.googleTags ?? [],
       source: dto.source ?? null,
       notes: dto.notes ?? null,
     };

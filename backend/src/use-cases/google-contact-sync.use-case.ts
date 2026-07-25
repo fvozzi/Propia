@@ -18,11 +18,31 @@ type GoogleNameLike = {
   metadata?: GoogleMetadataLike | null;
 };
 
+type GoogleDateLike = {
+  year?: number | null;
+  month?: number | null;
+  day?: number | null;
+};
+
+type GoogleBirthdayLike = {
+  date?: GoogleDateLike | null;
+  metadata?: GoogleMetadataLike | null;
+};
+
+type GoogleMembershipLike = {
+  metadata?: GoogleMetadataLike | null;
+  contactGroupMembership?: {
+    contactGroupResourceName?: string | null;
+  } | null;
+};
+
 type GooglePersonLike = {
   names?: GoogleNameLike[] | null;
   phoneNumbers?: GooglePhoneLike[] | null;
   emailAddresses?: GoogleValueLike[] | null;
   biographies?: GoogleValueLike[] | null;
+  birthdays?: GoogleBirthdayLike[] | null;
+  memberships?: GoogleMembershipLike[] | null;
 };
 
 export type GoogleContactCandidate = {
@@ -33,6 +53,8 @@ export type GoogleContactCandidate = {
   whatsapp: string | null;
   email: string | null;
   notes: string | null;
+  birthday: string | null;
+  googleTags: string[];
   normalizedPhone: string | null;
 };
 
@@ -52,11 +74,13 @@ export function normalizeContactPhone(value: string | null | undefined) {
 
 export function buildGoogleContactCandidate(
   person: GooglePersonLike,
+  contactGroupsByResourceName: Map<string, string> = new Map(),
 ): GoogleContactCandidate {
   const primaryName = pickPrimaryValue(person.names);
   const primaryPhone = pickPrimaryValue(person.phoneNumbers);
   const primaryEmail = pickPrimaryValue(person.emailAddresses);
   const primaryBiography = pickPrimaryValue(person.biographies);
+  const primaryBirthday = pickPrimaryValue(person.birthdays);
 
   let displayName = primaryName?.displayName?.trim() ?? '';
   let firstName = primaryName?.givenName?.trim() ?? '';
@@ -64,6 +88,8 @@ export function buildGoogleContactCandidate(
   const phone = primaryPhone?.canonicalForm?.trim() || primaryPhone?.value?.trim() || null;
   const email = primaryEmail?.value?.trim() || null;
   const notes = primaryBiography?.value?.trim() || null;
+  const birthday = formatGoogleBirthday(primaryBirthday?.date);
+  const googleTags = extractGoogleTags(person.memberships, contactGroupsByResourceName);
 
   if (!displayName) {
     displayName = [firstName, lastName].filter(Boolean).join(' ').trim();
@@ -90,8 +116,53 @@ export function buildGoogleContactCandidate(
     whatsapp: phone,
     email,
     notes,
+    birthday,
+    googleTags,
     normalizedPhone: normalizeContactPhone(phone),
   };
+}
+
+function extractGoogleTags(
+  memberships: GoogleMembershipLike[] | null | undefined,
+  contactGroupsByResourceName: Map<string, string>,
+) {
+  if (!memberships?.length) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      memberships
+        .map(
+          (membership) =>
+            membership.contactGroupMembership?.contactGroupResourceName ?? null,
+        )
+        .map((resourceName) =>
+          resourceName ? contactGroupsByResourceName.get(resourceName) ?? null : null,
+        )
+        .filter((value): value is string => Boolean(value))
+        .filter(
+          (value) =>
+            value !== 'System Group: My Contacts' &&
+            value !== 'System Group: Starred in Android',
+        ),
+    ),
+  );
+}
+
+function formatGoogleBirthday(value: GoogleDateLike | null | undefined) {
+  if (!value?.month || !value?.day) {
+    return null;
+  }
+
+  const month = String(value.month).padStart(2, '0');
+  const day = String(value.day).padStart(2, '0');
+
+  if (!value.year) {
+    return `--${month}-${day}`;
+  }
+
+  return `${String(value.year).padStart(4, '0')}-${month}-${day}`;
 }
 
 function pickPrimaryValue<T extends { metadata?: GoogleMetadataLike | null }>(
