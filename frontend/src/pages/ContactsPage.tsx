@@ -2,15 +2,34 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
-import { apiRequest } from '../lib/api';
+import { apiRequest, getGoogleAuthUrl, isGoogleAuthEnabled } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import type { Contact, Paginated } from '../types';
 
+type GoogleStatus = {
+  connected: boolean;
+  email: string | null;
+  contactsScopeGranted: boolean;
+};
+
+type GoogleContactsSyncResult = {
+  processedCount: number;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  email: string | null;
+};
+
 export function ContactsPage() {
   const { t, translateEnum } = useI18n();
+  const googleAuthEnabled = isGoogleAuthEnabled();
   const [response, setResponse] = useState<Paginated<Contact> | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
 
   async function load(nextPage = page) {
     const params = new URLSearchParams({
@@ -28,7 +47,16 @@ export function ContactsPage() {
     void load(page);
   }, [page]);
 
+  useEffect(() => {
+    if (!googleAuthEnabled) {
+      return;
+    }
+
+    void loadGoogleStatus();
+  }, [googleAuthEnabled]);
+
   async function handleSearch() {
+    setError('');
     setPage(1);
     await load(1);
   }
@@ -37,6 +65,50 @@ export function ContactsPage() {
     if (!window.confirm(t('common.yesDeleteContact'))) return;
     await apiRequest(`/contacts/${id}`, { method: 'DELETE' });
     await load(page);
+  }
+
+  async function loadGoogleStatus() {
+    try {
+      const status = await apiRequest<GoogleStatus>('/auth/google/status');
+      setGoogleStatus(status);
+    } catch {
+      setGoogleStatus(null);
+    }
+  }
+
+  async function handleGoogleSync() {
+    setSyncing(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const result = await apiRequest<GoogleContactsSyncResult>('/contacts/google/sync', {
+        method: 'POST',
+      });
+      setNotice(
+        [
+          t('contacts.syncSummaryPrefix'),
+          `${result.createdCount} ${t('contacts.syncSummaryCreated')}`,
+          `${result.updatedCount} ${t('contacts.syncSummaryUpdated')}`,
+          `${result.skippedCount} ${t('contacts.syncSummarySkipped')}`,
+        ].join(' '),
+      );
+      setPage(1);
+      await load(1);
+      await loadGoogleStatus();
+    } catch (syncError) {
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : t('contacts.syncGoogleContactsError'),
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  function handleGoogleReconnect() {
+    window.location.href = getGoogleAuthUrl();
   }
 
   return (
@@ -54,12 +126,35 @@ export function ContactsPage() {
             <button type="button" onClick={handleSearch}>
               {t('common.search')}
             </button>
+            {googleAuthEnabled ? (
+              googleStatus?.connected && googleStatus.contactsScopeGranted ? (
+                <button type="button" onClick={() => void handleGoogleSync()} disabled={syncing}>
+                  {syncing ? t('contacts.syncGoogleContactsLoading') : t('contacts.syncGoogleContacts')}
+                </button>
+              ) : (
+                <button type="button" className="ghost-button" onClick={handleGoogleReconnect}>
+                  {t('contacts.reconnectGoogleContacts')}
+                </button>
+              )
+            ) : null}
             <Link to="/contacts/new" className="button-link">
               {t('contacts.newContact')}
             </Link>
           </>
         }
       />
+
+      {error ? <div className="card">{error}</div> : null}
+      {notice ? <div className="card">{notice}</div> : null}
+      {googleAuthEnabled ? (
+        <div className="card">
+          <p className="muted">
+            {googleStatus?.connected && googleStatus.contactsScopeGranted
+              ? `${t('contacts.googleContactsConnected')} ${googleStatus.email ?? t('common.noData')}.`
+              : t('contacts.googleContactsReconnectHelp')}
+          </p>
+        </div>
+      ) : null}
 
       <PaginatedListCard
         title={t('contacts.listTitle')}

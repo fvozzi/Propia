@@ -15,6 +15,7 @@
 - [UC10. Finanzas: registrar egresos operativos](#uc10-finanzas-registrar-egresos-operativos)
 - [UC11. Finanzas: registrar ingresos por operaciones cerradas](#uc11-finanzas-registrar-ingresos-por-operaciones-cerradas)
 - [UC12. Finanzas: configurar porcentajes de comision y franquicia](#uc12-finanzas-configurar-porcentajes-de-comision-y-franquicia)
+- [UC13. Base de relaciones desde Google Contacts](#uc13-base-de-relaciones-desde-google-contacts)
 - [Nota](#nota)
 
 ## UC1. Buscar propiedades para un contacto comprador
@@ -1020,6 +1021,163 @@
   - lectura y creacion de configuracion financiera por equipo
   - persistencia de porcentaje de franquicia, venta y compra
   - aislamiento por equipo para no depender de valores hardcodeados en UI
+
+## UC13. Base de relaciones desde Google Contacts
+
+- Objetivo: permitir que la usuaria administre una base de relaciones personales y comerciales a partir de sus contactos del celular, leidos directamente desde Google Contacts de la usuaria logueada, para organizar seguimiento, proximos contactos y acciones vinculadas a cumpleanos.
+- Actor principal: usuaria comercial.
+- Entidades principales propuestas: `Contact`, `ContactTag`, `Activity` y una futura entidad de sincronizacion/importacion de contactos.
+
+### Problema a resolver
+
+- La usuaria ya tiene una red de relaciones en su celular y necesita traerla al CRM sin volver a cargarla manualmente.
+- Esa base no siempre representa leads activos; muchos contactos son solo relaciones de largo plazo o contactos a excluir del seguimiento comercial.
+- La usuaria necesita saber:
+  - cuando fue la ultima interaccion con cada persona
+  - cuando deberia volver a contactarla
+  - si tiene cumpleanos proximos
+  - si corresponde excluirla por no ser contactable o no interesar comercialmente
+
+### Flujo esperado
+
+1. La usuaria ingresa al CRM con su cuenta Google ya vinculada.
+2. La usuaria habilita la sincronizacion de Google Contacts para su base de relaciones.
+3. El sistema normaliza nombres, telefonos, emails, cumpleanos y etiquetas disponibles.
+4. El sistema intenta detectar contactos ya existentes usando el numero de telefono como criterio principal de deduplicacion.
+5. Si el numero ya existe, el sistema ofrece actualizar datos del contacto existente en lugar de duplicarlo.
+6. La usuaria marca o revisa contactos con el tag `No Contactables` para excluirlos del seguimiento operativo.
+7. A partir del historial de `Activities`, el CRM muestra la ultima vez que se contacto a cada persona.
+8. El sistema calcula o permite definir un `proximo contacto` segun reglas por tag o segun la ultima actividad registrada.
+9. Los cumpleanos deben aparecer en calendario como eventos visibles y filtrables.
+10. Desde esos eventos o desde la ficha del contacto, la usuaria debe poder abrir WhatsApp para enviar un saludo de cumpleanos.
+
+### Primera version recomendada
+
+- Empezar con conexion directa a Google Contacts aprovechando el login Google ya existente.
+- Pedir consentimiento explicito para leer contactos del usuario logueado.
+- Sincronizar contactos en forma inicial y luego permitir resincronizaciones manuales o programadas.
+- Deduplicar principalmente por telefono normalizado.
+- Permitir actualizaciones periodicas de contactos existentes sin duplicarlos.
+- Soportar el tag `No Contactables` como exclusion operativa del seguimiento.
+- Mostrar en la ficha o listados:
+  - ultima actividad
+  - proximo contacto
+  - fecha de cumpleanos
+- Incluir cumpleanos en calendario con opcion de ocultarlos por filtro.
+- Permitir abrir WhatsApp desde el contacto o desde el evento de cumpleanos.
+- Dejar importacion por CSV como fallback administrativo si la API o permisos de Google no estan disponibles.
+
+### Evolucion recomendada
+
+1. Fase 1
+  - conexion directa con Google Contacts de la usuaria logueada
+  - sincronizacion inicial bajo demanda
+  - deduplicacion por telefono
+  - actualizacion manual o asistida de contactos existentes
+  - soporte de cumpleanos y `No Contactables`
+
+2. Fase 2
+  - lectura incremental de nuevos contactos y cambios
+  - registro de ultima sincronizacion
+  - opcion de re-sincronizacion manual desde `Contacts`
+  - fallback de importacion CSV para soporte operativo
+
+3. Fase 3
+  - reglas automaticas de frecuencia de contacto por tag
+  - sugerencias de seguimiento comercial
+  - automatizacion o plantillas de mensajes de cumpleanos por WhatsApp
+
+### Criterios de aceptacion
+
+- Debe existir una forma de conectar Google Contacts de la usuaria logueada usando su cuenta Google ya vinculada.
+- El sistema debe pedir y registrar el consentimiento necesario para leer contactos del usuario.
+- El sistema debe detectar contactos existentes usando telefono normalizado como criterio principal.
+- Si el contacto ya existe, la usuaria debe poder actualizarlo en lugar de crear un duplicado.
+- El tag `No Contactables` debe excluir esos contactos de vistas o recordatorios de seguimiento, sin borrarlos.
+- El CRM debe poder mostrar la ultima vez que el contacto fue alcanzado mediante una actividad como llamada, WhatsApp u otra interaccion registrada.
+- Debe poder definirse o calcularse una proxima fecha de contacto.
+- Los cumpleanos deben poder verse en calendario y debe existir un filtro para ocultarlos cuando molesten la agenda operativa.
+- Desde un cumpleanos o desde la ficha del contacto debe poder abrirse WhatsApp para enviar el saludo.
+- Debe poder ejecutarse una nueva sincronizacion para traer cambios sin duplicar contactos ya existentes.
+- Si la conexion directa falla o no esta disponible, puede existir un fallback por CSV exportado desde Google Contacts.
+
+### Reglas funcionales sugeridas
+
+- Deduplicacion
+  - criterio principal: telefono normalizado
+  - criterio secundario futuro: email
+  - si un contacto sincronizado no tiene telefono, no debe fusionarse automaticamente salvo confirmacion explicita
+
+- Sincronizacion
+  - el origen principal es Google Contacts via cuenta Google vinculada
+  - la sincronizacion debe poder ejecutarse manualmente y luego extenderse a modo incremental
+  - debe registrarse fecha de ultima sincronizacion y resultado
+
+- Seguimiento
+  - la `ultima vez contactado` debe salir de la ultima `Activity` relevante asociada al contacto
+  - la `proxima fecha de contacto` puede salir de:
+    - `nextFollowUpDate` de la ultima actividad
+    - una regla por tag o segmento si no existe seguimiento puntual
+
+- Cumpleanos
+  - deben modelarse como evento visible en calendario
+  - deben poder filtrarse aparte de visitas y actividades
+  - deben habilitar accion rapida para WhatsApp
+
+### Modelo sugerido
+
+- `Contact`
+  - seguir siendo la entidad principal
+  - agregar o consolidar:
+    - `birthday`
+    - `doNotContact` o uso formal del tag `No Contactables`
+    - `lastContactedAt` derivable
+    - `nextRelationshipFollowUpAt` derivable o persistible
+
+- `ContactImportJob` o similar
+  - entidad futura para auditoria de importaciones o sincronizaciones
+  - campos sugeridos:
+    - `id`
+    - `teamId`
+    - `ownerUserId`
+    - `source` (`GOOGLE_CONTACTS_CSV`, `GOOGLE_CONTACTS_API`)
+    - `status`
+    - `processedCount`
+    - `createdCount`
+    - `updatedCount`
+    - `skippedCount`
+    - `createdAt`
+
+### Pantallas impactadas
+
+- `Contacts`
+  - accion `Sincronizar Google Contacts`
+  - revision de duplicados o actualizaciones
+  - visualizacion de cumpleanos y tag `No Contactables`
+
+- `Calendar`
+  - nueva capa o categoria `Cumpleanos`
+  - filtro para mostrar u ocultar cumpleanos
+
+- `ContactDetail`
+  - ultima actividad
+  - proximo contacto
+  - accion para WhatsApp
+
+- `Activities`
+  - fuente principal para calcular ultima interaccion y proximos seguimientos
+
+### Cobertura unitaria sugerida
+
+- Archivo sugerido:
+  - `backend/src/use-cases/contact-relationship-base.use-case.spec.ts`
+- Reglas a cubrir:
+  - normalizacion de telefono para deduplicacion
+  - merge o actualizacion de contactos existentes por numero
+  - sincronizacion inicial y resincronizacion sin duplicados
+  - exclusion operativa por tag `No Contactables`
+  - calculo de ultima interaccion y proximo contacto
+  - exposicion de cumpleanos como eventos filtrables
 
 ## Nota
 

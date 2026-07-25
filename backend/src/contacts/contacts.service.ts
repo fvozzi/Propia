@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { google } from 'googleapis';
 import { Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
+import { GoogleCalendarConnection } from '../auth/google-calendar-connection.entity';
+import { GOOGLE_CONTACTS_READONLY_SCOPE, hasGoogleScope } from '../auth/google-scopes';
 import { paginate } from '../common/pagination';
+import {
+  buildGoogleContactCandidate,
+  normalizeContactPhone,
+} from '../use-cases/google-contact-sync.use-case';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { QueryContactsDto } from './dto/query-contacts.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
@@ -12,10 +20,13 @@ import { Contact } from './contact.entity';
 @Injectable()
 export class ContactsService {
   constructor(
+    private readonly configService: ConfigService,
     @InjectRepository(Contact)
     private readonly contactsRepository: Repository<Contact>,
     @InjectRepository(ContactRole)
     private readonly rolesRepository: Repository<ContactRole>,
+    @InjectRepository(GoogleCalendarConnection)
+    private readonly googleConnectionsRepository: Repository<GoogleCalendarConnection>,
   ) {}
 
   async create(dto: CreateContactDto, user: AuthenticatedUser) {
@@ -145,6 +156,127 @@ export class ContactsService {
     return this.findOne(id, user);
   }
 
+  async syncGoogleContacts(user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const connection = await this.googleConnectionsRepository.findOne({
+      where: {
+        userId: user.sub,
+        isActive: true,
+      },
+    });
+
+    if (!connection) {
+      throw new BadRequestException(
+        'Tu cuenta Google no esta conectada. Volve a ingresar con Google para sincronizar contactos.',
+      );
+    }
+
+    if (!hasGoogleScope(connection.scope, GOOGLE_CONTACTS_READONLY_SCOPE)) {
+      throw new BadRequestException(
+        'Tu cuenta Google no tiene permisos sobre Google Contacts. Volve a ingresar con Google para actualizar permisos.',
+      );
+    }
+
+    const people = await this.createGooglePeopleClient(connection);
+    const existingContacts = await this.contactsRepository.find({
+      where: { teamId },
+    });
+    const contactsByPhone = new Map<string, Contact>();
+    const processedPhones = new Set<string>();
+
+    for (const contact of existingContacts) {
+      const normalizedPhone =
+        normalizeContactPhone(contact.phone) ?? normalizeContactPhone(contact.whatsapp);
+
+      if (normalizedPhone && !contactsByPhone.has(normalizedPhone)) {
+        contactsByPhone.set(normalizedPhone, contact);
+      }
+    }
+
+    let processedCount = 0;
+    let createdCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    let pageToken: string | undefined;
+
+    do {
+      const response = await people.people.connections.list({
+        resourceName: 'people/me',
+        pageSize: 1000,
+        personFields: 'names,emailAddresses,phoneNumbers,biographies',
+        sortOrder: 'FIRST_NAME_ASCENDING',
+        pageToken,
+      });
+
+      for (const person of response.data.connections ?? []) {
+        processedCount += 1;
+        const candidate = buildGoogleContactCandidate(person);
+
+        if (!candidate.normalizedPhone) {
+          skippedCount += 1;
+          continue;
+        }
+
+        if (processedPhones.has(candidate.normalizedPhone)) {
+          skippedCount += 1;
+          continue;
+        }
+
+        processedPhones.add(candidate.normalizedPhone);
+        const existingContact = contactsByPhone.get(candidate.normalizedPhone);
+
+        if (existingContact) {
+          const nextFields = this.normalizeContactFields({
+            firstName: candidate.firstName || existingContact.firstName,
+            lastName: candidate.lastName || existingContact.lastName,
+            displayName: candidate.displayName || existingContact.displayName,
+            phone: candidate.phone ?? existingContact.phone ?? undefined,
+            whatsapp: candidate.whatsapp ?? existingContact.whatsapp ?? undefined,
+            email: candidate.email ?? existingContact.email ?? undefined,
+            documentNumber: existingContact.documentNumber ?? undefined,
+            source: this.mergeContactSource(existingContact.source, 'GOOGLE_CONTACTS'),
+            notes: existingContact.notes ?? candidate.notes ?? undefined,
+          });
+
+          Object.assign(existingContact, nextFields);
+          await this.contactsRepository.save(existingContact);
+          updatedCount += 1;
+          continue;
+        }
+
+        const createdContact = this.contactsRepository.create({
+          ...this.normalizeContactFields({
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+            displayName: candidate.displayName,
+            phone: candidate.phone ?? undefined,
+            whatsapp: candidate.whatsapp ?? undefined,
+            email: candidate.email ?? undefined,
+            source: 'GOOGLE_CONTACTS',
+            notes: candidate.notes ?? undefined,
+          }),
+          teamId,
+          ownerUserId: user.sub,
+        });
+
+        const savedContact = await this.contactsRepository.save(createdContact);
+        contactsByPhone.set(candidate.normalizedPhone, savedContact);
+        createdCount += 1;
+      }
+
+      pageToken = response.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    return {
+      connected: true,
+      email: connection.email,
+      processedCount,
+      createdCount,
+      updatedCount,
+      skippedCount,
+    };
+  }
+
   async remove(id: number, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
     const contact = await this.contactsRepository.findOne({
@@ -157,6 +289,51 @@ export class ContactsService {
 
     await this.contactsRepository.remove(contact);
     return { success: true };
+  }
+
+  private async createGooglePeopleClient(connection: GoogleCalendarConnection) {
+    const oauth2Client = new google.auth.OAuth2(
+      this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID'),
+      this.configService.getOrThrow<string>('GOOGLE_CLIENT_SECRET'),
+      this.configService.getOrThrow<string>('GOOGLE_CALLBACK_URL'),
+    );
+
+    oauth2Client.setCredentials({
+      access_token: connection.accessToken ?? undefined,
+      refresh_token: connection.refreshToken ?? undefined,
+      expiry_date: connection.expiryDate ?? undefined,
+      scope: connection.scope ?? undefined,
+      token_type: connection.tokenType ?? undefined,
+    });
+
+    oauth2Client.on('tokens', async (tokens) => {
+      connection.accessToken = tokens.access_token ?? connection.accessToken;
+      connection.refreshToken = tokens.refresh_token ?? connection.refreshToken;
+      connection.expiryDate = tokens.expiry_date ?? connection.expiryDate;
+      connection.scope = tokens.scope ?? connection.scope;
+      connection.tokenType = tokens.token_type ?? connection.tokenType;
+      await this.googleConnectionsRepository.save(connection);
+    });
+
+    return google.people({
+      version: 'v1',
+      auth: oauth2Client,
+    });
+  }
+
+  private mergeContactSource(
+    currentSource: string | null | undefined,
+    nextSource: string,
+  ) {
+    if (!currentSource) {
+      return nextSource;
+    }
+
+    if (currentSource.includes(nextSource)) {
+      return currentSource;
+    }
+
+    return `${currentSource}, ${nextSource}`;
   }
 
   private normalizeContactFields(dto: Pick<

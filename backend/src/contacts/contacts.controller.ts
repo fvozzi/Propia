@@ -32,6 +32,11 @@ export class ContactsController {
     return this.contactsService.findAll(query, user);
   }
 
+  @Post('google/sync')
+  syncGoogleContacts(@CurrentUser() user: AuthenticatedUser) {
+    return this.contactsService.syncGoogleContacts(user);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.contactsService.findOne(id, user);

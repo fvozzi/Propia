@@ -9,6 +9,12 @@ import { AppUserRole } from '../common/enums';
 import { UserStatus } from '../common/enums';
 import { getAccessDenialMessage } from './access-policy';
 import { GoogleCalendarConnection } from './google-calendar-connection.entity';
+import {
+  GOOGLE_CALENDAR_EVENTS_SCOPE,
+  GOOGLE_CONTACTS_READONLY_SCOPE,
+  GOOGLE_LOGIN_SCOPES,
+  hasGoogleScope,
+} from './google-scopes';
 import { LoginEvent, type LoginMethod } from './login-event.entity';
 import { UserWorkspaceService } from './user-workspace.service';
 import { User } from './user.entity';
@@ -141,7 +147,7 @@ export class AuthService {
           email: primaryEmail,
           accessToken: params.accessToken,
           refreshToken: params.refreshToken || existingConnection.refreshToken,
-          scope: 'openid profile email https://www.googleapis.com/auth/calendar.events',
+          scope: GOOGLE_LOGIN_SCOPES.join(' '),
           tokenType: 'Bearer',
           isActive: true,
         })
@@ -153,7 +159,7 @@ export class AuthService {
           isActive: true,
           accessToken: params.accessToken,
           refreshToken: params.refreshToken ?? null,
-          scope: 'openid profile email https://www.googleapis.com/auth/calendar.events',
+          scope: GOOGLE_LOGIN_SCOPES.join(' '),
           tokenType: 'Bearer',
         });
 
@@ -176,6 +182,8 @@ export class AuthService {
       connected: Boolean(connection),
       calendarId: connection?.calendarId ?? null,
       email: connection?.email ?? null,
+      calendarScopeGranted: hasGoogleScope(connection?.scope, GOOGLE_CALENDAR_EVENTS_SCOPE),
+      contactsScopeGranted: hasGoogleScope(connection?.scope, GOOGLE_CONTACTS_READONLY_SCOPE),
     };
   }
 

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy, VerifyCallback } from 'passport-google-oauth20';
+import { GOOGLE_LOGIN_SCOPES } from './google-scopes';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -16,7 +17,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         'GOOGLE_CALLBACK_URL',
         'http://localhost:3000/api/auth/google/callback',
       ),
-      scope: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/calendar.events'],
+      scope: [...GOOGLE_LOGIN_SCOPES],
       accessType: 'offline',
       prompt: 'consent',
     });
