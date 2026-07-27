@@ -95,6 +95,9 @@ export function ActivitiesCreatePage() {
   const { t, translateEnum } = useI18n();
   const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactMatches, setContactMatches] = useState<Contact[] | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(Boolean(id));
@@ -109,7 +112,18 @@ export function ActivitiesCreatePage() {
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
   const isReservation = form.activityType === 'RESERVATION';
-  const selectedContact = contacts.find((contact) => String(contact.id) === form.contactId) ?? null;
+  const contactSearchTerm = contactSearch.trim();
+  const activityContact =
+    activity?.contact && String(activity.contact.id) === form.contactId ? activity.contact : null;
+  const selectedContact =
+    contactMatches?.find((contact) => String(contact.id) === form.contactId) ??
+    contacts.find((contact) => String(contact.id) === form.contactId) ??
+    activityContact ??
+    null;
+  const visibleContacts = mergeContacts(
+    contactSearchTerm ? contactMatches ?? [] : contacts,
+    selectedContact ? [selectedContact] : [],
+  );
   const selectedProperty = properties.find((property) => String(property.id) === form.propertyId) ?? null;
   const showSavedPreview =
     isPropertySearch &&
@@ -131,14 +145,16 @@ export function ActivitiesCreatePage() {
   useEffect(() => {
     async function loadDependencies() {
       const [contactsData, propertiesData, activityData] = await Promise.all([
-        apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100'),
+        apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC'),
         apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
         isEditing && activityId
           ? apiRequest<Activity>(`/activities/${activityId}`)
           : Promise.resolve(null),
       ]);
 
-      setContacts(contactsData.items);
+      setContacts(
+        mergeContacts(contactsData.items, activityData?.contact ? [activityData.contact] : []),
+      );
       setProperties(propertiesData.items);
 
       if (activityData) {
@@ -213,6 +229,49 @@ export function ActivitiesCreatePage() {
 
     void loadDependencies();
   }, [activityId, isEditing, user?.name]);
+
+  useEffect(() => {
+    if (!contactSearchTerm) {
+      setContactMatches(null);
+      setContactsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setContactsLoading(true);
+      void apiRequest<Paginated<Contact>>(
+        `/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC&search=${encodeURIComponent(contactSearchTerm)}`,
+      )
+        .then((contactsData) => {
+          if (cancelled) {
+            return;
+          }
+
+          setContactMatches(contactsData.items);
+          setContacts((current) => mergeContacts(current, contactsData.items));
+        })
+        .catch(() => {
+          if (cancelled) {
+            return;
+          }
+
+          setContactMatches([]);
+        })
+        .finally(() => {
+          if (cancelled) {
+            return;
+          }
+
+          setContactsLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [contactSearchTerm]);
 
   useEffect(() => {
     if (!isReservation || !selectedProperty) {
@@ -389,20 +448,31 @@ export function ActivitiesCreatePage() {
           </label>
           <label>
             {t('common.contact')}
-            <select
-              value={form.contactId}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, contactId: event.target.value }))
-              }
-              required={isPropertySearch || isAppraisalRequest}
-            >
-              <option value="">{t('activities.withoutContact')}</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.displayName}
-                </option>
-              ))}
-            </select>
+            <div className="stack-gap">
+              <input
+                type="search"
+                value={contactSearch}
+                onChange={(event) => setContactSearch(event.target.value)}
+                placeholder={t('common.search')}
+                aria-label={`${t('common.search')} ${t('common.contact').toLowerCase()}`}
+                autoComplete="off"
+              />
+              <select
+                value={form.contactId}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, contactId: event.target.value }))
+                }
+                required={isPropertySearch || isAppraisalRequest}
+              >
+                <option value="">{t('activities.withoutContact')}</option>
+                {visibleContacts.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.displayName}
+                  </option>
+                ))}
+              </select>
+              {contactsLoading ? <p className="muted">{t('common.loading')}</p> : null}
+            </div>
           </label>
           {isAppraisalRequest ? (
             <label>
@@ -995,6 +1065,20 @@ const propertyTypeOptions: PropertyType[] = [
 function toDateTimeLocalValue(value: string | null) {
   if (!value) return '';
   return new Date(value).toISOString().slice(0, 16);
+}
+
+function mergeContacts(...groups: Array<Contact[] | null | undefined>) {
+  const uniqueContacts = new Map<number, Contact>();
+
+  groups.forEach((group) => {
+    group?.forEach((contact) => {
+      uniqueContacts.set(contact.id, contact);
+    });
+  });
+
+  return Array.from(uniqueContacts.values()).sort((left, right) =>
+    left.displayName.localeCompare(right.displayName, 'es', { sensitivity: 'base' }),
+  );
 }
 
 function formatPropertyOptionLabel(
