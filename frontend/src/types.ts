@@ -176,6 +176,33 @@ export interface Contact {
   ownedProperties?: Property[];
 }
 
+export interface CalendarBirthdayAgendaItem {
+  id: string;
+  contactId: number;
+  displayName: string;
+  phone: string | null;
+  whatsapp: string | null;
+  date: string;
+  birthday: string;
+}
+
+export interface CalendarGoogleEventAgendaItem {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string | null;
+  allDay: boolean;
+  description: string | null;
+  externalUrl: string | null;
+}
+
+export interface CalendarAgendaResponse {
+  birthdays: CalendarBirthdayAgendaItem[];
+  googleEvents: CalendarGoogleEventAgendaItem[];
+  googleCalendarConnected: boolean;
+  googleCalendarPermissionGranted: boolean;
+}
+
 export interface PropertyPhoto {
   id?: number;
   url: string;

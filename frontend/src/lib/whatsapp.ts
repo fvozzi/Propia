@@ -55,6 +55,13 @@ export function buildVisitWhatsappMessage(visit: ShareableVisit) {
     .join('\n');
 }
 
+export function buildBirthdayWhatsappMessage(contactName: string) {
+  const trimmedName = contactName.trim();
+  const greetingTarget = trimmedName ? ` ${trimmedName}` : '';
+
+  return `Feliz cumpleaños${greetingTarget}! Espero que tengas un gran día.`;
+}
+
 export function buildReservationTreasuryWhatsappMessage(
   activity: Pick<Activity, 'externalUrl' | 'description'> & {
     reservationData: ReservationActivityData | null;

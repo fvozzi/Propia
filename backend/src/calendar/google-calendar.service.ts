@@ -38,6 +38,32 @@ export class GoogleCalendarService {
     return { success: true };
   }
 
+  async listPrimaryEvents(
+    connection: GoogleCalendarConnection,
+    from: Date,
+    to: Date,
+  ) {
+    const calendar = await this.createCalendarClient(connection);
+    const response = await calendar.events.list({
+      calendarId: connection.calendarId || 'primary',
+      singleEvents: true,
+      orderBy: 'startTime',
+      timeMin: from.toISOString(),
+      timeMax: to.toISOString(),
+    });
+
+    return (response.data.items ?? []).map((event) => ({
+      id: event.id,
+      summary: event.summary,
+      description: event.description,
+      htmlLink: event.htmlLink,
+      startDateTime: event.start?.dateTime,
+      startDate: event.start?.date,
+      endDateTime: event.end?.dateTime,
+      endDate: event.end?.date,
+    }));
+  }
+
   async syncVisitCreate(userId: number, visit: Visit) {
     const connection = await this.findActiveConnectionForUser(userId);
 

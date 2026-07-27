@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  buildBirthdayWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
   buildVisitWhatsappMessage,
@@ -24,6 +25,12 @@ describe('whatsapp helpers', () => {
         externalUrl: 'https://zonaprop.com.ar/publicacion',
       }),
     ).toBe('Te comparto esta opcion\n\nhttps://zonaprop.com.ar/publicacion');
+  });
+
+  it('builds a birthday greeting message', () => {
+    expect(buildBirthdayWhatsappMessage('Victoria')).toBe(
+      'Feliz cumpleaños Victoria! Espero que tengas un gran día.',
+    );
   });
 
   it('builds the visit confirmation message with schedule, address and link', () => {

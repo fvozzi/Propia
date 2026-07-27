@@ -4,21 +4,35 @@ import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { calendarActivityTypeOptions, useI18n, visitStatusOptions } from '../lib/i18n';
 import {
+  buildBirthdayWhatsappMessage,
   buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
 } from '../lib/whatsapp';
-import type { Activity, ActivityType, Contact, Paginated, Property, Visit } from '../types';
+import type {
+  Activity,
+  ActivityType,
+  CalendarAgendaResponse,
+  CalendarBirthdayAgendaItem,
+  CalendarGoogleEventAgendaItem,
+  Contact,
+  Paginated,
+  Property,
+  Visit,
+} from '../types';
+
+type AgendaContact = Pick<Contact, 'id' | 'displayName' | 'phone' | 'whatsapp'>;
 
 type AgendaItem = {
   id: string;
-  entityType: 'activity' | 'visit';
+  entityType: 'activity' | 'visit' | 'birthday' | 'google';
   startsAt: string;
+  allDay?: boolean;
   title: string;
   detail: string;
   status: string;
-  contact?: Contact | null;
+  contact?: AgendaContact | null;
   property?: Property | null;
   notes?: string | null;
   externalUrl?: string | null;
@@ -55,11 +69,18 @@ export function CalendarPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [birthdayItems, setBirthdayItems] = useState<CalendarBirthdayAgendaItem[]>([]);
+  const [googleEvents, setGoogleEvents] = useState<CalendarGoogleEventAgendaItem[]>([]);
+  const [showBirthdays, setShowBirthdays] = useState(true);
+  const [showGoogleCalendar, setShowGoogleCalendar] = useState(true);
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
+  const [googleCalendarPermissionGranted, setGoogleCalendarPermissionGranted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [savingTask, setSavingTask] = useState(false);
   const [savingVisit, setSavingVisit] = useState(false);
   const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
+  const [sharingBirthdayId, setSharingBirthdayId] = useState<string | null>(null);
   const [composerMode, setComposerMode] = useState<ComposerMode>(null);
   const [activityForm, setActivityForm] = useState<ActivityFormState>(() =>
     createInitialActivityForm(formatDateKey(new Date())),
@@ -92,17 +113,24 @@ export function CalendarPage() {
     const range = getCalendarRange(visibleMonth);
 
     try {
-      const [activitiesData, visitsData] = await Promise.all([
+      const [activitiesData, visitsData, calendarAgenda] = await Promise.all([
         apiRequest<Paginated<Activity>>(
           `/activities?page=1&limit=100&fromDate=${range.fromDate}&toDate=${range.toDate}`,
         ),
         apiRequest<Paginated<Visit>>(
           `/visits?page=1&limit=100&fromDate=${range.fromDate}&toDate=${range.toDate}`,
         ),
+        apiRequest<CalendarAgendaResponse>(
+          `/calendar/agenda?fromDate=${range.fromDate}&toDate=${range.toDate}`,
+        ),
       ]);
 
       setActivities(activitiesData.items);
       setVisits(visitsData.items);
+      setBirthdayItems(calendarAgenda.birthdays);
+      setGoogleEvents(calendarAgenda.googleEvents);
+      setGoogleCalendarConnected(calendarAgenda.googleCalendarConnected);
+      setGoogleCalendarPermissionGranted(calendarAgenda.googleCalendarPermissionGranted);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Could not load agenda.');
     } finally {
@@ -186,6 +214,27 @@ export function CalendarPage() {
     }
   }
 
+  async function handleShareBirthday(item: AgendaItem) {
+    if (item.entityType !== 'birthday' || !item.contact || !getContactWhatsappPhone(item.contact)) {
+      return;
+    }
+
+    setSharingBirthdayId(item.id);
+    setLoadError('');
+
+    try {
+      const message = buildBirthdayWhatsappMessage(item.contact.displayName);
+      openWhatsAppShareUrl(buildWhatsAppShareUrl(item.contact, message));
+      window.alert(t('common.whatsappSent'));
+    } catch (shareError) {
+      setLoadError(
+        shareError instanceof Error ? shareError.message : t('common.whatsappSendFailed'),
+      );
+    } finally {
+      setSharingBirthdayId(null);
+    }
+  }
+
   function openTaskComposer(dayKey = selectedDateKey) {
     setSelectedDateKey(dayKey);
     setActivityForm(createInitialActivityForm(dayKey));
@@ -222,9 +271,14 @@ export function CalendarPage() {
   const schedulableActivities = activities.filter((activity) =>
     isCalendarActivityType(activity.activityType),
   );
-  const agendaItems = [...schedulableActivities.map(mapActivityToAgendaItem), ...visits.map(mapVisitToAgendaItem)].sort(
-    (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
-  );
+  const visibleBirthdays = showBirthdays ? birthdayItems.map(mapBirthdayToAgendaItem) : [];
+  const visibleGoogleEvents = showGoogleCalendar ? googleEvents.map(mapGoogleEventToAgendaItem) : [];
+  const agendaItems = [
+    ...schedulableActivities.map(mapActivityToAgendaItem),
+    ...visits.map(mapVisitToAgendaItem),
+    ...visibleBirthdays,
+    ...visibleGoogleEvents,
+  ].sort(compareAgendaItems);
   const itemsByDay = groupAgendaByDay(agendaItems);
   const selectedItems = itemsByDay.get(selectedDateKey) ?? [];
   const selectedDateTimestamp = new Date(`${selectedDateKey}T00:00:00`).getTime();
@@ -253,6 +307,10 @@ export function CalendarPage() {
             <span className="calendar-summary-label">{t('calendar.monthVisits')}</span>
             <strong className="calendar-summary-value">{visits.length}</strong>
           </article>
+          <article className="calendar-summary-card">
+            <span className="calendar-summary-label">{t('calendar.monthBirthdays')}</span>
+            <strong className="calendar-summary-value">{birthdayItems.length}</strong>
+          </article>
         </div>
       </section>
 
@@ -270,6 +328,33 @@ export function CalendarPage() {
               {t('common.next')}
             </button>
           </div>
+
+          <div className="calendar-filter-row">
+            <button
+              type="button"
+              className={showBirthdays ? 'ghost-button active-toggle' : 'ghost-button'}
+              onClick={() => setShowBirthdays((current) => !current)}
+            >
+              {showBirthdays ? t('calendar.hideBirthdays') : t('calendar.showBirthdays')}
+            </button>
+            <button
+              type="button"
+              className={showGoogleCalendar ? 'ghost-button active-toggle' : 'ghost-button'}
+              onClick={() => setShowGoogleCalendar((current) => !current)}
+              disabled={!googleCalendarConnected || !googleCalendarPermissionGranted}
+              title={
+                !googleCalendarConnected || !googleCalendarPermissionGranted
+                  ? t('calendar.googleCalendarUnavailable')
+                  : undefined
+              }
+            >
+              {showGoogleCalendar ? t('calendar.hideGoogleCalendar') : t('calendar.showGoogleCalendar')}
+            </button>
+          </div>
+
+          {googleCalendarConnected && googleCalendarPermissionGranted ? null : (
+            <p className="muted calendar-source-note">{t('calendar.googleCalendarUnavailable')}</p>
+          )}
 
           <div className="calendar-grid calendar-grid-header">
             {weekdayLabels.map((label) => (
@@ -306,7 +391,7 @@ export function CalendarPage() {
                   <div className="calendar-day-list">
                     {dayItems.slice(0, 3).map((item) => (
                       <span key={item.id} className={`calendar-chip ${item.entityType}`}>
-                        {formatTime(item.startsAt, locale)} {item.title}
+                        {item.allDay ? item.title : `${formatTime(item.startsAt, locale)} ${item.title}`}
                       </span>
                     ))}
                   </div>
@@ -339,10 +424,12 @@ export function CalendarPage() {
                 <article key={item.id} className="agenda-item">
                   <div className="agenda-item-header">
                     <div>
-                      <span className="agenda-time">{formatTime(item.startsAt, locale)}</span>
+                      <span className="agenda-time">
+                        {item.allDay ? t('calendar.allDay') : formatTime(item.startsAt, locale)}
+                      </span>
                       <strong>{item.title}</strong>
                     </div>
-                    <StatusPill value={item.status} />
+                    {renderAgendaStatus(item, t)}
                   </div>
                   <p className="muted">{item.detail}</p>
                   {item.notes ? <p className="agenda-notes">{item.notes}</p> : null}
@@ -376,6 +463,25 @@ export function CalendarPage() {
                         {sharingVisitId === item.visit.id ? t('common.loading') : t('visits.shareNow')}
                       </button>
                     ) : null}
+                    {item.entityType === 'google' && item.externalUrl ? (
+                      <a href={item.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
+                        {t('calendar.openGoogleEvent')}
+                      </a>
+                    ) : null}
+                    {item.entityType === 'birthday' &&
+                    item.contact &&
+                    getContactWhatsappPhone(item.contact) ? (
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => void handleShareBirthday(item)}
+                        disabled={sharingBirthdayId === item.id}
+                      >
+                        {sharingBirthdayId === item.id
+                          ? t('common.loading')
+                          : t('calendar.sendBirthdayWhatsapp')}
+                      </button>
+                    ) : null}
                   </div>
                 </article>
               ))
@@ -394,7 +500,11 @@ export function CalendarPage() {
             {upcomingItems.length ? (
               upcomingItems.map((item) => (
                 <article key={`${item.id}-upcoming`} className="mini-agenda-item">
-                  <span>{formatShortDateTime(item.startsAt, locale)}</span>
+                  <span>
+                    {item.allDay
+                      ? formatShortDate(item.startsAt, locale)
+                      : formatShortDateTime(item.startsAt, locale)}
+                  </span>
                   <strong>{item.title}</strong>
                   <p className="muted">{item.detail}</p>
                 </article>
@@ -692,6 +802,38 @@ function mapVisitToAgendaItem(visit: Visit): AgendaItem {
   };
 }
 
+function mapBirthdayToAgendaItem(birthday: CalendarBirthdayAgendaItem): AgendaItem {
+  return {
+    id: birthday.id,
+    entityType: 'birthday',
+    startsAt: `${birthday.date}T00:00:00`,
+    allDay: true,
+    title: birthday.displayName,
+    detail: `Cumpleanos · ${formatBirthdayLabel(birthday.birthday)}`,
+    status: 'BIRTHDAY',
+    contact: {
+      id: birthday.contactId,
+      displayName: birthday.displayName,
+      phone: birthday.phone,
+      whatsapp: birthday.whatsapp,
+    },
+  };
+}
+
+function mapGoogleEventToAgendaItem(event: CalendarGoogleEventAgendaItem): AgendaItem {
+  return {
+    id: `google-${event.id}`,
+    entityType: 'google',
+    startsAt: event.startsAt,
+    allDay: event.allDay,
+    title: event.title,
+    detail: event.description || 'Google Calendar',
+    status: 'GOOGLE_CALENDAR',
+    notes: event.description,
+    externalUrl: event.externalUrl,
+  };
+}
+
 function isCalendarActivityType(activityType: ActivityType) {
   return calendarActivityTypeOptions.includes(
     activityType as (typeof calendarActivityTypeOptions)[number],
@@ -709,6 +851,21 @@ function groupAgendaByDay(items: AgendaItem[]) {
   });
 
   return map;
+}
+
+function compareAgendaItems(left: AgendaItem, right: AgendaItem) {
+  const leftTime = new Date(left.startsAt).getTime();
+  const rightTime = new Date(right.startsAt).getTime();
+
+  if (leftTime !== rightTime) {
+    return leftTime - rightTime;
+  }
+
+  if (left.allDay !== right.allDay) {
+    return left.allDay ? -1 : 1;
+  }
+
+  return left.title.localeCompare(right.title, 'es');
 }
 
 function startOfMonth(date: Date) {
@@ -777,6 +934,13 @@ function formatShortDateTime(value: string, locale: 'es' | 'en') {
   }).format(new Date(value));
 }
 
+function formatShortDate(value: string, locale: 'es' | 'en') {
+  return new Intl.DateTimeFormat(locale === 'es' ? 'es-AR' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(value));
+}
+
 function formatTime(value: string, locale: 'es' | 'en') {
   return new Intl.DateTimeFormat(locale === 'es' ? 'es-AR' : 'en-US', {
     hour: '2-digit',
@@ -800,4 +964,33 @@ function buildCalendarDayLabel(day: Date, itemCount: number, locale: 'es' | 'en'
         itemCount === 1 ? '' : 's'
       }.`
     : `${formattedDate}. ${itemCount} scheduled item${itemCount === 1 ? '' : 's'}.`;
+}
+
+function renderAgendaStatus(
+  item: AgendaItem,
+  t: ReturnType<typeof useI18n>['t'],
+) {
+  if (item.entityType === 'activity' || item.entityType === 'visit') {
+    return <StatusPill value={item.status} />;
+  }
+
+  if (item.entityType === 'birthday') {
+    return <span className="pill pill-active">{t('calendar.birthday')}</span>;
+  }
+
+  return <span className="pill pill-note">Google Calendar</span>;
+}
+
+function formatBirthdayLabel(value: string) {
+  if (value.startsWith('--')) {
+    const match = value.match(/^--(\d{2})-(\d{2})$/);
+    return match ? `${match[2]}/${match[1]}` : value;
+  }
+
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return `${day}/${month}`;
 }
