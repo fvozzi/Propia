@@ -72,6 +72,36 @@ export function normalizeContactPhone(value: string | null | undefined) {
   return digits.startsWith('00') ? digits.slice(2) : digits;
 }
 
+export function buildContactPhoneMatchKeys(value: string | null | undefined) {
+  const normalized = normalizeContactPhone(value);
+  if (!normalized) {
+    return [];
+  }
+
+  const keys = new Set<string>([normalized]);
+
+  if (!normalized.startsWith('54') && normalized.length >= 10 && normalized.length <= 11) {
+    keys.add(`549${normalized}`);
+    keys.add(`54${normalized}`);
+  }
+
+  if (normalized.startsWith('0')) {
+    const nationalNumber = normalized.slice(1);
+
+    for (const areaCodeLength of [2, 3, 4]) {
+      if (nationalNumber.slice(areaCodeLength, areaCodeLength + 2) !== '15') {
+        continue;
+      }
+
+      keys.add(
+        `549${nationalNumber.slice(0, areaCodeLength)}${nationalNumber.slice(areaCodeLength + 2)}`,
+      );
+    }
+  }
+
+  return Array.from(keys);
+}
+
 export function buildGoogleContactCandidate(
   person: GooglePersonLike,
   contactGroupsByResourceName: Map<string, string> = new Map(),

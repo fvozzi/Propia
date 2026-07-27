@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildContactPhoneMatchKeys,
   buildGoogleContactCandidate,
   normalizeContactPhone,
 } from './google-contact-sync.use-case';
@@ -10,6 +11,12 @@ describe('google-contact-sync use case', () => {
     expect(normalizeContactPhone('011 15 5555 1234')).toBe('0111555551234');
     expect(normalizeContactPhone('')).toBeNull();
     expect(normalizeContactPhone(null)).toBeNull();
+  });
+
+  it('builds equivalent phone match keys for common argentinian mobile formats', () => {
+    expect(buildContactPhoneMatchKeys('+54 9 11 5555-1234')).toContain('5491155551234');
+    expect(buildContactPhoneMatchKeys('011 15 5555 1234')).toContain('5491155551234');
+    expect(buildContactPhoneMatchKeys('11 5555 1234')).toContain('5491155551234');
   });
 
   it('builds a contact candidate from the primary google values', () => {

@@ -8,6 +8,7 @@ import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-use
 import { GoogleCalendarConnection } from '../auth/google-calendar-connection.entity';
 import { GOOGLE_CONTACTS_READONLY_SCOPE, hasGoogleScope } from '../auth/google-scopes';
 import {
+  buildContactPhoneMatchKeys,
   buildGoogleContactCandidate,
   normalizeContactPhone,
 } from '../use-cases/google-contact-sync.use-case';
@@ -344,16 +345,26 @@ export class ContactsService {
     const existingContacts = await this.contactsRepository.find({
       where: { teamId },
     });
-    const contactsByPhone = new Map<string, Contact>();
+    const contactsByPhone = new Map<string, Contact | null>();
+    const contactsByEmail = new Map<string, Contact | null>();
     const processedPhones = new Set<string>();
 
     for (const contact of existingContacts) {
-      const normalizedPhone =
-        normalizeContactPhone(contact.phone) ?? normalizeContactPhone(contact.whatsapp);
-
-      if (normalizedPhone && !contactsByPhone.has(normalizedPhone)) {
-        contactsByPhone.set(normalizedPhone, contact);
-      }
+      this.indexContactByLookupValue(
+        contactsByPhone,
+        buildContactPhoneMatchKeys(contact.phone),
+        contact,
+      );
+      this.indexContactByLookupValue(
+        contactsByPhone,
+        buildContactPhoneMatchKeys(contact.whatsapp),
+        contact,
+      );
+      this.indexContactByLookupValue(
+        contactsByEmail,
+        [this.normalizeContactEmail(contact.email)].filter((value): value is string => Boolean(value)),
+        contact,
+      );
     }
 
     let processedCount = 0;
@@ -386,7 +397,14 @@ export class ContactsService {
         }
 
         processedPhones.add(candidate.normalizedPhone);
-        const existingContact = contactsByPhone.get(candidate.normalizedPhone);
+        const existingContact =
+          this.findUniqueContactByLookupValue(contactsByPhone, [
+            ...buildContactPhoneMatchKeys(candidate.phone),
+            ...buildContactPhoneMatchKeys(candidate.whatsapp),
+          ]) ??
+          this.findUniqueContactByLookupValue(contactsByEmail, [
+            this.normalizeContactEmail(candidate.email),
+          ]);
 
         if (existingContact) {
           const nextFields = this.normalizeContactFields({
@@ -430,7 +448,21 @@ export class ContactsService {
         });
 
         const savedContact = await this.contactsRepository.save(createdContact);
-        contactsByPhone.set(candidate.normalizedPhone, savedContact);
+        this.indexContactByLookupValue(
+          contactsByPhone,
+          buildContactPhoneMatchKeys(savedContact.phone),
+          savedContact,
+        );
+        this.indexContactByLookupValue(
+          contactsByPhone,
+          buildContactPhoneMatchKeys(savedContact.whatsapp),
+          savedContact,
+        );
+        this.indexContactByLookupValue(
+          contactsByEmail,
+          [this.normalizeContactEmail(savedContact.email)].filter((value): value is string => Boolean(value)),
+          savedContact,
+        );
         createdCount += 1;
       }
 
@@ -529,6 +561,53 @@ export class ContactsService {
     }
 
     return `${currentSource}, ${nextSource}`;
+  }
+
+  private normalizeContactEmail(value: string | null | undefined) {
+    const normalized = value?.trim().toLowerCase();
+    return normalized || null;
+  }
+
+  private indexContactByLookupValue(
+    lookup: Map<string, Contact | null>,
+    values: string[],
+    contact: Contact,
+  ) {
+    values.forEach((value) => {
+      const existing = lookup.get(value);
+
+      if (!existing) {
+        lookup.set(value, contact);
+        return;
+      }
+
+      if (existing.id !== contact.id) {
+        lookup.set(value, null);
+      }
+    });
+  }
+
+  private findUniqueContactByLookupValue(
+    lookup: Map<string, Contact | null>,
+    values: Array<string | null | undefined>,
+  ) {
+    const matches = new Map<number, Contact>();
+
+    values
+      .filter((value): value is string => Boolean(value))
+      .forEach((value) => {
+        const match = lookup.get(value);
+
+        if (match) {
+          matches.set(match.id, match);
+        }
+      });
+
+    if (matches.size !== 1) {
+      return null;
+    }
+
+    return Array.from(matches.values())[0];
   }
 
   private normalizeContactFields(dto: Pick<
