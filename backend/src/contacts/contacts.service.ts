@@ -9,6 +9,7 @@ import { GoogleCalendarConnection } from '../auth/google-calendar-connection.ent
 import { GOOGLE_CONTACTS_READONLY_SCOPE, hasGoogleScope } from '../auth/google-scopes';
 import {
   buildContactPhoneMatchKeys,
+  type GoogleContactGroupDescriptor,
   buildGoogleContactCandidate,
   normalizeContactPhone,
 } from '../use-cases/google-contact-sync.use-case';
@@ -524,7 +525,7 @@ export class ContactsService {
   }
 
   private async loadGoogleContactGroups(people: ReturnType<typeof google.people>) {
-    const groups = new Map<string, string>();
+    const groups = new Map<string, GoogleContactGroupDescriptor>();
     let pageToken: string | undefined;
 
     do {
@@ -535,11 +536,14 @@ export class ContactsService {
       });
 
       for (const group of response.data.contactGroups ?? []) {
-        if (!group.resourceName || !group.name) {
+        if (!group.resourceName) {
           continue;
         }
 
-        groups.set(group.resourceName, group.name);
+        groups.set(group.resourceName, {
+          name: group.name ?? null,
+          groupType: group.groupType ?? null,
+        });
       }
 
       pageToken = response.data.nextPageToken ?? undefined;

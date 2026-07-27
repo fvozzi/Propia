@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildContactPhoneMatchKeys,
+  type GoogleContactGroupDescriptor,
   buildGoogleContactCandidate,
   normalizeContactPhone,
 } from './google-contact-sync.use-case';
@@ -69,9 +70,23 @@ describe('google-contact-sync use case', () => {
   });
 
   it('extracts birthday and tags from google contacts data', () => {
-    const groups = new Map<string, string>([
-      ['contactGroups/no-contactables', 'No Contactables'],
-      ['contactGroups/referidos', 'Referidos'],
+    const groups = new Map<string, GoogleContactGroupDescriptor>([
+      [
+        'contactGroups/myContacts',
+        { name: 'myContacts', groupType: 'SYSTEM_CONTACT_GROUP' },
+      ],
+      [
+        'contactGroups/coworkers',
+        { name: 'coworkers', groupType: 'SYSTEM_CONTACT_GROUP' },
+      ],
+      [
+        'contactGroups/no-contactables',
+        { name: 'No Contactables', groupType: 'USER_CONTACT_GROUP' },
+      ],
+      [
+        'contactGroups/referidos',
+        { name: 'Referidos', groupType: 'USER_CONTACT_GROUP' },
+      ],
     ]);
 
     expect(
@@ -81,6 +96,16 @@ describe('google-contact-sync use case', () => {
           phoneNumbers: [{ value: '+54 9 11 1234-5678', metadata: { primary: true } }],
           birthdays: [{ date: { month: 8, day: 14 } }],
           memberships: [
+            {
+              contactGroupMembership: {
+                contactGroupResourceName: 'contactGroups/myContacts',
+              },
+            },
+            {
+              contactGroupMembership: {
+                contactGroupResourceName: 'contactGroups/coworkers',
+              },
+            },
             {
               contactGroupMembership: {
                 contactGroupResourceName: 'contactGroups/no-contactables',
@@ -97,7 +122,7 @@ describe('google-contact-sync use case', () => {
       ),
     ).toMatchObject({
       birthday: '--08-14',
-      googleTags: ['No Contactables', 'Referidos'],
+      googleTags: ['Trabajo', 'No Contactables', 'Referidos'],
     });
   });
 });

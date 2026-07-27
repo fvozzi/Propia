@@ -36,6 +36,11 @@ type GoogleMembershipLike = {
   } | null;
 };
 
+export type GoogleContactGroupDescriptor = {
+  name: string | null;
+  groupType: string | null;
+};
+
 type GooglePersonLike = {
   names?: GoogleNameLike[] | null;
   phoneNumbers?: GooglePhoneLike[] | null;
@@ -104,7 +109,7 @@ export function buildContactPhoneMatchKeys(value: string | null | undefined) {
 
 export function buildGoogleContactCandidate(
   person: GooglePersonLike,
-  contactGroupsByResourceName: Map<string, string> = new Map(),
+  contactGroupsByResourceName: Map<string, GoogleContactGroupDescriptor> = new Map(),
 ): GoogleContactCandidate {
   const primaryName = pickPrimaryValue(person.names);
   const primaryPhone = pickPrimaryValue(person.phoneNumbers);
@@ -154,7 +159,7 @@ export function buildGoogleContactCandidate(
 
 function extractGoogleTags(
   memberships: GoogleMembershipLike[] | null | undefined,
-  contactGroupsByResourceName: Map<string, string>,
+  contactGroupsByResourceName: Map<string, GoogleContactGroupDescriptor>,
 ) {
   if (!memberships?.length) {
     return [];
@@ -163,22 +168,60 @@ function extractGoogleTags(
   return Array.from(
     new Set(
       memberships
-        .map(
-          (membership) =>
+        .map((membership) =>
+          resolveGoogleContactGroupLabel(
             membership.contactGroupMembership?.contactGroupResourceName ?? null,
-        )
-        .map((resourceName) =>
-          resourceName ? contactGroupsByResourceName.get(resourceName) ?? null : null,
+            contactGroupsByResourceName,
+          ),
         )
         .filter((value): value is string => Boolean(value))
-        .filter(
-          (value) =>
-            value !== 'System Group: My Contacts' &&
-            value !== 'System Group: Starred in Android',
-        ),
     ),
   );
 }
+
+function resolveGoogleContactGroupLabel(
+  resourceName: string | null,
+  contactGroupsByResourceName: Map<string, GoogleContactGroupDescriptor>,
+) {
+  if (!resourceName) {
+    return null;
+  }
+
+  const descriptor = contactGroupsByResourceName.get(resourceName);
+  const suffix = resourceName.split('/').pop()?.trim() ?? '';
+
+  if (IGNORED_GOOGLE_CONTACT_GROUP_SUFFIXES.has(suffix)) {
+    return null;
+  }
+
+  if (descriptor?.groupType === 'SYSTEM_CONTACT_GROUP') {
+    const localizedSystemLabel = GOOGLE_SYSTEM_GROUP_LABELS[suffix];
+    if (localizedSystemLabel) {
+      return localizedSystemLabel;
+    }
+  }
+
+  const name = descriptor?.name?.trim();
+  if (name) {
+    return name;
+  }
+
+  return null;
+}
+
+const IGNORED_GOOGLE_CONTACT_GROUP_SUFFIXES = new Set([
+  'myContacts',
+  'starred',
+  'starredInAndroid',
+  'blocked',
+  'domainShared',
+]);
+
+const GOOGLE_SYSTEM_GROUP_LABELS: Record<string, string> = {
+  coworkers: 'Trabajo',
+  friends: 'Amigos',
+  family: 'Familia',
+};
 
 function formatGoogleBirthday(value: GoogleDateLike | null | undefined) {
   if (!value?.month || !value?.day) {
