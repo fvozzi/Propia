@@ -515,6 +515,117 @@ label {
   gap: 0.8rem;
 }
 
+.combobox {
+  position: relative;
+}
+
+.combobox-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+
+.combobox-control.open {
+  border-color: rgba(47, 103, 112, 0.3);
+  box-shadow: 0 0 0 3px rgba(47, 103, 112, 0.1);
+}
+
+.combobox-input,
+.combobox-input:focus {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.combobox-input {
+  padding-right: 0.25rem;
+}
+
+.combobox-toggle {
+  min-width: 3rem;
+  height: 100%;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  box-shadow: none;
+}
+
+.combobox-toggle:hover {
+  background: rgba(47, 103, 112, 0.08);
+  transform: none;
+}
+
+.combobox-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.combobox-menu {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: grid;
+  gap: 0.2rem;
+  max-height: 18rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(24, 52, 61, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 253, 248, 0.98);
+  box-shadow: var(--shadow-lift);
+  overflow-y: auto;
+}
+
+.combobox-option {
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.combobox-option:hover,
+.combobox-option.active {
+  background: rgba(47, 103, 112, 0.1);
+  color: var(--accent-dark);
+  transform: none;
+}
+
+.combobox-option.selected {
+  background: rgba(194, 122, 60, 0.14);
+  color: var(--warm-accent-dark);
+}
+
+.combobox-status {
+  padding: 0.75rem 0.9rem;
+  color: var(--ink-soft);
+}
+
+.combobox-validation-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -1073,6 +1184,11 @@ label {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.action-icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .activities-list-toolbar {

@@ -77,6 +77,7 @@ export function PropertyDetailPage() {
             ? Number(formData.get('ownerContactId'))
             : property.ownerContactId ?? null,
           privateNotes: String(formData.get('privateNotes') ?? '').trim(),
+          publicationUrl: String(formData.get('publicationUrl') ?? '').trim(),
           photos: property.photos.map((photo) => ({
             url: photo.url,
             thumbnailUrl: photo.thumbnailUrl ?? null,
@@ -265,6 +266,14 @@ export function PropertyDetailPage() {
               <textarea name="description" rows={3} defaultValue={property.description ?? ''} />
             </label>
             <label className="full-span">
+              {t('properties.publicationUrl')}
+              <input
+                name="publicationUrl"
+                type="url"
+                defaultValue={property.publicationUrl ?? ''}
+              />
+            </label>
+            <label className="full-span">
               {t('properties.privateNotes')}
               <textarea name="privateNotes" rows={3} defaultValue={property.privateNotes ?? ''} />
             </label>
@@ -290,6 +299,18 @@ export function PropertyDetailPage() {
               t('properties.withoutAppraisal')
             )}
           </p>
+          {property.publicationUrl ? (
+            <p className="muted">
+              <a
+                href={property.publicationUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="agenda-link"
+              >
+                {t('properties.openPublication')}
+              </a>
+            </p>
+          ) : null}
           <div className="photo-grid">
             {property.photos.map((photo) => (
               <img

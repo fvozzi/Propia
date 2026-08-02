@@ -43,6 +43,7 @@ type PropertyFormState = {
   appraisalRequestId: string;
   photoUrl: string;
   privateNotes: string;
+  publicationUrl: string;
 };
 
 const initialForm: PropertyFormState = {
@@ -73,10 +74,20 @@ const initialForm: PropertyFormState = {
   appraisalRequestId: '',
   photoUrl: '',
   privateNotes: '',
+  publicationUrl: '',
 };
 
 function stringifyNumber(value: number | null) {
   return value === null ? '' : String(value);
+}
+
+function stringifyAppraisalFloor(value: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  return /^\d+$/.test(trimmed) ? trimmed : '';
 }
 
 function buildPrivateNotesFromAppraisal(request: AppraisalRequest) {
@@ -161,7 +172,7 @@ export function PropertiesCreatePage() {
       coveredArea: stringifyNumber(request.coveredArea),
       semiCoveredArea: stringifyNumber(request.semiCoveredArea),
       uncoveredArea: stringifyNumber(request.uncoveredArea),
-      floor: stringifyNumber(request.floor),
+      floor: stringifyAppraisalFloor(request.floor),
       amenities: request.amenities ?? current.amenities,
       orientation: request.orientation ?? current.orientation,
       disposition: request.disposition ?? current.disposition,
@@ -194,6 +205,8 @@ export function PropertiesCreatePage() {
         disposition: form.disposition || undefined,
         ownerContactId: form.ownerContactId ? Number(form.ownerContactId) : undefined,
         appraisalRequestId: form.appraisalRequestId ? Number(form.appraisalRequestId) : undefined,
+        title: form.title.trim() || undefined,
+        publicationUrl: form.publicationUrl.trim() || undefined,
         photos: form.photoUrl
           ? [{ url: form.photoUrl, thumbnailUrl: form.photoUrl, caption: 'Main', orderIndex: 0 }]
           : [],
@@ -241,10 +254,6 @@ export function PropertiesCreatePage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            {t('common.title')}
-            <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
           </label>
           <label>
             {t('properties.address')}
@@ -409,6 +418,16 @@ export function PropertiesCreatePage() {
               onChange={(event) => setForm((current) => ({ ...current, hasGarage: event.target.checked }))}
             />
             <span>{t('appraisals.hasGarage')}</span>
+          </label>
+          <label>
+            {t('properties.publicationUrl')}
+            <input
+              type="url"
+              value={form.publicationUrl}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, publicationUrl: event.target.value }))
+              }
+            />
           </label>
           <label>
             {t('properties.photoUrl')}

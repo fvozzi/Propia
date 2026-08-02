@@ -37,8 +37,9 @@ class PropertyPhotoInput {
 }
 
 export class CreatePropertyDto {
+  @IsOptional()
   @IsString()
-  title: string;
+  title?: string;
 
   @IsOptional()
   @IsString()
@@ -155,6 +156,10 @@ export class CreatePropertyDto {
   @IsOptional()
   @IsString()
   privateNotes?: string;
+
+  @IsOptional()
+  @IsString()
+  publicationUrl?: string;
 
   @IsOptional()
   @IsArray()

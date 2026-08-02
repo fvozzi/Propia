@@ -330,8 +330,6 @@ export function AppraisalRequestFormPage() {
           <label>
             {t('appraisals.floor')}
             <input
-              type="number"
-              min="0"
               value={form.floor}
               onChange={(event) => setForm((current) => ({ ...current, floor: event.target.value }))}
             />
@@ -558,7 +556,7 @@ function buildPayload(form: AppraisalFormState) {
     bedrooms: parseNullableNumber(form.bedrooms) ?? undefined,
     bathrooms: parseNullableNumber(form.bathrooms) ?? undefined,
     expenses: parseNullableNumber(form.expenses) ?? undefined,
-    floor: parseNullableNumber(form.floor) ?? undefined,
+    floor: form.floor.trim() || undefined,
     amenities: form.amenities || undefined,
     orientation: form.orientation || undefined,
     disposition: form.disposition || undefined,
@@ -586,7 +584,7 @@ function buildFormState(request: AppraisalRequest): AppraisalFormState {
     bedrooms: toInputNumberValue(request.bedrooms),
     bathrooms: toInputNumberValue(request.bathrooms),
     expenses: toInputNumberValue(request.expenses),
-    floor: toInputNumberValue(request.floor),
+    floor: request.floor ?? '',
     amenities: request.amenities ?? '',
     orientation: request.orientation ?? '',
     disposition: request.disposition ?? '',

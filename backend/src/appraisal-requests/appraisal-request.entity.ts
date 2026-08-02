@@ -72,8 +72,8 @@ export class AppraisalRequest {
   @Column({ type: 'double precision', nullable: true })
   expenses: number | null;
 
-  @Column({ type: 'integer', nullable: true })
-  floor: number | null;
+  @Column({ type: 'varchar', nullable: true })
+  floor: string | null;
 
   @Column({ type: 'text', nullable: true })
   amenities: string | null;

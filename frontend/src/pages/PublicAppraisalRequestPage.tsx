@@ -99,7 +99,7 @@ export function PublicAppraisalRequestPage() {
         bedrooms: data.bedrooms ? String(data.bedrooms) : '',
         bathrooms: data.bathrooms ? String(data.bathrooms) : '',
         expenses: data.expenses ? String(data.expenses) : '',
-        floor: data.floor ? String(data.floor) : '',
+        floor: data.floor ?? '',
         amenities: data.amenities ?? '',
         orientation: data.orientation ?? '',
         disposition: data.disposition ?? '',
@@ -144,7 +144,7 @@ export function PublicAppraisalRequestPage() {
         bedrooms: form.bedrooms ? Number(form.bedrooms) : undefined,
         bathrooms: form.bathrooms ? Number(form.bathrooms) : undefined,
         expenses: form.expenses ? Number(form.expenses) : undefined,
-        floor: form.floor ? Number(form.floor) : undefined,
+        floor: form.floor.trim() || undefined,
         amenities: form.amenities || undefined,
         orientation: form.orientation || undefined,
         disposition: form.disposition || undefined,
@@ -270,7 +270,7 @@ export function PublicAppraisalRequestPage() {
           </label>
           <label>
             {t('appraisals.floor')}
-            <input type="number" min="0" value={form.floor} onChange={(event) => setForm((current) => ({ ...current, floor: event.target.value }))} />
+            <input value={form.floor} onChange={(event) => setForm((current) => ({ ...current, floor: event.target.value }))} />
           </label>
           <label className="full-span">
             {t('appraisals.amenitiesText')}

@@ -49,14 +49,18 @@ export class ActivitiesService {
     const teamId = requireActiveTeamId(user);
     await this.assertScopedRelations(dto.contactId ?? null, dto.propertyId ?? null, dto.appraisalRequestId ?? null, teamId);
     this.assertPropertySearchPayload(dto.activityType, dto.externalUrl);
-    const nextTitle =
+    const draftTitle =
       dto.activityType === ActivityType.APPRAISAL_REQUEST
         ? buildAppraisalRequestActivityTitle(dto.appraisalPropertyAddress ?? null)
-        : dto.title;
+        : readOptionalString(dto.title) ?? buildDefaultActivityTitle(dto.activityType);
     const preview =
       dto.activityType === ActivityType.PROPERTY_SEARCH
-        ? await this.resolvePropertySearchPreview(dto.externalUrl?.trim() || null, nextTitle, null)
+        ? await this.resolvePropertySearchPreview(dto.externalUrl?.trim() || null, draftTitle, null)
         : createEmptyActivityPreview();
+    const nextTitle =
+      dto.activityType === ActivityType.PROPERTY_SEARCH
+        ? preview.title?.trim() || draftTitle
+        : draftTitle;
 
     let appraisalRequestId = dto.appraisalRequestId ?? null;
 
@@ -285,12 +289,14 @@ export class ActivitiesService {
     const nextAppraisalRequestId = activity.appraisalRequestId;
     await this.assertScopedRelations(nextContactId ?? null, nextPropertyId ?? null, nextAppraisalRequestId ?? null, teamId);
     this.assertPropertySearchPayload(nextActivityType, dto.externalUrl ?? activity.externalUrl ?? undefined);
-    const nextTitle =
+    const draftTitle =
       nextActivityType === ActivityType.APPRAISAL_REQUEST
         ? buildAppraisalRequestActivityTitle(
             dto.appraisalPropertyAddress ?? activity.appraisalRequest?.propertyAddress ?? null,
           )
-        : dto.title ?? activity.title;
+        : readOptionalString(dto.title) ??
+          readOptionalString(activity.title) ??
+          buildDefaultActivityTitle(nextActivityType);
     const nextExternalUrl =
       nextActivityType === ActivityType.PROPERTY_SEARCH ||
       nextActivityType === ActivityType.RESERVATION
@@ -300,8 +306,12 @@ export class ActivitiesService {
         : null;
     const preview =
       nextActivityType === ActivityType.PROPERTY_SEARCH
-        ? await this.resolvePropertySearchPreview(nextExternalUrl, nextTitle, activity)
+        ? await this.resolvePropertySearchPreview(nextExternalUrl, draftTitle, activity)
         : createEmptyActivityPreview();
+    const nextTitle =
+      nextActivityType === ActivityType.PROPERTY_SEARCH
+        ? preview.title?.trim() || draftTitle
+        : draftTitle;
 
     if (nextActivityType === ActivityType.APPRAISAL_REQUEST) {
       if (!nextContactId) {
@@ -922,4 +932,26 @@ function requiresBrowserPreview(url: string, error: unknown) {
   }
 
   return /preview-fetch:403:|preview-fetch:429:|preview-fetch:503:/i.test(error.message);
+}
+
+function buildDefaultActivityTitle(activityType: ActivityType) {
+  const titles: Record<ActivityType, string> = {
+    [ActivityType.CALL]: 'Llamada',
+    [ActivityType.WHATSAPP]: 'WhatsApp',
+    [ActivityType.EMAIL]: 'Email',
+    [ActivityType.INSTAGRAM]: 'Instagram',
+    [ActivityType.MEETING]: 'Reunion',
+    [ActivityType.VISIT]: 'Visita',
+    [ActivityType.NOTE]: 'Nota',
+    [ActivityType.FOLLOW_UP]: 'Seguimiento',
+    [ActivityType.PROPERTY_SEARCH]: 'Busqueda de propiedad',
+    [ActivityType.APPRAISAL_REQUEST]: 'Prelisting',
+    [ActivityType.MARKET_ANALYSIS]: 'Analisis de mercado',
+    [ActivityType.PHOTO_SESSION]: 'Sesion de fotos',
+    [ActivityType.RESERVATION]: 'Reserva',
+    [ActivityType.SALE_DEED]: 'Escritura de venta',
+    [ActivityType.PURCHASE_DEED]: 'Escritura de compra',
+  };
+
+  return titles[activityType];
 }

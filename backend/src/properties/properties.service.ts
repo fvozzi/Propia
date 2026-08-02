@@ -43,6 +43,7 @@ type PropertyDraftPayload = Partial<CreatePropertyDto> & {
   ownerContactId?: number | null;
   appraisalRequestId?: number | null;
   privateNotes?: string | null;
+  publicationUrl?: string | null;
 };
 
 @Injectable()
@@ -78,6 +79,7 @@ export class PropertiesService {
 
     const property = this.propertiesRepository.create({
       ...draft,
+      title: buildPropertyTitle(draft.title, draft.address),
       teamId,
       ownerUserId: user.sub,
       ownerContactId: draft.ownerContactId ?? null,
@@ -358,7 +360,7 @@ export class PropertiesService {
       uncoveredArea: uncoveredArea ?? undefined,
       totalArea: dto.totalArea ?? appraisalRequest?.totalArea ?? computedAreas.totalArea ?? undefined,
       weightedArea: dto.weightedArea ?? appraisalRequest?.weightedArea ?? computedAreas.weightedArea ?? undefined,
-      floor: dto.floor ?? appraisalRequest?.floor ?? undefined,
+      floor: dto.floor ?? parseNumericFloor(appraisalRequest?.floor) ?? undefined,
       amenities: dto.amenities ?? appraisalRequest?.amenities ?? undefined,
       orientation: dto.orientation ?? appraisalRequest?.orientation ?? undefined,
       disposition: dto.disposition ?? appraisalRequest?.disposition ?? undefined,
@@ -366,6 +368,7 @@ export class PropertiesService {
       hasGarage: dto.hasGarage ?? appraisalRequest?.hasGarage ?? undefined,
       ownerContactId: dto.ownerContactId ?? appraisalRequest?.contactId ?? undefined,
       privateNotes,
+      publicationUrl: dto.publicationUrl?.trim() || null,
       appraisalRequestId: dto.appraisalRequestId ?? appraisalRequest?.id ?? undefined,
     };
   }
@@ -527,4 +530,32 @@ export class PropertiesService {
       }),
     );
   }
+}
+
+function parseNumericFloor(value: string | null | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return undefined;
+  }
+
+  const numeric = Number(trimmed);
+  return Number.isInteger(numeric) ? numeric : undefined;
+}
+
+function buildPropertyTitle(title: string | undefined, address: string | undefined) {
+  const normalizedTitle = title?.trim();
+  if (normalizedTitle) {
+    return normalizedTitle;
+  }
+
+  const normalizedAddress = address?.trim();
+  if (normalizedAddress) {
+    return normalizedAddress;
+  }
+
+  return 'Propiedad';
 }

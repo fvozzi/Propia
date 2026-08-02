@@ -61,7 +61,7 @@ describe('appraisal-initial-intake use case', () => {
         bedrooms: 2,
         bathrooms: 2,
         expenses: 180000,
-        floor: 7,
+        floor: '7A',
         amenities: 'Pileta, SUM',
         orientation: AppraisalOrientation.NORTH,
         disposition: AppraisalDisposition.FRONT,

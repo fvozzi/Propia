@@ -67,10 +67,11 @@ export class AppraisalRequestBaseDto {
   expenses?: number;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  floor?: number;
+  @Transform(({ value }) => normalizeOptionalString(value))
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  floor?: string;
 
   @Transform(({ value }) => normalizeOptionalString(value))
   @IsOptional()

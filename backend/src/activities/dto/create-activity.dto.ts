@@ -30,8 +30,9 @@ export class CreateActivityDto {
   @IsEnum(ActivityType)
   activityType: ActivityType;
 
+  @IsOptional()
   @IsString()
-  title: string;
+  title?: string;
 
   @IsOptional()
   @IsString()

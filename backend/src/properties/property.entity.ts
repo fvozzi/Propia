@@ -134,6 +134,9 @@ export class Property {
   @Column({ type: 'text', nullable: true })
   privateNotes: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  publicationUrl: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

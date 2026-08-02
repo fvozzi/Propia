@@ -52,6 +52,15 @@ export function PropertiesPage() {
     await load(page);
   }
 
+  async function handleCopyPublicationUrl(property: Property) {
+    if (!property.publicationUrl?.trim()) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(property.publicationUrl.trim());
+    window.alert(t('common.copySuccess'));
+  }
+
   return (
     <div className="page-stack">
       <ResourcePageHeader
@@ -130,12 +139,73 @@ export function PropertiesPage() {
               </p>
               <StatusPill value={property.status} />
             </div>
-            <button type="button" className="ghost-button" onClick={() => handleDelete(property.id)}>
-              {t('common.delete')}
-            </button>
+            <div className="candidate-actions contact-row-actions">
+              <Link
+                to={`/properties/${property.id}`}
+                className="ghost-button button-link action-icon-button"
+                aria-label={t('properties.editProperty')}
+                title={t('properties.editProperty')}
+              >
+                <EditIcon />
+              </Link>
+              <button
+                type="button"
+                className="ghost-button action-icon-button"
+                onClick={() => void handleCopyPublicationUrl(property)}
+                disabled={!property.publicationUrl?.trim()}
+                aria-label={t('properties.copyPublicationUrl')}
+                title={
+                  property.publicationUrl?.trim()
+                    ? t('properties.copyPublicationUrl')
+                    : t('properties.noPublicationUrl')
+                }
+              >
+                <LinkIcon />
+              </button>
+              <button
+                type="button"
+                className="ghost-button action-icon-button"
+                onClick={() => void handleDelete(property.id)}
+                aria-label={t('common.delete')}
+                title={t('common.delete')}
+              >
+                <DeleteIcon />
+              </button>
+            </div>
           </article>
         ))}
       </PaginatedListCard>
     </div>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4l10-10-4-4L4 16v4Z" />
+      <path d="m12 6 4 4" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 0 1 7 7L17 13" />
+      <path d="M14 11a5 5 0 0 1 0 7l-1.5 1.5a5 5 0 0 1-7-7L7 11" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M8 7l1 13h6l1-13" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
   );
 }

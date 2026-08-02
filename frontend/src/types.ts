@@ -241,6 +241,7 @@ export interface Property {
   ownerContactId: number | null;
   appraisalRequestId: number | null;
   privateNotes: string | null;
+  publicationUrl: string | null;
   createdAt: string;
   updatedAt: string;
   photos: PropertyPhoto[];
@@ -520,7 +521,7 @@ export interface AppraisalRequest {
   bedrooms: number | null;
   bathrooms: number | null;
   expenses: number | null;
-  floor: number | null;
+  floor: string | null;
   amenities: string | null;
   orientation: AppraisalOrientation | null;
   disposition: AppraisalDisposition | null;

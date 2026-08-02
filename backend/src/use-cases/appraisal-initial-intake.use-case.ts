@@ -16,7 +16,7 @@ export type AppraisalDraft = {
   bedrooms?: number | null;
   bathrooms?: number | null;
   expenses?: number | null;
-  floor?: number | null;
+  floor?: string | null;
   amenities?: string | null;
   orientation?: AppraisalOrientation | null;
   disposition?: AppraisalDisposition | null;

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
+import { SearchableCombobox } from '../components/SearchableCombobox';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import {
@@ -448,31 +449,24 @@ export function ActivitiesCreatePage() {
           </label>
           <label>
             {t('common.contact')}
-            <div className="stack-gap">
-              <input
-                type="search"
-                value={contactSearch}
-                onChange={(event) => setContactSearch(event.target.value)}
-                placeholder={t('common.search')}
-                aria-label={`${t('common.search')} ${t('common.contact').toLowerCase()}`}
-                autoComplete="off"
-              />
-              <select
-                value={form.contactId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, contactId: event.target.value }))
-                }
-                required={isPropertySearch || isAppraisalRequest}
-              >
-                <option value="">{t('activities.withoutContact')}</option>
-                {visibleContacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.displayName}
-                  </option>
-                ))}
-              </select>
-              {contactsLoading ? <p className="muted">{t('common.loading')}</p> : null}
-            </div>
+            <SearchableCombobox
+              value={form.contactId}
+              options={visibleContacts.map((contact) => ({
+                value: String(contact.id),
+                label: contact.displayName,
+              }))}
+              searchValue={contactSearch}
+              onSearchValueChange={setContactSearch}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, contactId: value }))
+              }
+              placeholder={t('common.search')}
+              emptyLabel={t('activities.withoutContact')}
+              loadingLabel={t('common.loading')}
+              noResultsLabel={t('common.noData')}
+              required={isPropertySearch || isAppraisalRequest}
+              loading={contactsLoading}
+            />
           </label>
           {isAppraisalRequest ? (
             <label>
@@ -545,18 +539,6 @@ export function ActivitiesCreatePage() {
                 </label>
               ) : null}
             </div>
-          ) : null}
-          {!isAppraisalRequest ? (
-            <label className="full-span">
-              {isPropertySearch ? t('activities.listingTitle') : t('common.title')}
-              <input
-                value={form.title}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, title: event.target.value }))
-                }
-                required
-              />
-            </label>
           ) : null}
           {isAppraisalRequest ? (
             <p className="muted full-span">{t('activities.appraisalRequestHint')}</p>
@@ -989,7 +971,7 @@ function buildActivityPayload(
     propertyId:
       !isAppraisalRequest && linkProperty && form.propertyId ? Number(form.propertyId) : null,
     activityType: form.activityType,
-    title: isAppraisalRequest ? 'Prelisting' : form.title,
+    title: isAppraisalRequest ? 'Prelisting' : form.title.trim() || undefined,
     description: isAppraisalRequest ? null : form.description || null,
     appraisalPropertyAddress: isAppraisalRequest ? form.appraisalPropertyAddress || null : null,
     externalUrl:
