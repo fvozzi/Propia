@@ -43,20 +43,54 @@ Ir a [Requerimientos](/requirements) y definir:
 
 Al guardar, el CRM crea o alimenta una **oportunidad comercial de compra** en [Oportunidades](/opportunities).
 
-### 3. Investigar y hacer seguimiento
+### 3. Gestionar la busqueda del comprador
 
-Usar [Actividades](/activities) para registrar:
+Entrar al requerimiento y usar `Gestionar busqueda`.
 
-- llamadas
-- WhatsApp
-- seguimientos
-- links investigados
-- visitas
-- muestras
+Desde ahi se puede:
+
+1. agregar propiedades candidatas
+2. cargar una propiedad del CRM o un link externo
+3. guardar nombre y WhatsApp del agente
+4. abrir WhatsApp con mensaje prearmado al agente
+5. registrar que paso con cada propiedad
+
+Estados habituales de cada candidata:
+
+- por contactar
+- contactado
+- esperando respuesta
+- horarios propuestos
+- visita coordinada
+- visitada
+- descartada
+- interesado
+
+Si el agente pasa horarios, conviene cargarlos en la candidata.
+
+Si confirma una visita:
+
+1. guardar fecha y hora en la candidata
+2. usar `Crear visita en agenda`
+3. revisar la recorrida que arma el sistema dentro de la misma pantalla
+
+### 4. Registrar actividades complementarias
+
+Usar [Actividades](/activities) para registrar lo que no vive dentro de la gestion de comprador:
+
+- llamadas generales
+- seguimientos comerciales
+- WhatsApp no ligados a una candidata puntual
 - reserva
 - escritura de compra
 
-### 4. Seguir el avance del negocio
+### 5. Enviar la recorrida al comprador
+
+Cuando ya hay varias visitas coordinadas, usar `Enviar recorrida` desde la gestion de busqueda.
+
+El sistema abre WhatsApp con el itinerario ordenado por fecha y hora para mandarselo al comprador.
+
+### 6. Seguir el avance del negocio
 
 Usar [Oportunidades](/opportunities) para ver si el negocio esta:
 
@@ -66,7 +100,7 @@ Usar [Oportunidades](/opportunities) para ver si el negocio esta:
 - reservado
 - cierre ganado
 
-### 5. Registrar el resultado economico
+### 7. Registrar el resultado economico
 
 En [Finanzas](/finances):
 

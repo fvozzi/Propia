@@ -2,7 +2,7 @@
 
 ## Indice
 
-- [UC1. Buscar propiedades para un contacto comprador](#uc1-buscar-propiedades-para-un-contacto-comprador)
+- [UC1. Gestionar busqueda de comprador y coordinacion de propiedades](#uc1-gestionar-busqueda-de-comprador-y-coordinacion-de-propiedades)
 - [UC2. Cargar requerimiento de busqueda para un contacto comprador](#uc2-cargar-requerimiento-de-busqueda-para-un-contacto-comprador)
 - [UC3. Prelisting: preguntas iniciales](#uc3-prelisting-preguntas-iniciales)
 - [UC4. Dashboard de requerimientos por tipo y pipeline](#uc4-dashboard-de-requerimientos-por-tipo-y-pipeline)
@@ -18,38 +18,105 @@
 - [UC13. Base de relaciones desde Google Contacts](#uc13-base-de-relaciones-desde-google-contacts)
 - [Nota](#nota)
 
-## UC1. Buscar propiedades para un contacto comprador
+## UC1. Gestionar busqueda de comprador y coordinacion de propiedades
 
-- Objetivo: permitir que la usuaria investigue propiedades para un contacto comprador, cargue resultados de busqueda en el CRM como actividades y gestione si ya fueron compartidos por WhatsApp o siguen pendientes.
+- Objetivo: permitir que la usuaria trabaje un comprador dentro de Propia desde que define que propiedades candidatear hasta que coordina visitas, arma la recorrida y la envia por WhatsApp.
 - Actor principal: usuaria comercial.
-- Entidad principal propuesta: `Activity` con tipo `PROPERTY_SEARCH`.
+- Entidades principales propuestas:
+  - `SearchRequirement` como contenedor de la busqueda del comprador
+  - `BuyerPropertyCandidate` como unidad operativa por propiedad candidata
+  - `Visit` para llevar a agenda las visitas efectivamente coordinadas
+
+### Problema a resolver
+
+- Hoy gran parte de la coordinacion con colegas queda afuera del CRM y luego obliga a reconstruir que paso con cada propiedad.
+- El trabajo real no es solo "compartir links":
+  - hay que contactar agentes
+  - esperar respuestas
+  - registrar horarios ofrecidos
+  - confirmar visitas
+  - descartar o priorizar opciones
+  - consolidar una recorrida para el comprador
 
 ### Flujo esperado
 
 1. La usuaria parte de un contacto comprador con un requerimiento cargado.
-2. La usuaria agrega al CRM una actividad de busqueda de propiedad con titulo, link publicado y comentario para WhatsApp.
-3. El CRM registra esa accion en la linea de vida del contacto.
-4. El link queda marcado inicialmente como pendiente de envio por WhatsApp.
-5. Cuando la usuaria comparte la propiedad, el CRM guarda el comentario enviado, el link compartido y el momento del envio.
-6. El dashboard debe poder mostrar cuantos links siguen pendientes de envio por WhatsApp.
+2. Desde ese requerimiento abre la pantalla de `Gestionar busqueda`.
+3. La usuaria agrega propiedades candidatas:
+  - desde una propiedad propia del CRM
+  - o cargando portal, link y titulo si se trata de una publicacion externa
+4. Cada propiedad candidata queda con su seguimiento propio y estado inicial `Por contactar`.
+5. Desde cada candidata la usuaria puede abrir WhatsApp al agente con un mensaje prearmado para consultar disponibilidad y horarios.
+6. Al volver al CRM la usuaria registra rapidamente que paso con esa propiedad, por ejemplo:
+  - `Esperando respuesta`
+  - `Horarios propuestos`
+  - `Visita coordinada`
+  - `Descartada`
+  - `Interesado`
+7. Si el colega pasa horarios, la usuaria los registra en la candidata sin tener que crear todavia una visita formal.
+8. Cuando se confirma una visita, la usuaria guarda fecha y hora en la candidata y puede crear la `Visit` en agenda.
+9. El sistema muestra dentro de la misma busqueda una recorrida ordenada con todas las candidatas que ya tienen horario confirmado.
+10. La usuaria puede enviar por WhatsApp al comprador la recorrida completa con las visitas coordinadas.
+
+### Estados operativos por propiedad candidata
+
+- `Por contactar`
+- `Contactado`
+- `Esperando respuesta`
+- `Horarios propuestos`
+- `Visita coordinada`
+- `Visitada`
+- `Descartada`
+- `Interesado`
+
+### Primera version implementada
+
+- La gestion operativa se monta sobre `SearchRequirement`, sin crear una entidad nueva de "busqueda de comprador".
+- La entidad `BuyerPropertyCandidate` ahora guarda:
+  - propiedad del CRM opcional
+  - portal, URL y titulo
+  - nombre y WhatsApp del agente
+  - estado operativo
+  - horarios propuestos
+  - horario confirmado de visita
+  - notas de seguimiento
+  - ultimo contacto
+- Existe una pantalla dedicada por requerimiento:
+  - ruta: `/requirements/:id/manage`
+- Desde esa pantalla se puede:
+  - agregar candidatas
+  - actualizar su seguimiento
+  - abrir WhatsApp del agente
+  - crear la visita en agenda cuando ya esta confirmada
+  - enviar la recorrida al comprador por WhatsApp
 
 ### Criterios de aceptacion
 
-- Cada resultado de investigacion debe quedar asociado a un contacto mediante una actividad.
-- La accion debe conservar la URL, un comentario para WhatsApp y notas internas opcionales.
-- Debe existir un estado explicito para distinguir `pendiente de compartir` de `compartido por WhatsApp`.
-- Debe poder generarse un mensaje de WhatsApp con comentarios y link.
-- Debe poder abrir WhatsApp Web directamente usando el numero del contacto.
-- El dashboard debe poder contar pendientes de envio.
+- La busqueda del comprador debe poder gestionarse desde un requerimiento existente.
+- Cada propiedad candidata debe tener estado propio, independiente de las otras candidatas del mismo comprador.
+- Debe poder trabajarse tanto con propiedades del CRM como con links externos.
+- Debe existir una accion rapida para abrir WhatsApp al agente desde cada candidata.
+- El sistema debe conservar nombre del agente, WhatsApp, horarios ofrecidos, horario confirmado y notas operativas.
+- La recorrida debe construirse automaticamente con las candidatas en estado `Visita coordinada` que tengan fecha/hora confirmada.
+- Debe poder enviarse al comprador un mensaje de WhatsApp con el itinerario consolidado.
+- La creacion de la `Visit` en agenda debe ser explicita y no debe duplicar una visita ya creada con la misma propiedad y horario.
 
-### Cobertura unitaria
+### Cobertura implementada y asociada
 
-- Archivo: `backend/src/use-cases/buyer-property-search.use-case.spec.ts`
-- Reglas cubiertas:
-  - alta inicial en estado pendiente
-  - transicion a compartido por WhatsApp
-  - construccion del mensaje de WhatsApp
-  - conteo de pendientes
+- Archivos involucrados:
+  - `frontend/src/pages/SearchRequirementManagePage.tsx`
+  - `backend/src/buyer-property-candidates/*`
+  - `frontend/src/lib/whatsapp.ts`
+- Cobertura unitaria ya existente relacionada:
+  - `backend/src/use-cases/buyer-property-search.use-case.spec.ts`
+    - alta inicial en estado pendiente de WhatsApp
+    - transicion a compartido por WhatsApp
+  - `frontend/src/lib/whatsapp.test.ts`
+    - apertura de WhatsApp y construccion de mensajes
+- Cobertura recomendada a agregar:
+  - persistencia de estados operativos por candidata
+  - armado de recorrida ordenada por fecha/hora
+  - prevencion de visitas duplicadas al crear agenda desde la gestion
 
 ## UC2. Cargar requerimiento de busqueda para un contacto comprador
 

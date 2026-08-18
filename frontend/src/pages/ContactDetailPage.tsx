@@ -144,6 +144,20 @@ export function ContactDetailPage() {
                     {t('common.property')}: {requirement.property.title}
                   </Link>
                 ) : null}
+                <div className="candidate-actions">
+                  <Link
+                    to={`/requirements/${requirement.id}/manage`}
+                    className="ghost-button button-link"
+                  >
+                    {t('contacts.openBuyerSearch')}
+                  </Link>
+                  <Link
+                    to={`/requirements/${requirement.id}/edit`}
+                    className="ghost-button button-link"
+                  >
+                    {t('common.update')}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

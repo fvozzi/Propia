@@ -100,6 +100,12 @@ export function SearchRequirementsPage() {
               >
                 Buscar en portales
               </Link>
+              <Link
+                to={`/requirements/${requirement.id}/manage`}
+                className="ghost-button button-link"
+              >
+                {t('requirements.manageRequirement')}
+              </Link>
               <Link to={`/requirements/${requirement.id}/edit`} className="ghost-button button-link">
                 {t('common.update')}
               </Link>

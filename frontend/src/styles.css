@@ -379,7 +379,10 @@ label {
 .pill-active,
 .pill-owner,
 .pill-buyer,
-.pill-scheduled {
+.pill-scheduled,
+.pill-visit_scheduled,
+.pill-visited,
+.pill-interested {
   background: rgba(40, 167, 69, 0.16);
   color: #206132;
 }
@@ -388,7 +391,9 @@ label {
 .pill-follow_up,
 .pill-whatsapp,
 .pill-rescheduled,
-.pill-shared_whatsapp {
+.pill-shared_whatsapp,
+.pill-contacted,
+.pill-proposed_schedules {
   background: rgba(47, 103, 112, 0.14);
   color: #1e4f56;
 }
@@ -396,7 +401,9 @@ label {
 .pill-note,
 .pill-other,
 .pill-appraisal,
-.pill-pending_whatsapp {
+.pill-pending_whatsapp,
+.pill-to_contact,
+.pill-waiting_response {
   background: rgba(84, 84, 84, 0.14);
   color: #444;
 }
@@ -412,7 +419,8 @@ label {
 .pill-disabled,
 .pill-suspended,
 .pill-cancelled,
-.pill-archived {
+.pill-archived,
+.pill-discarded {
   background: rgba(190, 40, 40, 0.14);
   color: #9f2323;
 }
@@ -513,6 +521,27 @@ label {
 .stack-gap {
   display: grid;
   gap: 0.8rem;
+}
+
+.buyer-search-summary {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.buyer-search-grid {
+  align-items: stretch;
+}
+
+.buyer-search-candidate {
+  gap: 1rem;
+}
+
+.buyer-search-candidate-form {
+  padding-top: 0.25rem;
+}
+
+.buyer-search-candidate textarea {
+  resize: vertical;
 }
 
 .combobox {

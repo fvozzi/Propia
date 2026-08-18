@@ -62,6 +62,15 @@ export type SearchRequirementAgeRange =
   | 'UP_TO_50_YEARS'
   | 'OVER_50_YEARS';
 export type BuyerPropertyShareStatus = 'PENDING_WHATSAPP' | 'SHARED_WHATSAPP';
+export type BuyerPropertyCandidateWorkflowStatus =
+  | 'TO_CONTACT'
+  | 'CONTACTED'
+  | 'WAITING_RESPONSE'
+  | 'PROPOSED_SCHEDULES'
+  | 'VISIT_SCHEDULED'
+  | 'VISITED'
+  | 'DISCARDED'
+  | 'INTERESTED';
 export type ActivityType =
   | 'CALL'
   | 'WHATSAPP'
@@ -278,6 +287,7 @@ export interface SearchRequirement {
   updatedAt: string;
   contact?: Contact;
   property?: Property | null;
+  propertyCandidates?: BuyerPropertyCandidate[];
 }
 
 export interface PortalSourceConfig {
@@ -440,16 +450,25 @@ export interface BuyerPropertyCandidate {
   id: number;
   contactId: number;
   searchRequirementId: number | null;
+  propertyId: number | null;
   portal: string;
   url: string;
   title: string;
   internalNotes: string | null;
   shareComments: string | null;
+  workflowStatus: BuyerPropertyCandidateWorkflowStatus;
+  agentName: string | null;
+  agentWhatsapp: string | null;
+  proposedScheduleOptions: string | null;
+  scheduledVisitAt: string | null;
+  workflowNotes: string | null;
+  lastContactedAt: string | null;
   shareStatus: BuyerPropertyShareStatus;
   sharedAt: string | null;
   createdAt: string;
   updatedAt: string;
   contact?: Contact;
+  property?: Property | null;
   searchRequirement?: SearchRequirement | null;
 }
 

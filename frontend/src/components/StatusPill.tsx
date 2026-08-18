@@ -11,6 +11,7 @@ const enumGroups: Record<
   | 'activityType'
   | 'visitStatus'
   | 'buyerPropertyShareStatus'
+  | 'buyerPropertyCandidateWorkflowStatus'
 > = {
   OWNER: 'role',
   BUYER: 'role',
@@ -60,6 +61,14 @@ const enumGroups: Record<
   RESCHEDULED: 'visitStatus',
   PENDING_WHATSAPP: 'buyerPropertyShareStatus',
   SHARED_WHATSAPP: 'buyerPropertyShareStatus',
+  TO_CONTACT: 'buyerPropertyCandidateWorkflowStatus',
+  CONTACTED: 'buyerPropertyCandidateWorkflowStatus',
+  WAITING_RESPONSE: 'buyerPropertyCandidateWorkflowStatus',
+  PROPOSED_SCHEDULES: 'buyerPropertyCandidateWorkflowStatus',
+  VISIT_SCHEDULED: 'buyerPropertyCandidateWorkflowStatus',
+  VISITED: 'buyerPropertyCandidateWorkflowStatus',
+  DISCARDED: 'buyerPropertyCandidateWorkflowStatus',
+  INTERESTED: 'buyerPropertyCandidateWorkflowStatus',
 };
 
 export function StatusPill({ value }: { value: string }) {

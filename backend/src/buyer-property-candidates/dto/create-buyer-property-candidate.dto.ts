@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsUrl } from 'class-validator';
+import { BuyerPropertyCandidateWorkflowStatus } from '../../common/enums';
 
 export class CreateBuyerPropertyCandidateDto {
   @Type(() => Number)
@@ -10,6 +11,11 @@ export class CreateBuyerPropertyCandidateDto {
   @Type(() => Number)
   @IsInt()
   searchRequirementId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  propertyId?: number;
 
   @IsString()
   portal: string;
@@ -29,4 +35,24 @@ export class CreateBuyerPropertyCandidateDto {
   @IsOptional()
   @IsString()
   shareComments?: string;
+
+  @IsOptional()
+  @IsEnum(BuyerPropertyCandidateWorkflowStatus)
+  workflowStatus?: BuyerPropertyCandidateWorkflowStatus;
+
+  @IsOptional()
+  @IsString()
+  agentName?: string;
+
+  @IsOptional()
+  @IsString()
+  agentWhatsapp?: string;
+
+  @IsOptional()
+  @IsString()
+  proposedScheduleOptions?: string;
+
+  @IsOptional()
+  @IsString()
+  workflowNotes?: string;
 }

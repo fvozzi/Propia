@@ -53,6 +53,17 @@ export enum BuyerPropertyShareStatus {
   SHARED_WHATSAPP = 'SHARED_WHATSAPP',
 }
 
+export enum BuyerPropertyCandidateWorkflowStatus {
+  TO_CONTACT = 'TO_CONTACT',
+  CONTACTED = 'CONTACTED',
+  WAITING_RESPONSE = 'WAITING_RESPONSE',
+  PROPOSED_SCHEDULES = 'PROPOSED_SCHEDULES',
+  VISIT_SCHEDULED = 'VISIT_SCHEDULED',
+  VISITED = 'VISITED',
+  DISCARDED = 'DISCARDED',
+  INTERESTED = 'INTERESTED',
+}
+
 export enum ActivityType {
   CALL = 'CALL',
   WHATSAPP = 'WHATSAPP',

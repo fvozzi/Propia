@@ -26,6 +26,7 @@ import { PropertiesCreatePage } from './pages/PropertiesCreatePage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { PropertyDetailPage } from './pages/PropertyDetailPage';
 import { SearchRequirementCreatePage } from './pages/SearchRequirementCreatePage';
+import { SearchRequirementManagePage } from './pages/SearchRequirementManagePage';
 import { SearchRequirementMatchesPage } from './pages/SearchRequirementMatchesPage';
 import { SearchRequirementsPage } from './pages/SearchRequirementsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -63,6 +64,7 @@ export default function App() {
                 <Route path="/requirements" element={<SearchRequirementsPage />} />
                 <Route path="/requirements/new" element={<SearchRequirementCreatePage />} />
                 <Route path="/requirements/:id/edit" element={<SearchRequirementCreatePage />} />
+                <Route path="/requirements/:id/manage" element={<SearchRequirementManagePage />} />
                 <Route path="/requirements/:id/suggestions" element={<SearchRequirementMatchesPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/activities" element={<ActivitiesPage />} />

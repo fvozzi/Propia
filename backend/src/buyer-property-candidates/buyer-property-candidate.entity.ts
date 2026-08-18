@@ -7,8 +7,12 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { BuyerPropertyShareStatus } from '../common/enums';
+import {
+  BuyerPropertyCandidateWorkflowStatus,
+  BuyerPropertyShareStatus,
+} from '../common/enums';
 import { Contact } from '../contacts/contact.entity';
+import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 
 @Entity('buyer_property_candidates')
@@ -39,6 +43,16 @@ export class BuyerPropertyCandidate {
   @Column({ type: 'integer', nullable: true })
   searchRequirementId: number | null;
 
+  @ManyToOne(() => Property, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'propertyId' })
+  property: Property | null;
+
+  @Column({ type: 'integer', nullable: true })
+  propertyId: number | null;
+
   @Column()
   portal: string;
 
@@ -53,6 +67,32 @@ export class BuyerPropertyCandidate {
 
   @Column({ type: 'text', nullable: true })
   shareComments: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: BuyerPropertyCandidateWorkflowStatus,
+    enumName: 'buyer_property_candidate_workflow_status',
+    default: BuyerPropertyCandidateWorkflowStatus.TO_CONTACT,
+  })
+  workflowStatus: BuyerPropertyCandidateWorkflowStatus;
+
+  @Column({ type: 'varchar', nullable: true })
+  agentName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  agentWhatsapp: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  proposedScheduleOptions: string | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  scheduledVisitAt: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  workflowNotes: string | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  lastContactedAt: Date | null;
 
   @Column({
     type: 'enum',

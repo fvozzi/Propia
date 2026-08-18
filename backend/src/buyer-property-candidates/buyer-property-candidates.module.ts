@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Contact } from '../contacts/contact.entity';
+import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { BuyerPropertyCandidate } from './buyer-property-candidate.entity';
 import { BuyerPropertyCandidatesController } from './buyer-property-candidates.controller';
 import { BuyerPropertyCandidatesService } from './buyer-property-candidates.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BuyerPropertyCandidate, Contact, SearchRequirement])],
+  imports: [TypeOrmModule.forFeature([BuyerPropertyCandidate, Contact, SearchRequirement, Property])],
   controllers: [BuyerPropertyCandidatesController],
   providers: [BuyerPropertyCandidatesService],
   exports: [BuyerPropertyCandidatesService, TypeOrmModule],

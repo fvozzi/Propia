@@ -237,6 +237,7 @@ export class ContactsService {
           property: true,
         },
         propertyCandidates: {
+          property: true,
           searchRequirement: true,
         },
         activities: {

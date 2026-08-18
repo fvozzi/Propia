@@ -233,12 +233,20 @@ export function SearchRequirementCreatePage() {
         actions={
           <>
             {isEditing && form.operationType === 'BUY' ? (
-              <Link
-                to={`/requirements/${requirementId}/suggestions`}
-                className="ghost-button button-link"
-              >
-                Buscar en portales
-              </Link>
+              <>
+                <Link
+                  to={`/requirements/${requirementId}/manage`}
+                  className="ghost-button button-link"
+                >
+                  {t('requirements.manageRequirement')}
+                </Link>
+                <Link
+                  to={`/requirements/${requirementId}/suggestions`}
+                  className="ghost-button button-link"
+                >
+                  Buscar en portales
+                </Link>
+              </>
             ) : null}
             <Link to="/requirements" className="ghost-button button-link">
               {t('requirements.backToList')}

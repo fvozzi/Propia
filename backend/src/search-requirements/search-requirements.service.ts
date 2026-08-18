@@ -126,7 +126,23 @@ export class SearchRequirementsService {
     const teamId = requireActiveTeamId(user);
     const requirement = await this.requirementsRepository.findOne({
       where: { id, teamId },
-      relations: { contact: true, property: true },
+      relations: {
+        contact: {
+          visits: {
+            property: true,
+          },
+        },
+        property: true,
+        propertyCandidates: {
+          property: true,
+        },
+      },
+      order: {
+        propertyCandidates: {
+          scheduledVisitAt: 'ASC',
+          updatedAt: 'DESC',
+        },
+      },
     });
 
     if (!requirement) {

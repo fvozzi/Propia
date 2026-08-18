@@ -13,6 +13,10 @@ type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
 type ShareableVisit = Pick<Visit, 'scheduledAt' | 'status' | 'notes' | 'externalUrl'> & {
   property?: Pick<Property, 'address' | 'city' | 'neighborhood'> | null;
 };
+type ShareableCandidateProperty = Pick<
+  Property,
+  'address' | 'city' | 'neighborhood' | 'title'
+>;
 
 export function buildPropertySearchMessage(activity: Pick<Activity, 'externalUrl' | 'whatsappComment'>) {
   return [activity.whatsappComment, activity.externalUrl].filter(Boolean).join('\n\n');
@@ -60,6 +64,63 @@ export function buildBirthdayWhatsappMessage(contactName: string) {
   const greetingTarget = trimmedName ? ` ${trimmedName}` : '';
 
   return `Feliz cumpleaños${greetingTarget}! Espero que tengas un gran día.`;
+}
+
+export function buildBuyerSearchAgentMessage(
+  candidateTitle: string,
+  buyerName: string,
+  property?: ShareableCandidateProperty | null,
+) {
+  const place = property
+    ? [property.address, property.neighborhood || property.city].filter(Boolean).join(', ')
+    : candidateTitle;
+
+  return [
+    'Hola! Te escribo por esta propiedad.',
+    place ? `Propiedad: ${place}` : `Propiedad: ${candidateTitle}`,
+    `Tengo un comprador interesado: ${buyerName}.`,
+    'Queria consultar disponibilidad y posibles horarios para visitarla.',
+  ].join('\n');
+}
+
+export function buildBuyerTourWhatsappMessage(
+  buyerName: string,
+  candidates: Array<{
+    title: string;
+    scheduledVisitAt: string;
+    property?: ShareableCandidateProperty | null;
+  }>,
+) {
+  const lines = candidates
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(left.scheduledVisitAt).getTime() - new Date(right.scheduledVisitAt).getTime(),
+    )
+    .map((candidate) => {
+      const date = new Date(candidate.scheduledVisitAt);
+      const dateLabel = new Intl.DateTimeFormat('es-AR', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        timeZone: 'America/Argentina/Buenos_Aires',
+      }).format(date);
+      const timeLabel = new Intl.DateTimeFormat('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'America/Argentina/Buenos_Aires',
+      }).format(date);
+      const place = candidate.property
+        ? [candidate.property.address, candidate.property.neighborhood || candidate.property.city]
+            .filter(Boolean)
+            .join(', ')
+        : candidate.title;
+
+      return `${dateLabel} ${timeLabel} hs - ${place}`;
+    });
+
+  return [`Hola ${buyerName}, te comparto la recorrida confirmada:`, ...lines].join('\n');
 }
 
 export function buildReservationTreasuryWhatsappMessage(
