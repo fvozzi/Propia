@@ -42,6 +42,10 @@ type CandidateWorkflowDraft = {
   lastContactedAt: string;
 };
 
+type ScheduledBuyerPropertyCandidate = BuyerPropertyCandidate & {
+  scheduledVisitAt: string;
+};
+
 const initialCreateForm: CandidateCreateForm = {
   propertyId: '',
   portal: '',
@@ -78,6 +82,12 @@ function buildCandidateDraft(candidate: BuyerPropertyCandidate): CandidateWorkfl
 function sameScheduledInstant(left: string | null, right: string | null) {
   if (!left || !right) return false;
   return new Date(left).getTime() === new Date(right).getTime();
+}
+
+function hasScheduledVisitAt(
+  candidate: BuyerPropertyCandidate,
+): candidate is ScheduledBuyerPropertyCandidate {
+  return Boolean(candidate.scheduledVisitAt);
 }
 
 export function SearchRequirementManagePage() {
@@ -133,13 +143,13 @@ export function SearchRequirementManagePage() {
     () =>
       (requirement?.propertyCandidates ?? [])
         .filter(
-          (candidate) =>
-            candidate.workflowStatus === 'VISIT_SCHEDULED' && Boolean(candidate.scheduledVisitAt),
+          (candidate) => candidate.workflowStatus === 'VISIT_SCHEDULED',
         )
+        .filter(hasScheduledVisitAt)
         .sort(
           (left, right) =>
-            new Date(left.scheduledVisitAt ?? '').getTime() -
-            new Date(right.scheduledVisitAt ?? '').getTime(),
+            new Date(left.scheduledVisitAt).getTime() -
+            new Date(right.scheduledVisitAt).getTime(),
         ),
     [requirement],
   );
