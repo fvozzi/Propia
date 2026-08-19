@@ -193,6 +193,36 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
+  async impersonateUser(
+    adminUserId: number,
+    targetUserId: number,
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
+    const [adminUser, targetUser] = await Promise.all([
+      this.usersRepository.findOneOrFail({ where: { id: adminUserId } }),
+      this.usersRepository.findOneOrFail({ where: { id: targetUserId } }),
+    ]);
+
+    const hydratedTargetUser = await this.userWorkspaceService.ensurePersonalTeam(targetUser);
+    const response = await this.buildAuthResponse(hydratedTargetUser, {
+      adminUserId: adminUser.id,
+      adminEmail: adminUser.email,
+      adminName: adminUser.name,
+    });
+
+    await this.recordLoginEvent({
+      email: hydratedTargetUser.email,
+      userId: hydratedTargetUser.id,
+      actorUserId: adminUser.id,
+      teamId: hydratedTargetUser.activeTeamId,
+      success: true,
+      authMethod: 'SUPPORT_IMPERSONATION',
+      ...context,
+    });
+
+    return response;
+  }
+
   private async buildAuthResponseWithAudit(
     user: User,
     authMethod: LoginMethod,
@@ -232,7 +262,14 @@ export class AuthService {
     );
   }
 
-  private async buildAuthResponse(user: User) {
+  private async buildAuthResponse(
+    user: User,
+    impersonation?: {
+      adminUserId: number;
+      adminEmail: string;
+      adminName: string;
+    },
+  ) {
     const [hydratedUser, googleConnection] = await Promise.all([
       this.userWorkspaceService.loadUserWithWorkspace(user.id),
       this.googleConnectionsRepository.findOne({
@@ -257,6 +294,9 @@ export class AuthService {
         appRole,
         backofficeAccess: Boolean(hydratedUser.backofficeAccess),
         activeTeamId: hydratedUser.activeTeamId,
+        impersonatedByUserId: impersonation?.adminUserId ?? null,
+        impersonatedByEmail: impersonation?.adminEmail ?? null,
+        impersonatedByName: impersonation?.adminName ?? null,
       }),
       user: {
         id: hydratedUser.id,
@@ -270,6 +310,14 @@ export class AuthService {
         activeTeamWhatsappTreasuryPhone:
           hydratedUser.activeTeam?.whatsappTreasuryPhone ?? null,
         googleCalendarConnected: Boolean(googleConnection),
+        impersonation: impersonation
+          ? {
+              active: true,
+              adminUserId: impersonation.adminUserId,
+              adminEmail: impersonation.adminEmail,
+              adminName: impersonation.adminName,
+            }
+          : null,
         teams: (hydratedUser.memberships ?? []).map((membership) => ({
           id: membership.team.id,
           name: membership.team.name,
@@ -301,6 +349,7 @@ export class AuthService {
   private async recordLoginEvent(params: {
     email: string;
     userId?: number | null;
+    actorUserId?: number | null;
     teamId?: number | null;
     success: boolean;
     authMethod: LoginMethod;
@@ -312,6 +361,7 @@ export class AuthService {
       this.loginEventsRepository.create({
         email: params.email,
         userId: params.userId ?? null,
+        actorUserId: params.actorUserId ?? null,
         teamId: params.teamId ?? null,
         success: params.success,
         authMethod: params.authMethod,

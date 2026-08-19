@@ -10,6 +10,14 @@ vi.mock('./login-event.entity', () => ({
   LoginEvent: class LoginEvent {},
 }));
 
+vi.mock('./database-backup.entity', () => ({
+  DatabaseBackup: class DatabaseBackup {},
+}));
+
+vi.mock('./system-backup-config.entity', () => ({
+  SystemBackupConfig: class SystemBackupConfig {},
+}));
+
 vi.mock('./team.entity', () => ({
   Team: class Team {},
 }));
@@ -43,12 +51,39 @@ describe('BackofficeAdminService', () => {
       save: vi.fn(async (value) => value),
       remove: vi.fn(async (value) => value),
     };
+    const systemBackupConfigsRepository = {
+      findOne: vi.fn(),
+      create: vi.fn((payload) => payload),
+      save: vi.fn(async (value) => value),
+    };
+    const databaseBackupsRepository = {
+      find: vi.fn(),
+      findOne: vi.fn(),
+      create: vi.fn((payload) => payload),
+      save: vi.fn(async (value) => value),
+      remove: vi.fn(async (value) => value),
+      createQueryBuilder: vi.fn(),
+    };
+    const dataSource = {
+      query: vi.fn(),
+    };
+    const configService = {
+      get: vi.fn((key: string, defaultValue?: string) => defaultValue),
+    };
+    const authService = {
+      impersonateUser: vi.fn(),
+    };
 
     const service = new BackofficeAdminService(
       teamsRepository as never,
       usersRepository as never,
       loginEventsRepository as never,
       portalSourceConfigsRepository as never,
+      systemBackupConfigsRepository as never,
+      databaseBackupsRepository as never,
+      dataSource as never,
+      configService as never,
+      authService as never,
     );
 
     return {
@@ -57,6 +92,11 @@ describe('BackofficeAdminService', () => {
       usersRepository,
       loginEventsRepository,
       portalSourceConfigsRepository,
+      systemBackupConfigsRepository,
+      databaseBackupsRepository,
+      dataSource,
+      configService,
+      authService,
     };
   }
 

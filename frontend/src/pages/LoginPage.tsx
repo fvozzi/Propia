@@ -1,5 +1,5 @@
-import { FormEvent, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { FormEvent, useMemo, useState } from 'react';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import logo from '../assests/logoTransparente.png';
 import { useAuth } from '../lib/auth';
 import { getGoogleAuthUrl, isGoogleAuthEnabled } from '../lib/api';
@@ -8,11 +8,16 @@ import { useI18n } from '../lib/i18n';
 export function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const { locale, setLocale, t } = useI18n();
+  const [searchParams] = useSearchParams();
   const googleAuthEnabled = isGoogleAuthEnabled();
   const [email, setEmail] = useState('agent@propia.local');
   const [password, setPassword] = useState('propia123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const sessionExpired = useMemo(
+    () => searchParams.get('reason') === 'session-expired',
+    [searchParams],
+  );
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -43,6 +48,7 @@ export function LoginPage() {
         <p className="eyebrow">Propia</p>
         <h1>{t('login.title')}</h1>
         <p className="muted">{t('login.subtitle')}</p>
+        {sessionExpired ? <div className="alert">{t('login.sessionExpired')}</div> : null}
         <label className="full-span">
           {t('common.language')}
           <select

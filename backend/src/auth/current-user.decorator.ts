@@ -7,6 +7,9 @@ export interface AuthenticatedUser {
   appRole: 'ADMIN' | 'USER';
   backofficeAccess?: boolean;
   activeTeamId: number | null;
+  impersonatedByUserId?: number | null;
+  impersonatedByEmail?: string | null;
+  impersonatedByName?: string | null;
   userStatus?: 'ACTIVE' | 'PENDING' | 'DISABLED';
   activeTeamStatus?: 'ACTIVE' | 'TRIAL' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED' | null;
 }

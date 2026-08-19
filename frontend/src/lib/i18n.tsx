@@ -94,6 +94,7 @@ const translations = {
       submit: 'Sign in',
       submitting: 'Signing in...',
       error: 'Could not sign in.',
+      sessionExpired: 'Your session expired. Please sign in again.',
     },
     dashboard: {
       eyebrow: 'Daily dashboard',
@@ -942,6 +943,7 @@ const translations = {
       submit: 'Ingresar',
       submitting: 'Ingresando...',
       error: 'No se pudo iniciar sesion.',
+      sessionExpired: 'La sesion vencio. Volve a iniciar sesion.',
     },
     dashboard: {
       eyebrow: 'Dashboard diario',

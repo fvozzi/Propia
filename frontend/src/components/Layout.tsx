@@ -17,7 +17,7 @@ type NavGroup = {
 };
 
 export function Layout() {
-  const { user, logout, switchTeam } = useAuth();
+  const { user, logout, switchTeam, isImpersonating, exitImpersonation } = useAuth();
   const { locale, setLocale, t } = useI18n();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -249,6 +249,22 @@ export function Layout() {
         </div>
       </aside>
       <main className="content">
+        {isImpersonating && user?.impersonation ? (
+          <section className="card" style={{ marginBottom: '1rem' }}>
+            <div className="list-item-actions">
+              <div>
+                <strong>Modo soporte activo</strong>
+                <p className="muted">
+                  Estas navegando como {user.name} ({user.email}). Sesion iniciada por{' '}
+                  {user.impersonation.adminName}.
+                </p>
+              </div>
+              <button type="button" className="ghost-button" onClick={exitImpersonation}>
+                Volver a mi sesion
+              </button>
+            </div>
+          </section>
+        ) : null}
         <Outlet />
       </main>
     </div>

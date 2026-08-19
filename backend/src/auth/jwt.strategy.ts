@@ -29,6 +29,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     appRole: 'ADMIN' | 'USER';
     backofficeAccess?: boolean;
     activeTeamId: number | null;
+    impersonatedByUserId?: number | null;
+    impersonatedByEmail?: string | null;
+    impersonatedByName?: string | null;
   }) {
     const user = await this.usersRepository.findOne({
       where: { id: payload.sub },
@@ -56,6 +59,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       appRole: user.appRole ?? AppUserRole.USER,
       backofficeAccess: Boolean(user.backofficeAccess),
       activeTeamId: user.activeTeamId,
+      impersonatedByUserId: payload.impersonatedByUserId ?? null,
+      impersonatedByEmail: payload.impersonatedByEmail ?? null,
+      impersonatedByName: payload.impersonatedByName ?? null,
       userStatus: user.status ?? UserStatus.ACTIVE,
       activeTeamStatus: user.activeTeam?.status ?? null,
     };

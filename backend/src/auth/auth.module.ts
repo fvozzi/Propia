@@ -13,11 +13,13 @@ import { AdminUsersService } from './admin-users.service';
 import { AdminGuard } from './admin.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { DatabaseBackup } from './database-backup.entity';
 import { GoogleCalendarConnection } from './google-calendar-connection.entity';
 import { GoogleEnabledGuard } from './google-enabled.guard';
 import { GoogleStrategy } from './google.strategy';
 import { JwtStrategy } from './jwt.strategy';
 import { LoginEvent } from './login-event.entity';
+import { SystemBackupConfig } from './system-backup-config.entity';
 import { TeamMembership } from './team-membership.entity';
 import { Team } from './team.entity';
 import { UserWorkspaceService } from './user-workspace.service';
@@ -32,6 +34,8 @@ import { User } from './user.entity';
       TeamMembership,
       LoginEvent,
       PortalSourceConfig,
+      SystemBackupConfig,
+      DatabaseBackup,
     ]),
     PassportModule,
     CalendarModule,

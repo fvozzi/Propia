@@ -9,7 +9,7 @@ import {
 import { Team } from './team.entity';
 import { User } from './user.entity';
 
-export type LoginMethod = 'PASSWORD' | 'GOOGLE';
+export type LoginMethod = 'PASSWORD' | 'GOOGLE' | 'SUPPORT_IMPERSONATION';
 
 @Entity('login_events')
 export class LoginEvent {
@@ -21,6 +21,9 @@ export class LoginEvent {
 
   @Column({ type: 'integer', nullable: true })
   userId: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  actorUserId: number | null;
 
   @Column({ type: 'integer', nullable: true })
   teamId: number | null;
@@ -46,6 +49,10 @@ export class LoginEvent {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'userId' })
   user: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'actorUserId' })
+  actorUser: User | null;
 
   @ManyToOne(() => Team, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'teamId' })

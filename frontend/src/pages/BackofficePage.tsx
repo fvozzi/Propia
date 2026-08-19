@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import { SearchableCombobox } from '../components/SearchableCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
-import { apiRequest } from '../lib/api';
+import { downloadApiFile, apiRequest } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import type {
   AccountStatus,
+  AdminUser,
   BackofficeAccount,
   BackofficeOverview,
+  BackupSettingsResponse,
+  DatabaseBackup,
+  LoginResponse,
 } from '../types';
 
 type AccountDraft = {
@@ -29,14 +35,36 @@ type AccountDraft = {
   whatsappTreasuryPhone: string;
 };
 
+type BackupDraft = {
+  backupsEnabled: boolean;
+  retentionCount: string;
+  scheduleHourUtc: string;
+  scheduleMinuteUtc: string;
+};
+
 export function BackofficePage() {
+  const { startImpersonation } = useAuth();
   const [overview, setOverview] = useState<BackofficeOverview | null>(null);
   const [accounts, setAccounts] = useState<BackofficeAccount[]>([]);
   const [drafts, setDrafts] = useState<Record<number, AccountDraft>>({});
+  const [backupSettings, setBackupSettings] = useState<BackupSettingsResponse | null>(null);
+  const [backupDraft, setBackupDraft] = useState<BackupDraft>({
+    backupsEnabled: true,
+    retentionCount: '30',
+    scheduleHourUtc: '3',
+    scheduleMinuteUtc: '0',
+  });
+  const [supportUsers, setSupportUsers] = useState<AdminUser[]>([]);
+  const [supportSearchValue, setSupportSearchValue] = useState('');
+  const [selectedSupportUserId, setSelectedSupportUserId] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [isAccountFormOpen, setIsAccountFormOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [savingAccountId, setSavingAccountId] = useState<number | null>(null);
+  const [savingBackupSettings, setSavingBackupSettings] = useState(false);
+  const [runningBackup, setRunningBackup] = useState(false);
+  const [impersonatingUserId, setImpersonatingUserId] = useState<number | null>(null);
+  const [downloadingBackupId, setDownloadingBackupId] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -45,13 +73,24 @@ export function BackofficePage() {
     setError('');
 
     try {
-      const [overviewResponse, accountsResponse] = await Promise.all([
-        apiRequest<BackofficeOverview>('/admin/backoffice/overview'),
-        apiRequest<BackofficeAccount[]>('/admin/backoffice/accounts'),
-      ]);
+      const [overviewResponse, accountsResponse, backupSettingsResponse, usersResponse] =
+        await Promise.all([
+          apiRequest<BackofficeOverview>('/admin/backoffice/overview'),
+          apiRequest<BackofficeAccount[]>('/admin/backoffice/accounts'),
+          apiRequest<BackupSettingsResponse>('/admin/backoffice/backup-settings'),
+          apiRequest<AdminUser[]>('/admin/users'),
+        ]);
 
       setOverview(overviewResponse);
       setAccounts(accountsResponse);
+      setBackupSettings(backupSettingsResponse);
+      setBackupDraft({
+        backupsEnabled: backupSettingsResponse.backupsEnabled,
+        retentionCount: String(backupSettingsResponse.retentionCount),
+        scheduleHourUtc: String(backupSettingsResponse.scheduleHourUtc),
+        scheduleMinuteUtc: String(backupSettingsResponse.scheduleMinuteUtc),
+      });
+      setSupportUsers(usersResponse);
       setDrafts(
         Object.fromEntries(
           accountsResponse.map((account) => [
@@ -117,6 +156,13 @@ export function BackofficePage() {
     }));
   }
 
+  function updateBackupDraft(patch: Partial<BackupDraft>) {
+    setBackupDraft((current) => ({
+      ...current,
+      ...patch,
+    }));
+  }
+
   function handleEditAccount(accountId: number) {
     setSelectedAccountId(accountId);
     setIsAccountFormOpen(true);
@@ -177,17 +223,141 @@ export function BackofficePage() {
     }
   }
 
+  async function handleSaveBackupSettings() {
+    setSavingBackupSettings(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const response = await apiRequest<BackupSettingsResponse>('/admin/backoffice/backup-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          backupsEnabled: backupDraft.backupsEnabled,
+          retentionCount: Number(backupDraft.retentionCount),
+          scheduleHourUtc: Number(backupDraft.scheduleHourUtc),
+          scheduleMinuteUtc: Number(backupDraft.scheduleMinuteUtc),
+        }),
+      });
+      setBackupSettings(response);
+      setNotice('Configuracion de backups guardada.');
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'No se pudo guardar la configuracion de backups',
+      );
+    } finally {
+      setSavingBackupSettings(false);
+    }
+  }
+
+  async function handleRunBackup() {
+    setRunningBackup(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const response = await apiRequest<BackupSettingsResponse>('/admin/backoffice/backup-settings/run', {
+        method: 'POST',
+      });
+      setBackupSettings(response);
+      setBackupDraft({
+        backupsEnabled: response.backupsEnabled,
+        retentionCount: String(response.retentionCount),
+        scheduleHourUtc: String(response.scheduleHourUtc),
+        scheduleMinuteUtc: String(response.scheduleMinuteUtc),
+      });
+      setNotice('Backup ejecutado.');
+    } catch (runError) {
+      setError(runError instanceof Error ? runError.message : 'No se pudo ejecutar el backup');
+    } finally {
+      setRunningBackup(false);
+    }
+  }
+
+  async function handleDownloadBackup(backup: DatabaseBackup) {
+    if (!backup.canDownload) {
+      return;
+    }
+
+    setDownloadingBackupId(backup.id);
+    setError('');
+
+    try {
+      const blob = await downloadApiFile(`/admin/backoffice/database-backups/${backup.id}/download`);
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = backup.fileName ?? `backup-${backup.id}.dump`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : 'No se pudo descargar el backup');
+    } finally {
+      setDownloadingBackupId(null);
+    }
+  }
+
+  async function handleImpersonate() {
+    if (!selectedSupportUserId) {
+      return;
+    }
+
+    const userId = Number(selectedSupportUserId);
+    setImpersonatingUserId(userId);
+    setError('');
+    setNotice('');
+
+    try {
+      const response = await apiRequest<LoginResponse>(
+        '/admin/backoffice/support/impersonate/' + userId,
+        {
+        method: 'POST',
+        },
+      );
+      startImpersonation(response);
+      window.location.assign('/');
+    } catch (impersonationError) {
+      setError(
+        impersonationError instanceof Error
+          ? impersonationError.message
+          : 'No se pudo iniciar la sesion de soporte',
+      );
+    } finally {
+      setImpersonatingUserId(null);
+    }
+  }
+
   const selectedAccount = useMemo(
     () => accounts.find((account) => account.id === selectedAccountId) ?? null,
     [accounts, selectedAccountId],
   );
   const selectedDraft = selectedAccountId ? drafts[selectedAccountId] : undefined;
+  const filteredSupportUsers = useMemo(() => {
+    const normalized = supportSearchValue.trim().toLowerCase();
+
+    if (!normalized) {
+      return supportUsers;
+    }
+
+    return supportUsers.filter((user) =>
+      [user.name, user.email, user.activeTeamName ?? ''].some((value) =>
+        value.toLowerCase().includes(normalized),
+      ),
+    );
+  }, [supportSearchValue, supportUsers]);
+  const selectedSupportUser = useMemo(
+    () => supportUsers.find((user) => String(user.id) === selectedSupportUserId) ?? null,
+    [selectedSupportUserId, supportUsers],
+  );
 
   return (
     <div className="page-stack">
       <ResourcePageHeader
         eyebrow="Backoffice"
-        title="Cuentas y acceso"
+        title="Cuentas, backups y soporte"
         actions={
           isAccountFormOpen ? (
             <button
@@ -202,7 +372,7 @@ export function BackofficePage() {
       />
 
       <p className="muted">
-        Validacion operativa, salud de accesos y estados de cobro por cuenta.
+        Validacion operativa, respaldos diarios, descargas tecnicas e ingreso de soporte.
       </p>
 
       {error ? <div className="card">{error}</div> : null}
@@ -240,6 +410,229 @@ export function BackofficePage() {
           </article>
         </section>
       ) : null}
+
+      <section className="card">
+        <div className="list-item-actions">
+          <div>
+            <h3>Backups diarios</h3>
+            <p className="muted">
+              Respaldo en formato `pg_dump custom`, reteniendo hasta 30 copias locales en servidor.
+            </p>
+          </div>
+          <div className="candidate-actions">
+            <button type="button" disabled={runningBackup} onClick={() => void handleRunBackup()}>
+              {runningBackup ? 'Ejecutando backup...' : 'Ejecutar ahora'}
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={savingBackupSettings}
+              onClick={() => void handleSaveBackupSettings()}
+            >
+              {savingBackupSettings ? 'Guardando...' : 'Guardar configuracion'}
+            </button>
+          </div>
+        </div>
+
+        {backupSettings ? (
+          <>
+            <div className="pill-row">
+              <span className={`pill ${backupSettings.backupsEnabled ? 'pill-active' : ''}`}>
+                {backupSettings.backupsEnabled ? 'Backups activos' : 'Backups pausados'}
+              </span>
+              <span className="pill">Retencion {backupSettings.retentionCount}</span>
+              <span className="pill">
+                UTC {padNumber(backupSettings.scheduleHourUtc)}:
+                {padNumber(backupSettings.scheduleMinuteUtc)}
+              </span>
+              {backupSettings.lastBackupStatus ? (
+                <span
+                  className={`pill ${
+                    backupSettings.lastBackupStatus === 'SUCCESS'
+                      ? 'pill-active'
+                      : backupSettings.lastBackupStatus === 'FAILED'
+                        ? 'pill-disabled'
+                        : ''
+                  }`}
+                >
+                  Ultimo backup {backupSettings.lastBackupStatus.toLowerCase()}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="form-grid" style={{ marginTop: '1rem' }}>
+              <label className="checkbox-item full-span">
+                <input
+                  type="checkbox"
+                  checked={backupDraft.backupsEnabled}
+                  onChange={(event) =>
+                    updateBackupDraft({ backupsEnabled: event.target.checked })
+                  }
+                />
+                <span>Habilitar backup diario automatico</span>
+              </label>
+              <label>
+                Retencion de copias
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={backupDraft.retentionCount}
+                  onChange={(event) =>
+                    updateBackupDraft({ retentionCount: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Hora UTC
+                <input
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={backupDraft.scheduleHourUtc}
+                  onChange={(event) =>
+                    updateBackupDraft({ scheduleHourUtc: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Minuto UTC
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={backupDraft.scheduleMinuteUtc}
+                  onChange={(event) =>
+                    updateBackupDraft({ scheduleMinuteUtc: event.target.value })
+                  }
+                />
+              </label>
+              <label className="full-span">
+                Ruta local de backups
+                <input value={backupSettings.storagePath} disabled readOnly />
+              </label>
+              <label className="full-span">
+                Binario `pg_dump`
+                <input value={backupSettings.pgDumpBinary} disabled readOnly />
+              </label>
+              <label className="full-span">
+                Restore local sugerido
+                <input value={backupSettings.restoreCommandExample} disabled readOnly />
+              </label>
+            </div>
+
+            <p className="muted" style={{ marginTop: '1rem' }}>
+              Ultimo inicio: {formatDateTime(backupSettings.lastBackupStartedAt)} · ultima
+              finalizacion: {formatDateTime(backupSettings.lastBackupFinishedAt)}
+            </p>
+            {backupSettings.lastBackupError ? (
+              <p className="muted">Ultimo error: {backupSettings.lastBackupError}</p>
+            ) : null}
+
+            <div className="table-wrap" style={{ marginTop: '1rem' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Inicio</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Archivo</th>
+                    <th>Tamano</th>
+                    <th>Usuario</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backupSettings.backups.map((backup) => (
+                    <tr key={backup.id}>
+                      <td>{formatDateTime(backup.startedAt)}</td>
+                      <td>{backup.triggerType === 'MANUAL' ? 'Manual' : 'Programado'}</td>
+                      <td>
+                        <span
+                          className={`pill ${
+                            backup.status === 'SUCCESS'
+                              ? 'pill-active'
+                              : backup.status === 'FAILED'
+                                ? 'pill-disabled'
+                                : ''
+                          }`}
+                        >
+                          {backup.status}
+                        </span>
+                      </td>
+                      <td>{backup.fileName ?? 'sin archivo'}</td>
+                      <td>{formatBytes(backup.fileSizeBytes)}</td>
+                      <td>{backup.createdByUserName ?? 'scheduler'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          disabled={!backup.canDownload || downloadingBackupId === backup.id}
+                          onClick={() => void handleDownloadBackup(backup)}
+                        >
+                          {downloadingBackupId === backup.id ? 'Descargando...' : 'Descargar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+      </section>
+
+      <section className="card">
+        <div className="list-item-actions">
+          <div>
+            <h3>Soporte</h3>
+            <p className="muted">
+              Ingresar como una usuaria para reproducir problemas, incluso si su acceso habitual es por Google.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!selectedSupportUserId || impersonatingUserId !== null}
+            onClick={() => void handleImpersonate()}
+          >
+            {impersonatingUserId
+              ? 'Abriendo sesion de soporte...'
+              : 'Ingresar como usuaria'}
+          </button>
+        </div>
+
+        <div className="form-grid">
+          <label className="full-span">
+            Usuaria
+            <SearchableCombobox
+              value={selectedSupportUserId}
+              options={filteredSupportUsers.map((user) => ({
+                value: String(user.id),
+                label: `${user.name} · ${user.email}`,
+              }))}
+              searchValue={supportSearchValue}
+              onSearchValueChange={setSupportSearchValue}
+              onChange={setSelectedSupportUserId}
+              placeholder="Buscar usuaria por nombre o email"
+              emptyLabel="Seleccionar usuaria"
+              loadingLabel="Cargando usuarias..."
+              noResultsLabel="Sin resultados"
+              loading={loading}
+            />
+          </label>
+        </div>
+
+        {selectedSupportUser ? (
+          <div className="pill-row" style={{ marginTop: '1rem' }}>
+            <span className="pill">{selectedSupportUser.name}</span>
+            <span className="pill">{selectedSupportUser.email}</span>
+            <span className="pill">{selectedSupportUser.activeTeamName ?? 'Sin team activo'}</span>
+            {selectedSupportUser.googleCalendarConnected ? (
+              <span className="pill pill-active">Google conectado</span>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
 
       <section className="card">
         <div className="list-item-actions">
@@ -335,9 +728,7 @@ export function BackofficePage() {
                 disabled={savingAccountId === selectedAccount.id}
                 onClick={() => void handleSave(selectedAccount.id)}
               >
-                {savingAccountId === selectedAccount.id
-                  ? 'Guardando...'
-                  : 'Guardar cuenta'}
+                {savingAccountId === selectedAccount.id ? 'Guardando...' : 'Guardar cuenta'}
               </button>
               <button
                 type="button"
@@ -618,6 +1009,30 @@ function formatDateTime(value: string | null) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function formatBytes(value: number | null) {
+  if (!value || Number.isNaN(value)) {
+    return 'sin datos';
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  if (value < 1024 * 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function padNumber(value: number) {
+  return String(value).padStart(2, '0');
 }
 
 function accountStatusLabel(status: AccountStatus) {

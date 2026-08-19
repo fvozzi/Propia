@@ -148,6 +148,13 @@ export interface SessionTeam {
   membershipRole: TeamMembershipRole;
 }
 
+export interface SupportImpersonation {
+  active: boolean;
+  adminUserId: number;
+  adminEmail: string;
+  adminName: string;
+}
+
 export interface Paginated<T> {
   items: T[];
   meta: {
@@ -671,6 +678,7 @@ export interface LoginResponse {
     activeTeamName: string | null;
     activeTeamWhatsappTreasuryPhone: string | null;
     googleCalendarConnected: boolean;
+    impersonation: SupportImpersonation | null;
     teams: SessionTeam[];
   };
 }
@@ -748,4 +756,38 @@ export interface BackofficeAccount {
   whatsappQualityRating: string | null;
   whatsappTreasuryPhone: string | null;
   whatsappConnectedAt: string | null;
+}
+
+export interface DatabaseBackup {
+  id: number;
+  triggerType: 'MANUAL' | 'SCHEDULED';
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED';
+  storageProvider: 'LOCAL';
+  createdByUserId: number | null;
+  createdByUserName: string | null;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  canDownload: boolean;
+}
+
+export interface BackupSettingsResponse {
+  id: number;
+  backupsEnabled: boolean;
+  storageProvider: 'LOCAL';
+  retentionCount: number;
+  scheduleHourUtc: number;
+  scheduleMinuteUtc: number;
+  lastBackupStartedAt: string | null;
+  lastBackupFinishedAt: string | null;
+  lastBackupStatus: 'RUNNING' | 'SUCCESS' | 'FAILED' | null;
+  lastBackupError: string | null;
+  createdAt: string;
+  updatedAt: string;
+  storagePath: string;
+  pgDumpBinary: string;
+  restoreCommandExample: string;
+  backups: DatabaseBackup[];
 }
