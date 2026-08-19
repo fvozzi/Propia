@@ -52,6 +52,7 @@ install -d -m 0755 -o "$APP_USER" -g "$APP_GROUP" "$APP_DIR/app"
 install -d -m 0755 -o "$APP_USER" -g "$APP_GROUP" "$APP_DIR/shared"
 install -d -m 0755 -o "$APP_USER" -g "$APP_GROUP" "$APP_DIR/shared/frontend"
 install -d -m 0755 -o "$APP_USER" -g "$APP_GROUP" "$APP_DIR/shared/backend"
+install -d -m 0755 -o "$APP_USER" -g "$APP_GROUP" "$APP_DIR/shared/backups"
 
 if [[ ! -d "$APP_DIR/app/.git" ]]; then
   sudo -u "$APP_USER" git clone "$REPO_SSH" "$APP_DIR/app"

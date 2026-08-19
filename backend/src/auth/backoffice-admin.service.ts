@@ -561,11 +561,17 @@ export class BackofficeAdminService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getBackupStorageDir() {
-    const configuredPath = this.configService.get<string>(
-      'BACKUP_STORAGE_DIR',
-      '../storage/backups',
-    );
-    return path.resolve(process.cwd(), configuredPath);
+    const configuredPath = this.configService.get<string>('BACKUP_STORAGE_DIR');
+    if (configuredPath?.trim()) {
+      return path.resolve(process.cwd(), configuredPath.trim());
+    }
+
+    const sharedDirCandidate = path.resolve(process.cwd(), '..', '..', 'shared');
+    if (existsSync(sharedDirCandidate)) {
+      return path.join(sharedDirCandidate, 'backups');
+    }
+
+    return path.resolve(process.cwd(), '..', 'storage', 'backups');
   }
 
   private getPgDumpBinary() {
