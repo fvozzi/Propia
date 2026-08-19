@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
@@ -349,23 +350,21 @@ export function CommercialOpportunitiesPage() {
           <form className="form-grid" onSubmit={handleSave}>
             <label>
               {t('commercialOpportunities.contact')}
-              <select
+              <ContactCombobox
+                contacts={contacts}
                 value={form.contactId}
-                onChange={(event) =>
+                onChange={(value) =>
                   setForm((current) => ({
                     ...current,
-                    contactId: event.target.value,
+                    contactId: value,
                   }))
                 }
+                placeholder={t('contacts.searchPlaceholder')}
+                emptyLabel={t('commercialOpportunities.noContactSelected')}
+                loadingLabel={t('common.loading')}
+                noResultsLabel={t('common.noData')}
                 required
-              >
-                <option value="">{t('commercialOpportunities.noContactSelected')}</option>
-                {contacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.displayName}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             <label>

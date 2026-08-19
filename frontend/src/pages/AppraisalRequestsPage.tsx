@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
@@ -127,14 +128,15 @@ export function AppraisalRequestsPage() {
         title={t('appraisals.title')}
         actions={
           <>
-            <select value={contactId} onChange={(event) => setContactId(event.target.value)} aria-label={t('common.contact')}>
-              <option value="">{t('appraisals.allContacts')}</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.displayName}
-                </option>
-              ))}
-            </select>
+            <ContactCombobox
+              contacts={contacts}
+              value={contactId}
+              onChange={setContactId}
+              placeholder={t('contacts.searchPlaceholder')}
+              emptyLabel={t('appraisals.allContacts')}
+              loadingLabel={t('common.loading')}
+              noResultsLabel={t('common.noData')}
+            />
             <select value={status} onChange={(event) => setStatus(event.target.value as AppraisalStatusFilter)} aria-label={t('common.status')}>
               <option value="">{t('appraisals.allStatuses')}</option>
               <option value="OPEN">{t('appraisals.statusOpen')}</option>

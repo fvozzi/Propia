@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { useI18n, visitStatusOptions } from '../lib/i18n';
@@ -17,6 +18,7 @@ export function VisitsPage() {
   const [visits, setVisits] = useState<Paginated<Visit> | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [createContactId, setCreateContactId] = useState('');
   const [actionError, setActionError] = useState('');
   const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
   const [filters, setFilters] = useState({
@@ -58,6 +60,7 @@ export function VisitsPage() {
       }),
     });
     event.currentTarget.reset();
+    setCreateContactId('');
     await load();
   }
 
@@ -129,14 +132,17 @@ export function VisitsPage() {
             </label>
             <label>
               {t('common.contact')}
-              <select name="contactId" required>
-                <option value="">{t('common.select')}</option>
-                {contacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.displayName}
-                  </option>
-                ))}
-              </select>
+              <ContactCombobox
+                contacts={contacts}
+                value={createContactId}
+                onChange={setCreateContactId}
+                placeholder={t('contacts.searchPlaceholder')}
+                emptyLabel={t('common.select')}
+                loadingLabel={t('common.loading')}
+                noResultsLabel={t('common.noData')}
+                required
+                name="contactId"
+              />
             </label>
             <label>
               {t('common.dateTime')}

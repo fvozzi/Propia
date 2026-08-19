@@ -1,5 +1,6 @@
 import { FormEvent, MouseEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { calendarActivityTypeOptions, useI18n, visitStatusOptions } from '../lib/i18n';
@@ -553,20 +554,18 @@ export function CalendarPage() {
               </label>
               <label>
                 {t('common.contact')}
-                <select
+                <ContactCombobox
+                  contacts={contacts}
                   value={activityForm.contactId}
-                  onChange={(event) =>
-                    setActivityForm({ ...activityForm, contactId: event.target.value })
+                  onChange={(value) =>
+                    setActivityForm({ ...activityForm, contactId: value })
                   }
+                  placeholder={t('contacts.searchPlaceholder')}
+                  emptyLabel={t('calendar.contactOptional')}
+                  loadingLabel={t('common.loading')}
+                  noResultsLabel={t('common.noData')}
                   required={activityForm.activityType === 'APPRAISAL_REQUEST'}
-                >
-                  <option value="">{t('calendar.contactOptional')}</option>
-                  {contacts.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.displayName}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label>
                 {t('common.property')}
@@ -685,18 +684,16 @@ export function CalendarPage() {
               </label>
               <label>
                 {t('common.contact')}
-                <select
+                <ContactCombobox
+                  contacts={contacts}
                   value={visitForm.contactId}
-                  onChange={(event) => setVisitForm({ ...visitForm, contactId: event.target.value })}
+                  onChange={(value) => setVisitForm({ ...visitForm, contactId: value })}
+                  placeholder={t('contacts.searchPlaceholder')}
+                  emptyLabel={t('common.select')}
+                  loadingLabel={t('common.loading')}
+                  noResultsLabel={t('common.noData')}
                   required
-                >
-                  <option value="">{t('common.select')}</option>
-                  {contacts.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.displayName}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label>
                 {t('common.dateTime')}

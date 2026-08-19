@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
@@ -209,18 +210,16 @@ export function AppraisalRequestFormPage() {
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             {t('common.contact')}
-            <select
+            <ContactCombobox
+              contacts={contacts}
               value={form.contactId}
-              onChange={(event) => setForm((current) => ({ ...current, contactId: event.target.value }))}
+              onChange={(value) => setForm((current) => ({ ...current, contactId: value }))}
+              placeholder={t('contacts.searchPlaceholder')}
+              emptyLabel={t('common.select')}
+              loadingLabel={t('common.loading')}
+              noResultsLabel={t('common.noData')}
               required
-            >
-              <option value="">{t('common.select')}</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.displayName}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label>
             {t('appraisals.propertyAddress')}

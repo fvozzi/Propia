@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest, getApiUrl } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -566,17 +567,15 @@ export function DocumentsPage() {
 
               <label>
                 {t('documents.contactOptional')}
-                <select
+                <ContactCombobox
+                  contacts={contacts}
                   value={selectedContactId}
-                  onChange={(event) => setSelectedContactId(event.target.value)}
-                >
-                  <option value="">{t('documents.noContactSelected')}</option>
-                  {contacts.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.displayName}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedContactId}
+                  placeholder={t('contacts.searchPlaceholder')}
+                  emptyLabel={t('documents.noContactSelected')}
+                  loadingLabel={t('common.loading')}
+                  noResultsLabel={t('common.noData')}
+                />
               </label>
 
               <label>

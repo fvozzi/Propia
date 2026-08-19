@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
@@ -300,18 +301,15 @@ export function ActivitiesPage() {
           <div className="filters-grid">
             <label>
               {t('common.contact')}
-              <select
+              <ContactCombobox
+                contacts={contacts}
                 value={contactId}
-                onChange={(event) => setContactId(event.target.value)}
-                aria-label={t('common.contact')}
-              >
-                <option value="">{t('activities.allContacts')}</option>
-                {contacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.displayName}
-                  </option>
-                ))}
-              </select>
+                onChange={setContactId}
+                placeholder={t('contacts.searchPlaceholder')}
+                emptyLabel={t('activities.allContacts')}
+                loadingLabel={t('common.loading')}
+                noResultsLabel={t('common.noData')}
+              />
             </label>
             <label>
               {t('common.type')}

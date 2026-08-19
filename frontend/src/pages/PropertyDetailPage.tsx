@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { StatusPill } from '../components/StatusPill';
 import { Timeline, type TimelineItem } from '../components/Timeline';
 import { apiRequest } from '../lib/api';
@@ -13,6 +14,7 @@ export function PropertyDetailPage() {
   const { formatDateTime, t, translateEnum } = useI18n();
   const [property, setProperty] = useState<Property | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [ownerContactId, setOwnerContactId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,6 +25,7 @@ export function PropertyDetailPage() {
     ]);
     setProperty(propertyData);
     setContacts(contactsData.items);
+    setOwnerContactId(propertyData.ownerContactId ? String(propertyData.ownerContactId) : '');
   }
 
   useEffect(() => {
@@ -244,14 +247,17 @@ export function PropertyDetailPage() {
             </label>
             <label>
               {t('common.owner')}
-              <select name="ownerContactId" defaultValue={property.ownerContactId ?? ''} disabled={Boolean(property.appraisalRequestId)}>
-                <option value="">{t('common.unassigned')}</option>
-                {contacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.displayName}
-                  </option>
-                ))}
-              </select>
+              <ContactCombobox
+                contacts={contacts}
+                value={ownerContactId}
+                onChange={setOwnerContactId}
+                placeholder={t('contacts.searchPlaceholder')}
+                emptyLabel={t('common.unassigned')}
+                loadingLabel={t('common.loading')}
+                noResultsLabel={t('common.noData')}
+                disabled={Boolean(property.appraisalRequestId)}
+                name="ownerContactId"
+              />
             </label>
             <label className="full-span">
               {t('appraisals.amenitiesText')}

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { apiRequest } from '../lib/api';
 import { appraisalDispositionOptions, appraisalOrientationOptions, currencyOptions, operationTypeOptions, propertyStatusOptions, propertyTypeOptions, useI18n } from '../lib/i18n';
 import { calculateAppraisalAreas, parseNullableNumber } from '../lib/appraisals';
@@ -242,18 +243,18 @@ export function PropertiesCreatePage() {
           </label>
           <label>
             {t('common.owner')}
-            <select
+            <ContactCombobox
+              contacts={contacts}
               value={form.ownerContactId}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, ownerContactId: value }))
+              }
+              placeholder={t('contacts.searchPlaceholder')}
+              emptyLabel={t('common.unassigned')}
+              loadingLabel={t('common.loading')}
+              noResultsLabel={t('common.noData')}
               disabled={Boolean(form.appraisalRequestId)}
-              onChange={(event) => setForm((current) => ({ ...current, ownerContactId: event.target.value }))}
-            >
-              <option value="">{t('common.unassigned')}</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.displayName}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label>
             {t('properties.address')}
