@@ -111,7 +111,7 @@ export function SearchRequirementManagePage() {
     try {
       const [requirementResponse, propertiesResponse] = await Promise.all([
         apiRequest<SearchRequirement>(`/search-requirements/${requirementId}`),
-        apiRequest<Paginated<Property>>('/properties?page=1&limit=200'),
+        apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
       ]);
 
       setRequirement(requirementResponse);
@@ -204,13 +204,22 @@ export function SearchRequirementManagePage() {
 
   async function handleCreateCandidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requirement) return;
+    if (!requirement) {
+      setError('No se pudo cargar el requerimiento. Actualiza la pantalla e intenta otra vez.');
+      return;
+    }
 
     setCreatingCandidate(true);
     setError('');
     setNotice('');
 
     try {
+      if (!selectedProperty) {
+        if (!createForm.portal.trim() || !createForm.title.trim() || !createForm.url.trim()) {
+          throw new Error('Completa portal, titulo y URL, o selecciona una propiedad del CRM.');
+        }
+      }
+
       const title = selectedProperty?.title ?? createForm.title.trim();
       const url =
         selectedProperty?.publicationUrl?.trim() ||
