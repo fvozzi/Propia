@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
@@ -16,6 +17,7 @@ import {
 import type {
   BuyerPropertyCandidate,
   BuyerPropertyCandidateWorkflowStatus,
+  Contact,
   Paginated,
   Property,
   SearchRequirement,
@@ -27,6 +29,7 @@ type CandidateCreateForm = {
   portal: string;
   url: string;
   title: string;
+  agentContactId: string;
   agentName: string;
   agentWhatsapp: string;
   internalNotes: string;
@@ -37,6 +40,7 @@ type CandidateWorkflowDraft = {
   proposedScheduleOptions: string;
   scheduledVisitAt: string;
   workflowNotes: string;
+  agentContactId: string;
   agentName: string;
   agentWhatsapp: string;
   lastContactedAt: string;
@@ -51,6 +55,7 @@ const initialCreateForm: CandidateCreateForm = {
   portal: '',
   url: '',
   title: '',
+  agentContactId: '',
   agentName: '',
   agentWhatsapp: '',
   internalNotes: '',
@@ -67,14 +72,70 @@ function toIsoOrNull(value: string) {
   return value ? new Date(value).toISOString() : null;
 }
 
-function buildCandidateDraft(candidate: BuyerPropertyCandidate): CandidateWorkflowDraft {
+function normalizePhoneValue(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  return value.replace(/\D/g, '');
+}
+
+function resolveAgentWhatsapp(contact: Contact | null) {
+  if (!contact) {
+    return null;
+  }
+
+  return contact.whatsapp?.trim() || contact.phone?.trim() || null;
+}
+
+function findMatchingAgentContact(
+  contacts: Contact[],
+  agentName: string | null | undefined,
+  agentWhatsapp: string | null | undefined,
+) {
+  const normalizedWhatsapp = normalizePhoneValue(agentWhatsapp);
+  if (normalizedWhatsapp) {
+    const matchedByWhatsapp = contacts.find((contact) => {
+      const contactWhatsapp = normalizePhoneValue(contact.whatsapp);
+      const contactPhone = normalizePhoneValue(contact.phone);
+      return contactWhatsapp === normalizedWhatsapp || contactPhone === normalizedWhatsapp;
+    });
+
+    if (matchedByWhatsapp) {
+      return matchedByWhatsapp;
+    }
+  }
+
+  const normalizedName = agentName?.trim().toLowerCase() ?? '';
+  if (!normalizedName) {
+    return null;
+  }
+
+  return (
+    contacts.find((contact) => contact.displayName.trim().toLowerCase() === normalizedName) ??
+    null
+  );
+}
+
+function buildCandidateDraft(
+  candidate: BuyerPropertyCandidate,
+  contacts: Contact[],
+): CandidateWorkflowDraft {
+  const matchedAgentContact = findMatchingAgentContact(
+    contacts,
+    candidate.agentName,
+    candidate.agentWhatsapp,
+  );
+
   return {
     workflowStatus: candidate.workflowStatus,
     proposedScheduleOptions: candidate.proposedScheduleOptions ?? '',
     scheduledVisitAt: toLocalDateTimeValue(candidate.scheduledVisitAt),
     workflowNotes: candidate.workflowNotes ?? '',
-    agentName: candidate.agentName ?? '',
-    agentWhatsapp: candidate.agentWhatsapp ?? '',
+    agentContactId: matchedAgentContact ? String(matchedAgentContact.id) : '',
+    agentName: matchedAgentContact?.displayName ?? candidate.agentName ?? '',
+    agentWhatsapp:
+      resolveAgentWhatsapp(matchedAgentContact) ?? candidate.agentWhatsapp ?? '',
     lastContactedAt: toLocalDateTimeValue(candidate.lastContactedAt),
   };
 }
@@ -96,6 +157,7 @@ export function SearchRequirementManagePage() {
   const requirementId = Number(id);
   const [requirement, setRequirement] = useState<SearchRequirement | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [createForm, setCreateForm] = useState<CandidateCreateForm>(initialCreateForm);
   const [drafts, setDrafts] = useState<Record<number, CandidateWorkflowDraft>>({});
   const [loading, setLoading] = useState(true);
@@ -109,18 +171,22 @@ export function SearchRequirementManagePage() {
     setError('');
 
     try {
-      const [requirementResponse, propertiesResponse] = await Promise.all([
+      const [requirementResponse, propertiesResponse, contactsResponse] = await Promise.all([
         apiRequest<SearchRequirement>(`/search-requirements/${requirementId}`),
         apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
+        apiRequest<Paginated<Contact>>(
+          '/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC',
+        ),
       ]);
 
       setRequirement(requirementResponse);
       setProperties(propertiesResponse.items);
+      setContacts(contactsResponse.items);
       setDrafts(
         Object.fromEntries(
           (requirementResponse.propertyCandidates ?? []).map((candidate) => [
             candidate.id,
-            buildCandidateDraft(candidate),
+            buildCandidateDraft(candidate, contactsResponse.items),
           ]),
         ),
       );
@@ -142,9 +208,7 @@ export function SearchRequirementManagePage() {
   const scheduledCandidates = useMemo(
     () =>
       (requirement?.propertyCandidates ?? [])
-        .filter(
-          (candidate) => candidate.workflowStatus === 'VISIT_SCHEDULED',
-        )
+        .filter((candidate) => candidate.workflowStatus === 'VISIT_SCHEDULED')
         .filter(hasScheduledVisitAt)
         .sort(
           (left, right) =>
@@ -183,7 +247,33 @@ export function SearchRequirementManagePage() {
     }));
   }
 
-  function applyQuickStatus(candidate: BuyerPropertyCandidate, nextStatus: BuyerPropertyCandidateWorkflowStatus) {
+  function handleCreateAgentContactChange(contactId: string) {
+    const selectedAgentContact =
+      contacts.find((contact) => String(contact.id) === contactId) ?? null;
+
+    setCreateForm((current) => ({
+      ...current,
+      agentContactId: contactId,
+      agentName: selectedAgentContact?.displayName ?? '',
+      agentWhatsapp: resolveAgentWhatsapp(selectedAgentContact) ?? '',
+    }));
+  }
+
+  function handleDraftAgentContactChange(candidateId: number, contactId: string) {
+    const selectedAgentContact =
+      contacts.find((contact) => String(contact.id) === contactId) ?? null;
+
+    setDraft(candidateId, {
+      agentContactId: contactId,
+      agentName: selectedAgentContact?.displayName ?? '',
+      agentWhatsapp: resolveAgentWhatsapp(selectedAgentContact) ?? '',
+    });
+  }
+
+  function applyQuickStatus(
+    candidate: BuyerPropertyCandidate,
+    nextStatus: BuyerPropertyCandidateWorkflowStatus,
+  ) {
     const now = new Date();
     const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
       .toISOString()
@@ -223,7 +313,9 @@ export function SearchRequirementManagePage() {
       const title = selectedProperty?.title ?? createForm.title.trim();
       const url =
         selectedProperty?.publicationUrl?.trim() ||
-        (selectedProperty ? `${window.location.origin}/properties/${selectedProperty.id}` : createForm.url.trim());
+        (selectedProperty
+          ? `${window.location.origin}/properties/${selectedProperty.id}`
+          : createForm.url.trim());
 
       await apiRequest('/buyer-property-candidates', {
         method: 'POST',
@@ -244,7 +336,11 @@ export function SearchRequirementManagePage() {
       setNotice('Propiedad candidata agregada.');
       await load();
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'No se pudo agregar la candidata.');
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : 'No se pudo agregar la candidata.',
+      );
     } finally {
       setCreatingCandidate(false);
     }
@@ -291,8 +387,11 @@ export function SearchRequirementManagePage() {
           `/search-requirements/${requirement.id}`,
         );
         const refreshedCandidate =
-          refreshedRequirement.propertyCandidates?.find((item) => item.id === candidate.id) ?? null;
-        const existingVisit = refreshedCandidate ? findMatchingVisit(refreshedRequirement.contact?.visits ?? [], refreshedCandidate) : null;
+          refreshedRequirement.propertyCandidates?.find((item) => item.id === candidate.id) ??
+          null;
+        const existingVisit = refreshedCandidate
+          ? findMatchingVisit(refreshedRequirement.contact?.visits ?? [], refreshedCandidate)
+          : null;
 
         if (existingVisit) {
           setNotice(t('requirements.candidateVisitExists'));
@@ -315,7 +414,11 @@ export function SearchRequirementManagePage() {
 
       await load();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el seguimiento.');
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'No se pudo guardar el seguimiento.',
+      );
     } finally {
       setBusyCandidateId(null);
     }
@@ -332,7 +435,11 @@ export function SearchRequirementManagePage() {
       await apiRequest(`/buyer-property-candidates/${candidateId}`, { method: 'DELETE' });
       await load();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la candidata.');
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'No se pudo eliminar la candidata.',
+      );
     } finally {
       setBusyCandidateId(null);
     }
@@ -388,7 +495,10 @@ export function SearchRequirementManagePage() {
             >
               {t('requirements.externalSuggestions')}
             </Link>
-            <Link to={`/requirements/${requirementId}/edit`} className="ghost-button button-link">
+            <Link
+              to={`/requirements/${requirementId}/edit`}
+              className="ghost-button button-link"
+            >
               {t('common.update')}
             </Link>
             <Link to="/requirements" className="ghost-button button-link">
@@ -406,8 +516,8 @@ export function SearchRequirementManagePage() {
           <div>
             <strong>{requirement.contact?.displayName}</strong>
             <p className="muted">
-              {translateEnum('operationType', requirement.operationType)} ·{' '}
-              {translateEnum('propertyType', requirement.propertyType)} ·{' '}
+              {translateEnum('operationType', requirement.operationType)} Â·{' '}
+              {translateEnum('propertyType', requirement.propertyType)} Â·{' '}
               {requirement.neighborhoods.join(', ') || t('common.noData')}
             </p>
             {requirement.notes ? <p className="muted">{requirement.notes}</p> : null}
@@ -472,7 +582,9 @@ export function SearchRequirementManagePage() {
                 type="url"
                 value={
                   selectedProperty?.publicationUrl?.trim() ||
-                  (selectedProperty ? `${window.location.origin}/properties/${selectedProperty.id}` : createForm.url)
+                  (selectedProperty
+                    ? `${window.location.origin}/properties/${selectedProperty.id}`
+                    : createForm.url)
                 }
                 onChange={(event) =>
                   setCreateForm((current) => ({ ...current, url: event.target.value }))
@@ -483,20 +595,23 @@ export function SearchRequirementManagePage() {
             </label>
             <label>
               {t('requirements.candidateAgentName')}
-              <input
-                value={createForm.agentName}
-                onChange={(event) =>
-                  setCreateForm((current) => ({ ...current, agentName: event.target.value }))
-                }
+              <ContactCombobox
+                contacts={contacts}
+                value={createForm.agentContactId}
+                onChange={handleCreateAgentContactChange}
+                placeholder="Buscar contacto"
+                emptyLabel={t('common.select')}
+                loadingLabel={t('common.loading')}
+                noResultsLabel="Sin resultados"
+                loading={loading}
               />
             </label>
             <label>
               {t('requirements.candidateAgentWhatsapp')}
               <input
                 value={createForm.agentWhatsapp}
-                onChange={(event) =>
-                  setCreateForm((current) => ({ ...current, agentWhatsapp: event.target.value }))
-                }
+                readOnly
+                placeholder="Se completa desde el contacto"
               />
             </label>
             <label className="full-span">
@@ -505,7 +620,10 @@ export function SearchRequirementManagePage() {
                 rows={3}
                 value={createForm.internalNotes}
                 onChange={(event) =>
-                  setCreateForm((current) => ({ ...current, internalNotes: event.target.value }))
+                  setCreateForm((current) => ({
+                    ...current,
+                    internalNotes: event.target.value,
+                  }))
                 }
               />
             </label>
@@ -560,7 +678,7 @@ export function SearchRequirementManagePage() {
 
         <div className="stack-gap">
           {(requirement?.propertyCandidates ?? []).map((candidate) => {
-            const draft = drafts[candidate.id] ?? buildCandidateDraft(candidate);
+            const draft = drafts[candidate.id] ?? buildCandidateDraft(candidate, contacts);
             const existingVisit = findExistingVisit(candidate);
             const isBusy = busyCandidateId === candidate.id;
 
@@ -570,7 +688,7 @@ export function SearchRequirementManagePage() {
                   <div>
                     <strong>{candidate.property?.address ?? candidate.title}</strong>
                     <p className="muted">
-                      {candidate.property?.title ?? candidate.title} · {candidate.portal}
+                      {candidate.property?.title ?? candidate.title} Â· {candidate.portal}
                     </p>
                     {candidate.property?.neighborhood ? (
                       <p className="muted">{candidate.property.neighborhood}</p>
@@ -648,20 +766,25 @@ export function SearchRequirementManagePage() {
                   </label>
                   <label>
                     {t('requirements.candidateAgentName')}
-                    <input
-                      value={draft.agentName}
-                      onChange={(event) =>
-                        setDraft(candidate.id, { agentName: event.target.value })
+                    <ContactCombobox
+                      contacts={contacts}
+                      value={draft.agentContactId}
+                      onChange={(contactId) =>
+                        handleDraftAgentContactChange(candidate.id, contactId)
                       }
+                      placeholder="Buscar contacto"
+                      emptyLabel={t('common.select')}
+                      loadingLabel={t('common.loading')}
+                      noResultsLabel="Sin resultados"
+                      loading={loading}
                     />
                   </label>
                   <label>
                     {t('requirements.candidateAgentWhatsapp')}
                     <input
                       value={draft.agentWhatsapp}
-                      onChange={(event) =>
-                        setDraft(candidate.id, { agentWhatsapp: event.target.value })
-                      }
+                      readOnly
+                      placeholder="Se completa desde el contacto"
                     />
                   </label>
                   <label className="full-span">
@@ -700,16 +823,30 @@ export function SearchRequirementManagePage() {
 
                 <div className="candidate-actions">
                   {candidate.url ? (
-                    <a href={candidate.url} target="_blank" rel="noreferrer" className="ghost-button button-link">
+                    <a
+                      href={candidate.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ghost-button button-link"
+                    >
                       {t('contacts.candidateOpenLink')}
                     </a>
                   ) : null}
                   {draft.agentWhatsapp ? (
-                    <button type="button" className="ghost-button" onClick={() => openAgentWhatsapp(candidate)}>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => openAgentWhatsapp(candidate)}
+                    >
                       {t('requirements.openAgentWhatsapp')}
                     </button>
                   ) : null}
-                  <button type="button" className="ghost-button" onClick={() => saveCandidate(candidate)} disabled={isBusy}>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => saveCandidate(candidate)}
+                    disabled={isBusy}
+                  >
                     {isBusy ? t('common.loading') : t('requirements.candidateSaveWorkflow')}
                   </button>
                   <button
@@ -725,14 +862,20 @@ export function SearchRequirementManagePage() {
                   >
                     {t('requirements.candidateCreateVisit')}
                   </button>
-                  <button type="button" className="ghost-button" onClick={() => handleDeleteCandidate(candidate.id)} disabled={isBusy}>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => handleDeleteCandidate(candidate.id)}
+                    disabled={isBusy}
+                  >
                     {t('contacts.candidateDelete')}
                   </button>
                 </div>
 
                 {existingVisit ? (
                   <p className="muted">
-                    {t('requirements.candidateVisitExists')} {formatDateTime(existingVisit.scheduledAt)}
+                    {t('requirements.candidateVisitExists')}{' '}
+                    {formatDateTime(existingVisit.scheduledAt)}
                   </p>
                 ) : null}
               </article>
