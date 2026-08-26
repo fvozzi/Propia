@@ -73,21 +73,29 @@ export function buildBirthdayWhatsappMessage(contactName: string) {
   return `Feliz cumpleaños${greetingTarget}! Espero que tengas un gran día.`;
 }
 
-export function buildBuyerSearchAgentMessage(
-  candidateTitle: string,
-  buyerName: string,
-  property?: ShareableCandidateProperty | null,
-) {
-  const place = property
-    ? [property.address, property.neighborhood || property.city].filter(Boolean).join(', ')
-    : candidateTitle;
+export function buildBuyerSearchAgentMessage(input: {
+  agentName?: string | null;
+  teamName?: string | null;
+  candidateTitle: string;
+  candidateUrl?: string | null;
+  property?: ShareableCandidateProperty | null;
+}) {
+  const introParts = [input.agentName?.trim(), input.teamName?.trim()].filter(Boolean);
+  const intro = introParts.length > 0 ? `Hola, soy ${introParts.join(' de ')}.` : 'Hola.';
+  const propertyTitle = input.property?.title?.trim() || input.candidateTitle.trim();
+  const propertyUrl = input.candidateUrl?.trim() || null;
 
   return [
-    'Hola! Te escribo por esta propiedad.',
-    place ? `Propiedad: ${place}` : `Propiedad: ${candidateTitle}`,
-    `Tengo un comprador interesado: ${buyerName}.`,
-    'Queria consultar disponibilidad y posibles horarios para visitarla.',
-  ].join('\n');
+    intro,
+    'Te escribo por,',
+    '',
+    `Propiedad: ${propertyTitle}`,
+    propertyUrl ? `URL: ${propertyUrl}` : null,
+    '',
+    'Tengo un comprador interesado, quisiera consultar disponibilidad y posibles horarios para visitarla.',
+  ]
+    .filter((line) => line !== null)
+    .join('\n');
 }
 
 export function buildBuyerTourWhatsappMessage(

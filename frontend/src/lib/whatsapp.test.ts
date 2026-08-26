@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildBirthdayWhatsappMessage,
+  buildBuyerSearchAgentMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
   buildVisitWhatsappMessage,
@@ -169,5 +170,26 @@ describe('whatsapp helpers', () => {
     expect(appendSpy).toHaveBeenCalledOnce();
     expect(clickSpy).toHaveBeenCalledOnce();
     expect(removeSpy).toHaveBeenCalledOnce();
+  });
+
+  it('builds the buyer search agent message with agent identity, title and url', () => {
+    expect(
+      buildBuyerSearchAgentMessage({
+        agentName: 'Victoria',
+        teamName: 'C21',
+        candidateTitle: 'Incas 2380',
+        candidateUrl: 'https://zonaprop.com.ar/aviso',
+      }),
+    ).toBe(
+      [
+        'Hola, soy Victoria de C21.',
+        'Te escribo por,',
+        '',
+        'Propiedad: Incas 2380',
+        'URL: https://zonaprop.com.ar/aviso',
+        '',
+        'Tengo un comprador interesado, quisiera consultar disponibilidad y posibles horarios para visitarla.',
+      ].join('\n'),
+    );
   });
 });

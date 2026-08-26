@@ -4,6 +4,7 @@ import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import {
   buyerPropertyCandidateWorkflowStatusOptions,
   useI18n,
@@ -165,6 +166,7 @@ function resolveCandidateVisitAddress(candidate: BuyerPropertyCandidate) {
 
 export function SearchRequirementManagePage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const { formatDateTime, t, translateEnum } = useI18n();
   const requirementId = Number(id);
   const [requirement, setRequirement] = useState<SearchRequirement | null>(null);
@@ -459,9 +461,13 @@ export function SearchRequirementManagePage() {
       buildWhatsAppShareUrl(
         { phone: '', whatsapp: drafts[candidate.id].agentWhatsapp },
         buildBuyerSearchAgentMessage(
-          candidate.title,
-          requirement.contact.displayName,
-          candidate.property ?? undefined,
+          {
+            agentName: user?.name ?? null,
+            teamName: user?.activeTeamName ?? null,
+            candidateTitle: candidate.title,
+            candidateUrl: candidate.url,
+            property: candidate.property ?? undefined,
+          },
         ),
       ),
     );
