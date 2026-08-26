@@ -25,17 +25,24 @@ export class VisitsService {
 
   async create(dto: CreateVisitDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    await this.assertScopedRelations(dto.contactId, dto.propertyId, teamId);
+    await this.assertScopedRelations(
+      dto.contactId,
+      dto.propertyId ?? null,
+      teamId,
+      dto.externalPropertyTitle ?? null,
+    );
 
     const visit = this.visitsRepository.create({
       teamId,
       ownerUserId: user.sub,
-      propertyId: dto.propertyId,
+      propertyId: dto.propertyId ?? null,
       contactId: dto.contactId,
       scheduledAt: new Date(dto.scheduledAt),
       status: dto.status,
       notes: dto.notes?.trim() || null,
       externalUrl: dto.externalUrl?.trim() || null,
+      externalPropertyTitle: dto.externalPropertyTitle?.trim() || null,
+      externalPropertyAddress: dto.externalPropertyAddress?.trim() || null,
       googleSyncStatus: 'PENDING',
     });
 
@@ -96,8 +103,18 @@ export class VisitsService {
     }
 
     const nextContactId = dto.contactId ?? visit.contactId;
-    const nextPropertyId = dto.propertyId ?? visit.propertyId;
-    await this.assertScopedRelations(nextContactId, nextPropertyId, teamId);
+    const nextPropertyId =
+      dto.propertyId === undefined ? visit.propertyId : dto.propertyId ?? null;
+    const nextExternalPropertyTitle =
+      dto.externalPropertyTitle === undefined
+        ? visit.externalPropertyTitle
+        : dto.externalPropertyTitle?.trim() || null;
+    await this.assertScopedRelations(
+      nextContactId,
+      nextPropertyId,
+      teamId,
+      nextExternalPropertyTitle,
+    );
 
     Object.assign(visit, {
       propertyId: nextPropertyId,
@@ -107,6 +124,14 @@ export class VisitsService {
       notes: dto.notes === undefined ? visit.notes : dto.notes?.trim() || null,
       externalUrl:
         dto.externalUrl === undefined ? visit.externalUrl : dto.externalUrl?.trim() || null,
+      externalPropertyTitle:
+        dto.externalPropertyTitle === undefined
+          ? visit.externalPropertyTitle
+          : dto.externalPropertyTitle?.trim() || null,
+      externalPropertyAddress:
+        dto.externalPropertyAddress === undefined
+          ? visit.externalPropertyAddress
+          : dto.externalPropertyAddress?.trim() || null,
       googleSyncStatus: 'PENDING',
       googleSyncError: null,
     });
@@ -167,20 +192,33 @@ export class VisitsService {
     return this.findOne(visitId, user);
   }
 
-  private async assertScopedRelations(contactId: number, propertyId: number, teamId: number) {
+  private async assertScopedRelations(
+    contactId: number,
+    propertyId: number | null,
+    teamId: number,
+    externalPropertyTitle: string | null,
+  ) {
     const [contact, property] = await Promise.all([
       this.contactsRepository.findOne({ where: { id: contactId, teamId } }),
-      this.propertiesRepository.findOne({
-        where: { id: propertyId, teamId },
-      }),
+      propertyId
+        ? this.propertiesRepository.findOne({
+            where: { id: propertyId, teamId },
+          })
+        : Promise.resolve(null),
     ]);
 
     if (!contact) {
       throw new NotFoundException('Contacto no encontrado');
     }
 
-    if (!property) {
+    if (propertyId && !property) {
       throw new NotFoundException('Propiedad no encontrada');
+    }
+
+    if (!propertyId && !externalPropertyTitle?.trim()) {
+      throw new NotFoundException(
+        'La visita necesita una propiedad del CRM o un titulo externo de propiedad',
+      );
     }
   }
 }

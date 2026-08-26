@@ -10,7 +10,10 @@ import type {
 } from '../types';
 
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
-type ShareableVisit = Pick<Visit, 'scheduledAt' | 'status' | 'notes' | 'externalUrl'> & {
+type ShareableVisit = Pick<
+  Visit,
+  'scheduledAt' | 'status' | 'notes' | 'externalUrl' | 'externalPropertyTitle' | 'externalPropertyAddress'
+> & {
   property?: Pick<Property, 'address' | 'city' | 'neighborhood'> | null;
 };
 type ShareableCandidateProperty = Pick<
@@ -43,9 +46,13 @@ export function buildVisitWhatsappMessage(visit: ShareableVisit) {
     hour12: false,
     timeZone: 'America/Argentina/Buenos_Aires',
   }).format(date);
-  const address = [visit.property?.address, visit.property?.neighborhood || visit.property?.city]
-    .filter(Boolean)
-    .join(', ');
+  const address =
+    [visit.property?.address, visit.property?.neighborhood || visit.property?.city]
+      .filter(Boolean)
+      .join(', ') ||
+    visit.externalPropertyAddress?.trim() ||
+    visit.externalPropertyTitle?.trim() ||
+    '';
 
   return [
     statusLine,

@@ -788,7 +788,10 @@ function mapVisitToAgendaItem(visit: Visit): AgendaItem {
     id: `visit-${visit.id}`,
     entityType: 'visit',
     startsAt: visit.scheduledAt,
-    title: visit.property?.title ?? `Property #${visit.propertyId}`,
+    title:
+      visit.property?.title ??
+      visit.externalPropertyTitle ??
+      (visit.propertyId ? `Property #${visit.propertyId}` : 'Visita externa'),
     detail: visit.contact?.displayName ?? `Contact #${visit.contactId}`,
     status: visit.status,
     contact: visit.contact,

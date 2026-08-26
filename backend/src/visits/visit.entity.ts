@@ -22,12 +22,15 @@ export class Visit {
   @Column()
   ownerUserId: number;
 
-  @ManyToOne(() => Property, (property) => property.visits, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Property, (property) => property.visits, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'propertyId' })
-  property: Property;
+  property: Property | null;
 
-  @Column()
-  propertyId: number;
+  @Column({ nullable: true })
+  propertyId: number | null;
 
   @ManyToOne(() => Contact, (contact) => contact.visits, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'contactId' })
@@ -47,6 +50,12 @@ export class Visit {
 
   @Column({ type: 'text', nullable: true })
   externalUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  externalPropertyTitle: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  externalPropertyAddress: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   googleEventId: string | null;

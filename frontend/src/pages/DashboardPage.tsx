@@ -251,7 +251,11 @@ export function DashboardPage() {
         <h3>{t('dashboard.visitsToday')}</h3>
         {(data?.visitsToday ?? []).map((visit) => (
           <div key={visit.id} className="list-item">
-            <strong>{visit.property?.title ?? t('dashboard.propertyFallback')}</strong>
+            <strong>
+              {visit.property?.title ??
+                visit.externalPropertyTitle ??
+                t('dashboard.propertyFallback')}
+            </strong>
             <span>
               {visit.contact?.displayName ?? t('common.noContact')} ·{' '}
               {formatDateTime(visit.scheduledAt)}

@@ -575,12 +575,14 @@ export interface PublicAppraisalRequest extends Omit<AppraisalRequest, 'contactI
 
 export interface Visit {
   id: number;
-  propertyId: number;
+  propertyId: number | null;
   contactId: number;
   scheduledAt: string;
   status: VisitStatus;
   notes: string | null;
   externalUrl: string | null;
+  externalPropertyTitle?: string | null;
+  externalPropertyAddress?: string | null;
   googleEventId?: string | null;
   googleSyncStatus?: string;
   lastSyncedAt?: string | null;
@@ -588,7 +590,7 @@ export interface Visit {
   createdAt: string;
   updatedAt: string;
   contact?: Contact;
-  property?: Property;
+  property?: Property | null;
 }
 
 export interface PropertyMapItem {

@@ -151,6 +151,18 @@ function hasScheduledVisitAt(
   return Boolean(candidate.scheduledVisitAt);
 }
 
+function resolveCandidateVisitTitle(candidate: BuyerPropertyCandidate) {
+  return candidate.property?.title ?? candidate.title;
+}
+
+function resolveCandidateVisitAddress(candidate: BuyerPropertyCandidate) {
+  if (candidate.property?.address) {
+    return [candidate.property.address, candidate.property.city].filter(Boolean).join(', ');
+  }
+
+  return candidate.title;
+}
+
 export function SearchRequirementManagePage() {
   const { id } = useParams();
   const { formatDateTime, t, translateEnum } = useI18n();
@@ -348,41 +360,34 @@ export function SearchRequirementManagePage() {
 
   function findExistingVisit(candidate: BuyerPropertyCandidate) {
     const visits = requirement?.contact?.visits ?? [];
-    return visits.find(
-      (visit) =>
-        visit.propertyId === candidate.propertyId &&
-        sameScheduledInstant(visit.scheduledAt, candidate.scheduledVisitAt),
-    );
+    return findMatchingVisit(visits, candidate);
   }
 
   async function saveCandidate(candidate: BuyerPropertyCandidate, createVisit = false) {
     const draft = drafts[candidate.id];
     if (!draft || !requirement) return;
+    const nextWorkflowStatus =
+      createVisit && draft.scheduledVisitAt ? 'VISIT_SCHEDULED' : draft.workflowStatus;
 
     setBusyCandidateId(candidate.id);
     setError('');
     setNotice('');
 
-    try {
-      await apiRequest(`/buyer-property-candidates/${candidate.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          workflowStatus: draft.workflowStatus,
-          proposedScheduleOptions: draft.proposedScheduleOptions || null,
-          scheduledVisitAt: toIsoOrNull(draft.scheduledVisitAt),
-          workflowNotes: draft.workflowNotes || null,
-          agentName: draft.agentName || null,
-          agentWhatsapp: draft.agentWhatsapp || null,
+      try {
+        await apiRequest(`/buyer-property-candidates/${candidate.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+          workflowStatus: nextWorkflowStatus,
+            proposedScheduleOptions: draft.proposedScheduleOptions || null,
+            scheduledVisitAt: toIsoOrNull(draft.scheduledVisitAt),
+            workflowNotes: draft.workflowNotes || null,
+            agentName: draft.agentName || null,
+            agentWhatsapp: draft.agentWhatsapp || null,
           lastContactedAt: toIsoOrNull(draft.lastContactedAt),
         }),
       });
 
-      if (
-        createVisit &&
-        candidate.propertyId &&
-        draft.workflowStatus === 'VISIT_SCHEDULED' &&
-        draft.scheduledVisitAt
-      ) {
+      if (createVisit && draft.scheduledVisitAt) {
         const refreshedRequirement = await apiRequest<SearchRequirement>(
           `/search-requirements/${requirement.id}`,
         );
@@ -400,12 +405,14 @@ export function SearchRequirementManagePage() {
           await apiRequest('/visits', {
             method: 'POST',
             body: JSON.stringify({
-              propertyId: refreshedCandidate.propertyId,
+              propertyId: refreshedCandidate.propertyId ?? undefined,
               contactId: refreshedRequirement.contactId,
               scheduledAt: refreshedCandidate.scheduledVisitAt,
               status: 'SCHEDULED',
               notes: refreshedCandidate.workflowNotes || undefined,
               externalUrl: refreshedCandidate.url,
+              externalPropertyTitle: resolveCandidateVisitTitle(refreshedCandidate),
+              externalPropertyAddress: resolveCandidateVisitAddress(refreshedCandidate),
             }),
           });
           setNotice(t('requirements.candidateVisitCreated'));
@@ -855,9 +862,7 @@ export function SearchRequirementManagePage() {
                     onClick={() => saveCandidate(candidate, true)}
                     disabled={
                       isBusy ||
-                      !candidate.propertyId ||
-                      !draft.scheduledVisitAt ||
-                      draft.workflowStatus !== 'VISIT_SCHEDULED'
+                      !draft.scheduledVisitAt
                     }
                   >
                     {t('requirements.candidateCreateVisit')}
@@ -889,8 +894,29 @@ export function SearchRequirementManagePage() {
 
 function findMatchingVisit(visits: Visit[], candidate: BuyerPropertyCandidate) {
   return visits.find(
-    (visit) =>
-      visit.propertyId === candidate.propertyId &&
-      sameScheduledInstant(visit.scheduledAt, candidate.scheduledVisitAt),
+    (visit) => {
+      if (!sameScheduledInstant(visit.scheduledAt, candidate.scheduledVisitAt)) {
+        return false;
+      }
+
+      if (candidate.propertyId && visit.propertyId === candidate.propertyId) {
+        return true;
+      }
+
+      if (!candidate.propertyId) {
+        if (visit.externalUrl && candidate.url && visit.externalUrl === candidate.url) {
+          return true;
+        }
+
+        if (
+          visit.externalPropertyTitle?.trim().toLowerCase() ===
+          resolveCandidateVisitTitle(candidate).trim().toLowerCase()
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    },
   );
 }

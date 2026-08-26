@@ -3,9 +3,10 @@ import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUrl } from 'class-
 import { VisitStatus } from '../../common/enums';
 
 export class CreateVisitDto {
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
-  propertyId: number;
+  propertyId?: number | null;
 
   @Type(() => Number)
   @IsInt()
@@ -26,4 +27,12 @@ export class CreateVisitDto {
     require_protocol: true,
   })
   externalUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  externalPropertyTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  externalPropertyAddress?: string;
 }

@@ -176,7 +176,13 @@ export function VisitsPage() {
           {(visits?.items ?? []).map((visit) => (
             <article key={visit.id} className="list-item list-item-actions">
               <div>
-                <strong>{visit.property?.title ?? `${t('common.property')} #${visit.propertyId}`}</strong>
+                <strong>
+                  {visit.property?.title ??
+                    visit.externalPropertyTitle ??
+                    (visit.propertyId
+                      ? `${t('common.property')} #${visit.propertyId}`
+                      : t('dashboard.propertyFallback'))}
+                </strong>
                 <p className="muted">
                   {visit.contact?.displayName ?? `${t('common.contact')} #${visit.contactId}`} - {formatDateTime(visit.scheduledAt)}
                 </p>

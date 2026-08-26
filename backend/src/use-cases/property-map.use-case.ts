@@ -16,7 +16,7 @@ type PropertyMapPropertyInput = {
 };
 
 type PropertyMapVisitInput = {
-  propertyId: number;
+  propertyId: number | null;
   scheduledAt: Date | string;
   status: VisitStatus;
 };
@@ -44,7 +44,10 @@ export function buildPropertyMapItems(
   const doneVisitsByPropertyId = new Map<number, PropertyMapVisitInput[]>();
 
   visits
-    .filter((visit) => visit.status === VisitStatus.DONE)
+    .filter(
+      (visit): visit is PropertyMapVisitInput & { propertyId: number } =>
+        visit.status === VisitStatus.DONE && typeof visit.propertyId === 'number',
+    )
     .forEach((visit) => {
       const current = doneVisitsByPropertyId.get(visit.propertyId) ?? [];
       current.push(visit);

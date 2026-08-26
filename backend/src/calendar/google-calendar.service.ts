@@ -232,10 +232,13 @@ export class GoogleCalendarService {
     const endDate = new Date(visit.scheduledAt);
     endDate.setHours(endDate.getHours() + 1);
 
-    const propertyTitle = visit.property?.title ?? `Property #${visit.propertyId}`;
+    const propertyTitle =
+      visit.property?.title ??
+      visit.externalPropertyTitle?.trim() ??
+      (visit.propertyId ? `Property #${visit.propertyId}` : 'External property visit');
     const propertyAddress = visit.property?.address
       ? `${visit.property.address}, ${visit.property.city}`
-      : 'Address pending';
+      : visit.externalPropertyAddress?.trim() || 'Address pending';
     const contactName = visit.contact?.displayName ?? `Contact #${visit.contactId}`;
 
     return {
