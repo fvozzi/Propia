@@ -646,6 +646,7 @@ export function SearchRequirementManagePage() {
                 loadingLabel={t('common.loading')}
                 noResultsLabel="Sin resultados"
                 loading={loading}
+                remoteSearch
               />
             </label>
             <label>
@@ -827,6 +828,7 @@ export function SearchRequirementManagePage() {
                       loadingLabel={t('common.loading')}
                       noResultsLabel="Sin resultados"
                       loading={loading}
+                      remoteSearch
                     />
                   </label>
                   <label>

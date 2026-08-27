@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { apiRequest } from '../lib/api';
 import type { Contact } from '../types';
+import type { Paginated } from '../types';
 import { SearchableCombobox } from './SearchableCombobox';
 
 type ContactComboboxProps = {
@@ -14,6 +16,7 @@ type ContactComboboxProps = {
   disabled?: boolean;
   loading?: boolean;
   name?: string;
+  remoteSearch?: boolean;
 };
 
 export function ContactCombobox({
@@ -28,11 +31,64 @@ export function ContactCombobox({
   disabled = false,
   loading = false,
   name,
+  remoteSearch = false,
 }: ContactComboboxProps) {
   const [searchValue, setSearchValue] = useState('');
+  const [remoteMatches, setRemoteMatches] = useState<Contact[] | null>(null);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+
+  const normalizedSearch = searchValue.trim().toLowerCase();
+  const selectedContact =
+    contacts.find((contact) => String(contact.id) === value) ??
+    remoteMatches?.find((contact) => String(contact.id) === value) ??
+    null;
+
+  useEffect(() => {
+    if (!remoteSearch || !normalizedSearch) {
+      setRemoteMatches(null);
+      setRemoteLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setRemoteLoading(true);
+      void apiRequest<Paginated<Contact>>(
+        `/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC&search=${encodeURIComponent(normalizedSearch)}`,
+      )
+        .then((response) => {
+          if (cancelled) {
+            return;
+          }
+
+          setRemoteMatches(response.items);
+        })
+        .catch(() => {
+          if (cancelled) {
+            return;
+          }
+
+          setRemoteMatches([]);
+        })
+        .finally(() => {
+          if (cancelled) {
+            return;
+          }
+
+          setRemoteLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [normalizedSearch, remoteSearch]);
 
   const filteredContacts = useMemo(() => {
-    const normalizedSearch = searchValue.trim().toLowerCase();
+    if (remoteSearch && normalizedSearch) {
+      return mergeContacts(remoteMatches ?? [], selectedContact ? [selectedContact] : []);
+    }
 
     if (!normalizedSearch) {
       return contacts;
@@ -46,7 +102,7 @@ export function ContactCombobox({
         contact.whatsapp ?? '',
       ].some((value) => value.toLowerCase().includes(normalizedSearch)),
     );
-  }, [contacts, searchValue]);
+  }, [contacts, normalizedSearch, remoteMatches, remoteSearch, selectedContact]);
 
   return (
     <>
@@ -65,9 +121,23 @@ export function ContactCombobox({
         noResultsLabel={noResultsLabel}
         required={required}
         disabled={disabled}
-        loading={loading}
+        loading={loading || remoteLoading}
       />
       {name ? <input type="hidden" name={name} value={value} /> : null}
     </>
+  );
+}
+
+function mergeContacts(...groups: Array<Contact[] | null | undefined>) {
+  const uniqueContacts = new Map<number, Contact>();
+
+  groups.forEach((group) => {
+    group?.forEach((contact) => {
+      uniqueContacts.set(contact.id, contact);
+    });
+  });
+
+  return Array.from(uniqueContacts.values()).sort((left, right) =>
+    left.displayName.localeCompare(right.displayName, 'es', { sensitivity: 'base' }),
   );
 }
