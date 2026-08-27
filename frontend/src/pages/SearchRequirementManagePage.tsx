@@ -558,8 +558,8 @@ export function SearchRequirementManagePage() {
           <div>
             <strong>{requirement.contact?.displayName}</strong>
             <p className="muted">
-              {translateEnum('operationType', requirement.operationType)} Â·{' '}
-              {translateEnum('propertyType', requirement.propertyType)} Â·{' '}
+              {translateEnum('operationType', requirement.operationType)} -{' '}
+              {translateEnum('propertyType', requirement.propertyType)} -{' '}
               {requirement.neighborhoods.join(', ') || t('common.noData')}
             </p>
             {requirement.notes ? <p className="muted">{requirement.notes}</p> : null}
@@ -739,7 +739,7 @@ export function SearchRequirementManagePage() {
                   <div>
                     <strong>{candidate.property?.address ?? candidate.title}</strong>
                     <p className="muted">
-                      {candidate.property?.title ?? candidate.title} Â· {candidate.portal}
+                      {candidate.property?.title ?? candidate.title} - {candidate.portal}
                     </p>
                     {candidate.property?.neighborhood ? (
                       <p className="muted">{candidate.property.neighborhood}</p>

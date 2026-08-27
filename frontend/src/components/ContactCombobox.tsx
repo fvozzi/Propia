@@ -34,14 +34,19 @@ export function ContactCombobox({
   remoteSearch = false,
 }: ContactComboboxProps) {
   const [searchValue, setSearchValue] = useState('');
+  const [knownContacts, setKnownContacts] = useState<Contact[]>(contacts);
   const [remoteMatches, setRemoteMatches] = useState<Contact[] | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
 
   const normalizedSearch = searchValue.trim().toLowerCase();
   const selectedContact =
-    contacts.find((contact) => String(contact.id) === value) ??
+    knownContacts.find((contact) => String(contact.id) === value) ??
     remoteMatches?.find((contact) => String(contact.id) === value) ??
     null;
+
+  useEffect(() => {
+    setKnownContacts((current) => mergeContacts(current, contacts));
+  }, [contacts]);
 
   useEffect(() => {
     if (!remoteSearch || !normalizedSearch) {
@@ -62,6 +67,7 @@ export function ContactCombobox({
           }
 
           setRemoteMatches(response.items);
+          setKnownContacts((current) => mergeContacts(current, response.items));
         })
         .catch(() => {
           if (cancelled) {
@@ -91,10 +97,10 @@ export function ContactCombobox({
     }
 
     if (!normalizedSearch) {
-      return contacts;
+      return mergeContacts(knownContacts, selectedContact ? [selectedContact] : []);
     }
 
-    return contacts.filter((contact) =>
+    return knownContacts.filter((contact) =>
       [
         contact.displayName,
         contact.email ?? '',
@@ -102,7 +108,7 @@ export function ContactCombobox({
         contact.whatsapp ?? '',
       ].some((value) => value.toLowerCase().includes(normalizedSearch)),
     );
-  }, [contacts, normalizedSearch, remoteMatches, remoteSearch, selectedContact]);
+  }, [knownContacts, normalizedSearch, remoteMatches, remoteSearch, selectedContact]);
 
   return (
     <>
