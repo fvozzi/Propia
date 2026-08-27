@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ContactCombobox } from '../components/ContactCombobox';
+import { SearchableCombobox } from '../components/SearchableCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { apiRequest } from '../lib/api';
 import {
@@ -92,6 +92,9 @@ export function SearchRequirementCreatePage() {
   const navigate = useNavigate();
   const { t, translateEnum } = useI18n();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactMatches, setContactMatches] = useState<Contact[] | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [form, setForm] = useState<RequirementFormState>(initialForm);
   const [error, setError] = useState('');
@@ -100,6 +103,7 @@ export function SearchRequirementCreatePage() {
   const requirementId = id ? Number(id) : null;
   const isEditing = Boolean(requirementId);
   const initialContactId = searchParams.get('contactId') ?? '';
+  const contactSearchTerm = contactSearch.trim();
 
   useEffect(() => {
     async function loadDependencies() {
@@ -107,14 +111,16 @@ export function SearchRequirementCreatePage() {
 
       try {
         const [contactsData, propertiesData, requirementData] = await Promise.all([
-          apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100'),
+          apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC'),
           apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
           isEditing && requirementId
             ? apiRequest<SearchRequirement>(`/search-requirements/${requirementId}`)
             : Promise.resolve(null),
         ]);
 
-        setContacts(contactsData.items);
+        setContacts(
+          mergeContacts(contactsData.items, requirementData?.contact ? [requirementData.contact] : []),
+        );
         setProperties(propertiesData.items);
 
         if (requirementData) {
@@ -157,10 +163,58 @@ export function SearchRequirementCreatePage() {
     void loadDependencies();
   }, [initialContactId, isEditing, requirementId]);
 
+  useEffect(() => {
+    if (!contactSearchTerm) {
+      setContactMatches(null);
+      setContactsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setContactsLoading(true);
+      void apiRequest<Paginated<Contact>>(
+        `/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC&search=${encodeURIComponent(contactSearchTerm)}`,
+      )
+        .then((contactsData) => {
+          if (cancelled) {
+            return;
+          }
+
+          setContactMatches(contactsData.items);
+          setContacts((current) => mergeContacts(current, contactsData.items));
+        })
+        .catch(() => {
+          if (cancelled) {
+            return;
+          }
+
+          setContactMatches([]);
+        })
+        .finally(() => {
+          if (cancelled) {
+            return;
+          }
+
+          setContactsLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [contactSearchTerm]);
+
   const selectedProperty =
     properties.find((property) => String(property.id) === form.selectedPropertyId) ?? null;
   const isSaleRequirement = form.operationType === 'SALE';
   const usingExistingProperty = isSaleRequirement && Boolean(selectedProperty);
+  const selectedContact = contacts.find((contact) => String(contact.id) === form.contactId) ?? null;
+  const visibleContacts = mergeContacts(
+    contactSearchTerm ? contactMatches ?? [] : contacts,
+    selectedContact ? [selectedContact] : [],
+  );
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -267,9 +321,14 @@ export function SearchRequirementCreatePage() {
           <form className="form-grid" onSubmit={handleSave}>
             <label>
               {t('common.contact')}
-              <ContactCombobox
-                contacts={contacts}
+              <SearchableCombobox
                 value={form.contactId}
+                options={visibleContacts.map((contact) => ({
+                  value: String(contact.id),
+                  label: contact.displayName,
+                }))}
+                searchValue={contactSearch}
+                onSearchValueChange={setContactSearch}
                 onChange={(value) =>
                   setForm((current) => ({ ...current, contactId: value }))
                 }
@@ -278,6 +337,7 @@ export function SearchRequirementCreatePage() {
                 loadingLabel={t('common.loading')}
                 noResultsLabel={t('common.noData')}
                 required
+                loading={contactsLoading}
               />
             </label>
             <label>
@@ -583,5 +643,19 @@ export function SearchRequirementCreatePage() {
         </section>
       )}
     </div>
+  );
+}
+
+function mergeContacts(...groups: Array<Contact[] | null | undefined>) {
+  const uniqueContacts = new Map<number, Contact>();
+
+  groups.forEach((group) => {
+    group?.forEach((contact) => {
+      uniqueContacts.set(contact.id, contact);
+    });
+  });
+
+  return Array.from(uniqueContacts.values()).sort((left, right) =>
+    left.displayName.localeCompare(right.displayName, 'es', { sensitivity: 'base' }),
   );
 }

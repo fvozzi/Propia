@@ -12,6 +12,7 @@ import {
 import {
   buildBuyerSearchAgentMessage,
   buildBuyerTourWhatsappMessage,
+  buildWhatsAppPickerUrl,
   buildWhatsAppShareUrl,
   openWhatsAppShareUrl,
 } from '../lib/whatsapp';
@@ -457,31 +458,59 @@ export function SearchRequirementManagePage() {
   function openAgentWhatsapp(candidate: BuyerPropertyCandidate) {
     if (!requirement?.contact || !drafts[candidate.id]?.agentWhatsapp) return;
 
+    const message = buildBuyerSearchAgentMessage({
+      agentName: user?.name ?? null,
+      teamName: user?.activeTeamName ?? null,
+      candidateTitle: candidate.title,
+      candidateUrl: candidate.url,
+      property: candidate.property ?? undefined,
+    });
+
     openWhatsAppShareUrl(
       buildWhatsAppShareUrl(
         { phone: '', whatsapp: drafts[candidate.id].agentWhatsapp },
-        buildBuyerSearchAgentMessage(
-          {
-            agentName: user?.name ?? null,
-            teamName: user?.activeTeamName ?? null,
-            candidateTitle: candidate.title,
-            candidateUrl: candidate.url,
-            property: candidate.property ?? undefined,
-          },
-        ),
+        message,
       ),
     );
+  }
+
+  function shareAgentWhatsapp(candidate: BuyerPropertyCandidate) {
+    const message = buildBuyerSearchAgentMessage({
+      agentName: user?.name ?? null,
+      teamName: user?.activeTeamName ?? null,
+      candidateTitle: candidate.title,
+      candidateUrl: candidate.url,
+      property: candidate.property ?? undefined,
+    });
+
+    openWhatsAppShareUrl(buildWhatsAppPickerUrl(message));
   }
 
   function sendBuyerTour() {
     if (!requirement?.contact || scheduledCandidates.length === 0) return;
 
+    const message = buildBuyerTourWhatsappMessage(
+      requirement.contact.displayName,
+      scheduledCandidates,
+    );
+
     openWhatsAppShareUrl(
       buildWhatsAppShareUrl(
         requirement.contact,
-        buildBuyerTourWhatsappMessage(requirement.contact.displayName, scheduledCandidates),
+        message,
       ),
     );
+  }
+
+  function shareBuyerTour() {
+    if (!requirement?.contact || scheduledCandidates.length === 0) return;
+
+    const message = buildBuyerTourWhatsappMessage(
+      requirement.contact.displayName,
+      scheduledCandidates,
+    );
+
+    openWhatsAppShareUrl(buildWhatsAppPickerUrl(message));
   }
 
   if (loading) {
@@ -659,6 +688,14 @@ export function SearchRequirementManagePage() {
               disabled={scheduledCandidates.length === 0 || !requirement?.contact}
             >
               {t('requirements.sendRoute')}
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={shareBuyerTour}
+              disabled={scheduledCandidates.length === 0 || !requirement?.contact}
+            >
+              {t('requirements.shareRoute')}
             </button>
           </div>
           {scheduledCandidates.length === 0 ? (
@@ -854,6 +891,13 @@ export function SearchRequirementManagePage() {
                       {t('requirements.openAgentWhatsapp')}
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => shareAgentWhatsapp(candidate)}
+                  >
+                    {t('requirements.shareAgentWhatsapp')}
+                  </button>
                   <button
                     type="button"
                     className="ghost-button"

@@ -196,6 +196,14 @@ export function buildWhatsAppShareUrl(contact: ShareableContact, message: string
   return `${baseUrl}?${params.toString()}`;
 }
 
+export function buildWhatsAppPickerUrl(message: string) {
+  const params = new URLSearchParams({ text: message });
+  const mobileTarget = isMobileWhatsAppShareTarget();
+  const baseUrl = mobileTarget ? 'whatsapp://send' : 'https://wa.me/';
+
+  return `${baseUrl}?${params.toString()}`;
+}
+
 export function openWhatsAppShareUrl(url: string) {
   if (url.startsWith('whatsapp://')) {
     window.location.href = url;

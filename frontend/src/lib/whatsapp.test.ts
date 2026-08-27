@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildBirthdayWhatsappMessage,
   buildBuyerSearchAgentMessage,
+  buildWhatsAppPickerUrl,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
   buildVisitWhatsappMessage,
@@ -145,6 +146,14 @@ describe('whatsapp helpers', () => {
 
     expect(url).toContain('whatsapp://send?');
     expect(decodeURIComponent(url)).toContain('phone=5491130276632');
+  });
+
+  it('builds a picker url without recipient on desktop', () => {
+    const url = buildWhatsAppPickerUrl('Hola grupo');
+
+    expect(url).toContain('https://wa.me/?');
+    expect(decodeURIComponent(url)).toContain('text=Hola+grupo');
+    expect(url).not.toContain('phone=');
   });
 
   it('throws on mobile when the number is ambiguous', () => {
