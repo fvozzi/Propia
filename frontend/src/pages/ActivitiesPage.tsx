@@ -309,6 +309,7 @@ export function ActivitiesPage() {
                 emptyLabel={t('activities.allContacts')}
                 loadingLabel={t('common.loading')}
                 noResultsLabel={t('common.noData')}
+                remoteSearch
               />
             </label>
             <label>

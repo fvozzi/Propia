@@ -111,7 +111,8 @@ export class ActivitiesService {
       title: nextTitle,
       externalUrl:
         dto.activityType === ActivityType.PROPERTY_SEARCH ||
-        dto.activityType === ActivityType.RESERVATION
+        dto.activityType === ActivityType.RESERVATION ||
+        dto.activityType === ActivityType.VISIT
           ? dto.externalUrl?.trim() || null
           : null,
       externalPreviewImageUrl: preview.imageUrl,
@@ -299,7 +300,8 @@ export class ActivitiesService {
           buildDefaultActivityTitle(nextActivityType);
     const nextExternalUrl =
       nextActivityType === ActivityType.PROPERTY_SEARCH ||
-      nextActivityType === ActivityType.RESERVATION
+      nextActivityType === ActivityType.RESERVATION ||
+      nextActivityType === ActivityType.VISIT
         ? dto.externalUrl === undefined
           ? activity.externalUrl
           : dto.externalUrl?.trim() || null
@@ -603,6 +605,18 @@ export class ActivitiesService {
     appraisalRequestId: number | null;
     activityType: ActivityType;
   }) {
+    if (params.activityType === ActivityType.VISIT && params.contactId) {
+      return this.opportunitiesRepository.findOne({
+        where: {
+          teamId: params.teamId,
+          contactId: params.contactId,
+          operationType: OperationType.BUY,
+          status: CommercialOpportunityStatus.OPEN,
+        },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+
     if (params.appraisalRequestId) {
       return this.opportunitiesRepository.findOne({
         where: {
@@ -693,6 +707,7 @@ export class ActivitiesService {
         operationType: OperationType.SALE,
         stage,
         status: CommercialOpportunityStatus.OPEN,
+        isExternalBuyerLead: false,
         sourceActivityId: params.sourceActivityId,
         searchRequirementId: null,
         appraisalRequestId: params.appraisalRequestId,

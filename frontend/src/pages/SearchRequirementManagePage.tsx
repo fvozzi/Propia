@@ -17,13 +17,13 @@ import {
   openWhatsAppShareUrl,
 } from '../lib/whatsapp';
 import type {
+  Activity,
   BuyerPropertyCandidate,
   BuyerPropertyCandidateWorkflowStatus,
   Contact,
   Paginated,
   Property,
   SearchRequirement,
-  Visit,
 } from '../types';
 
 type CandidateCreateForm = {
@@ -362,7 +362,10 @@ export function SearchRequirementManagePage() {
   }
 
   function findExistingVisit(candidate: BuyerPropertyCandidate) {
-    const visits = requirement?.contact?.visits ?? [];
+    const visits =
+      requirement?.contact?.activities?.filter(
+        (activity) => activity.activityType === 'VISIT',
+      ) ?? [];
     return findMatchingVisit(visits, candidate);
   }
 
@@ -398,24 +401,31 @@ export function SearchRequirementManagePage() {
           refreshedRequirement.propertyCandidates?.find((item) => item.id === candidate.id) ??
           null;
         const existingVisit = refreshedCandidate
-          ? findMatchingVisit(refreshedRequirement.contact?.visits ?? [], refreshedCandidate)
+          ? findMatchingVisit(
+              (refreshedRequirement.contact?.activities ?? []).filter(
+                (activity) => activity.activityType === 'VISIT',
+              ),
+              refreshedCandidate,
+            )
           : null;
 
         if (existingVisit) {
           setNotice(t('requirements.candidateVisitExists'));
           setRequirement(refreshedRequirement);
         } else if (refreshedCandidate) {
-          await apiRequest('/visits', {
+          await apiRequest('/activities', {
             method: 'POST',
             body: JSON.stringify({
-              propertyId: refreshedCandidate.propertyId ?? undefined,
               contactId: refreshedRequirement.contactId,
-              scheduledAt: refreshedCandidate.scheduledVisitAt,
-              status: 'SCHEDULED',
-              notes: refreshedCandidate.workflowNotes || undefined,
+              propertyId: refreshedCandidate.propertyId ?? undefined,
+              activityType: 'VISIT',
+              title: resolveCandidateVisitTitle(refreshedCandidate),
+              description:
+                refreshedCandidate.workflowNotes ||
+                refreshedCandidate.proposedScheduleOptions ||
+                undefined,
+              activityDate: refreshedCandidate.scheduledVisitAt,
               externalUrl: refreshedCandidate.url,
-              externalPropertyTitle: resolveCandidateVisitTitle(refreshedCandidate),
-              externalPropertyAddress: resolveCandidateVisitAddress(refreshedCandidate),
             }),
           });
           setNotice(t('requirements.candidateVisitCreated'));
@@ -932,7 +942,7 @@ export function SearchRequirementManagePage() {
                 {existingVisit ? (
                   <p className="muted">
                     {t('requirements.candidateVisitExists')}{' '}
-                    {formatDateTime(existingVisit.scheduledAt)}
+                    {formatDateTime(existingVisit.activityDate)}
                   </p>
                 ) : null}
               </article>
@@ -944,10 +954,10 @@ export function SearchRequirementManagePage() {
   );
 }
 
-function findMatchingVisit(visits: Visit[], candidate: BuyerPropertyCandidate) {
+function findMatchingVisit(visits: Activity[], candidate: BuyerPropertyCandidate) {
   return visits.find(
     (visit) => {
-      if (!sameScheduledInstant(visit.scheduledAt, candidate.scheduledVisitAt)) {
+      if (!sameScheduledInstant(visit.activityDate, candidate.scheduledVisitAt)) {
         return false;
       }
 
@@ -961,7 +971,7 @@ function findMatchingVisit(visits: Visit[], candidate: BuyerPropertyCandidate) {
         }
 
         if (
-          visit.externalPropertyTitle?.trim().toLowerCase() ===
+          visit.title?.trim().toLowerCase() ===
           resolveCandidateVisitTitle(candidate).trim().toLowerCase()
         ) {
           return true;

@@ -1,4 +1,4 @@
-import { OperationType, VisitStatus } from '../common/enums';
+import { OperationType } from '../common/enums';
 
 export type PropertyMapCategory = 'SALE' | 'VISITED';
 
@@ -17,8 +17,7 @@ type PropertyMapPropertyInput = {
 
 type PropertyMapVisitInput = {
   propertyId: number | null;
-  scheduledAt: Date | string;
-  status: VisitStatus;
+  activityDate: Date | string;
 };
 
 export type PropertyMapItem = {
@@ -41,22 +40,26 @@ export function buildPropertyMapItems(
   properties: PropertyMapPropertyInput[],
   visits: PropertyMapVisitInput[],
 ): PropertyMapItem[] {
-  const doneVisitsByPropertyId = new Map<number, PropertyMapVisitInput[]>();
+  const completedVisitActivitiesByPropertyId = new Map<number, PropertyMapVisitInput[]>();
+  const now = Date.now();
 
   visits
     .filter(
       (visit): visit is PropertyMapVisitInput & { propertyId: number } =>
-        visit.status === VisitStatus.DONE && typeof visit.propertyId === 'number',
+        typeof visit.propertyId === 'number' &&
+        new Date(visit.activityDate).getTime() <= now,
     )
     .forEach((visit) => {
-      const current = doneVisitsByPropertyId.get(visit.propertyId) ?? [];
+      const current =
+        completedVisitActivitiesByPropertyId.get(visit.propertyId) ?? [];
       current.push(visit);
-      doneVisitsByPropertyId.set(visit.propertyId, current);
+      completedVisitActivitiesByPropertyId.set(visit.propertyId, current);
     });
 
   return properties
     .map((property) => {
-      const doneVisits = doneVisitsByPropertyId.get(property.id) ?? [];
+      const doneVisits =
+        completedVisitActivitiesByPropertyId.get(property.id) ?? [];
       const categories: PropertyMapCategory[] = [];
 
       if (property.operationType === OperationType.SALE) {
@@ -75,7 +78,7 @@ export function buildPropertyMapItems(
         doneVisits.length > 0
           ? new Date(
               Math.max(
-                ...doneVisits.map((visit) => new Date(visit.scheduledAt).getTime()),
+                ...doneVisits.map((visit) => new Date(visit.activityDate).getTime()),
               ),
             ).toISOString()
           : null;

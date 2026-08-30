@@ -136,6 +136,7 @@ export function AppraisalRequestsPage() {
               emptyLabel={t('appraisals.allContacts')}
               loadingLabel={t('common.loading')}
               noResultsLabel={t('common.noData')}
+              remoteSearch
             />
             <select value={status} onChange={(event) => setStatus(event.target.value as AppraisalStatusFilter)} aria-label={t('common.status')}>
               <option value="">{t('appraisals.allStatuses')}</option>

@@ -57,6 +57,9 @@ export class CommercialOpportunity {
   })
   status: CommercialOpportunityStatus;
 
+  @Column({ type: 'boolean', default: false })
+  isExternalBuyerLead: boolean;
+
   @ManyToOne(() => Activity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'sourceActivityId' })
   sourceActivity: Activity | null;

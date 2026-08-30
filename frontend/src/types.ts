@@ -515,6 +515,7 @@ export interface CommercialOpportunity {
   operationType: OperationType;
   stage: CommercialOpportunityStage;
   status: CommercialOpportunityStatus;
+  isExternalBuyerLead: boolean;
   sourceActivityId: number | null;
   searchRequirementId: number | null;
   appraisalRequestId: number | null;
@@ -612,7 +613,7 @@ export interface PropertyMapItem {
 export interface DashboardData {
   followUpsDueToday: Activity[];
   overdueFollowUps: Activity[];
-  visitsToday: Visit[];
+  visitsToday: Activity[];
   activePropertiesCount: number;
   activeSearchRequirementsCount: number;
   pendingBuyerPropertySharesCount: number;

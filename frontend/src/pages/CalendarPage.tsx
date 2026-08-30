@@ -553,7 +553,9 @@ export function CalendarPage() {
                 </select>
               </label>
               <label>
-                {t('common.contact')}
+                {activityForm.activityType === 'VISIT'
+                  ? t('activities.visitContactOptional')
+                  : t('common.contact')}
                 <ContactCombobox
                   contacts={contacts}
                   value={activityForm.contactId}
@@ -565,6 +567,7 @@ export function CalendarPage() {
                   loadingLabel={t('common.loading')}
                   noResultsLabel={t('common.noData')}
                   required={activityForm.activityType === 'APPRAISAL_REQUEST'}
+                  remoteSearch
                 />
               </label>
               <label>
@@ -693,6 +696,7 @@ export function CalendarPage() {
                   loadingLabel={t('common.loading')}
                   noResultsLabel={t('common.noData')}
                   required
+                  remoteSearch
                 />
               </label>
               <label>

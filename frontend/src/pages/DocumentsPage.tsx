@@ -575,6 +575,7 @@ export function DocumentsPage() {
                   emptyLabel={t('documents.noContactSelected')}
                   loadingLabel={t('common.loading')}
                   noResultsLabel={t('common.noData')}
+                  remoteSearch
                 />
               </label>
 

@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildBirthdayWhatsappMessage,
   buildBuyerSearchAgentMessage,
-  buildWhatsAppPickerUrl,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
   buildVisitWhatsappMessage,
+  buildWhatsAppPickerUrl,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
@@ -31,7 +31,7 @@ describe('whatsapp helpers', () => {
 
   it('builds a birthday greeting message', () => {
     expect(buildBirthdayWhatsappMessage('Victoria')).toBe(
-      'Feliz cumpleaños Victoria! Espero que tengas un gran día.',
+      'Feliz cumpleanos Victoria! Espero que tengas un gran dia.',
     );
   });
 
@@ -43,6 +43,7 @@ describe('whatsapp helpers', () => {
         notes: null,
         externalUrl: 'https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
         property: {
+          title: 'Av Dorrego 1653',
           address: 'Av Dorrego 1653 timbre 5',
           neighborhood: 'Palermo Hollywood',
           city: 'CABA',
@@ -50,11 +51,11 @@ describe('whatsapp helpers', () => {
       }),
     ).toBe(
       [
-        '✅ VISITA CONFIRMADA',
-        '🗓️ LUNES 11/05/2026',
-        '🕒 11:30 hs',
-        '📍 Av Dorrego 1653 timbre 5, Palermo Hollywood',
-        '🔗 https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+        'VISITA CONFIRMADA',
+        'Fecha: lunes 11/05/2026',
+        'Hora: 11:30 hs',
+        'Propiedad: Av Dorrego 1653 timbre 5, Palermo Hollywood',
+        'URL: https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
       ].join('\n'),
     );
   });
@@ -94,18 +95,18 @@ describe('whatsapp helpers', () => {
     ).toBe(
       [
         '* Agente: Victoria Arque',
-        '* Monto operación: U$S 92.000',
-        '* Dirección: Av. La Plata 249 11 B',
+        '* Monto operacion: U$S 92.000',
+        '* Direccion: Av. La Plata 249 11 B',
         '* Barrio: Caballito',
-        '* Operación: Compra',
+        '* Operacion: Compra',
         '* Puntas: 1',
         '* Porcentaje: 2%',
-        '* Cuánto dejaron de reserva: U$S 1.400',
+        '* Cuanto dejaron de reserva: U$S 1.400',
         '* Compartida con Inmobiliaria: Si',
         '* Conformada: No',
-        '* Crédito: No',
+        '* Credito: No',
         '* Tipo propiedad: Departamento',
-        '* Reubicación: No',
+        '* Reubicacion: No',
         '* Mes estimado de Cierre: Agosto',
         '* Documento reserva: https://drive.google.com/file/d/reserva-caballito/view',
         '* Observaciones: 75% Lila, 25% Victoria',
@@ -172,9 +173,13 @@ describe('whatsapp helpers', () => {
   it('opens web shares in a new browser tab', () => {
     const appendSpy = vi.spyOn(document.body, 'appendChild');
     const removeSpy = vi.spyOn(document.body, 'removeChild');
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
 
-    openWhatsAppShareUrl('https://api.whatsapp.com/send/?phone=5491130276632&text=Hola');
+    openWhatsAppShareUrl(
+      'https://api.whatsapp.com/send/?phone=5491130276632&text=Hola',
+    );
 
     expect(appendSpy).toHaveBeenCalledOnce();
     expect(clickSpy).toHaveBeenCalledOnce();

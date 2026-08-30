@@ -65,6 +65,7 @@ export class CommercialOpportunitiesService {
       operationType: dto.operationType,
       stage: dto.stage ?? defaultStageForOperation(dto.operationType),
       status: dto.status ?? CommercialOpportunityStatus.OPEN,
+      isExternalBuyerLead: dto.isExternalBuyerLead ?? false,
       sourceActivityId: relations.activity?.id ?? null,
       searchRequirementId: relations.requirement?.id ?? null,
       appraisalRequestId: relations.appraisalRequest?.id ?? null,
@@ -181,6 +182,10 @@ export class CommercialOpportunitiesService {
       operationType,
       stage,
       status,
+      isExternalBuyerLead:
+        dto.isExternalBuyerLead === undefined
+          ? opportunity.isExternalBuyerLead
+          : dto.isExternalBuyerLead,
       sourceActivityId:
         dto.sourceActivityId === undefined
           ? opportunity.sourceActivityId

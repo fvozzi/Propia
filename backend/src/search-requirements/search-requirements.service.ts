@@ -83,6 +83,7 @@ export class SearchRequirementsService {
           operationType: saved.operationType,
           stage: CommercialOpportunityStage.SEARCHING,
           status: CommercialOpportunityStatus.OPEN,
+          isExternalBuyerLead: false,
           searchRequirementId: saved.id,
           propertyId: saved.propertyId ?? null,
           sourceActivityId: null,
@@ -128,7 +129,7 @@ export class SearchRequirementsService {
       where: { id, teamId },
       relations: {
         contact: {
-          visits: {
+          activities: {
             property: true,
           },
         },

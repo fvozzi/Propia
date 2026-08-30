@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -27,6 +28,10 @@ export class CreateCommercialOpportunityDto {
   @IsOptional()
   @IsEnum(CommercialOpportunityStatus)
   status?: CommercialOpportunityStatus;
+
+  @IsOptional()
+  @IsBoolean()
+  isExternalBuyerLead?: boolean;
 
   @IsOptional()
   @Type(() => Number)

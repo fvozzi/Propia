@@ -448,7 +448,9 @@ export function ActivitiesCreatePage() {
             </select>
           </label>
           <label>
-            {t('common.contact')}
+            {form.activityType === 'VISIT'
+              ? t('activities.visitContactOptional')
+              : t('common.contact')}
             <SearchableCombobox
               value={form.contactId}
               options={visibleContacts.map((contact) => ({
@@ -865,7 +867,6 @@ export function ActivitiesCreatePage() {
                     }))
                   }
                   placeholder="https://drive.google.com/..."
-                  required
                 />
                 <p className="muted">{t('activities.reservationDocumentHint')}</p>
                 {activity?.externalUrl ? (

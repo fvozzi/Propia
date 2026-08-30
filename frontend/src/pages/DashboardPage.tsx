@@ -253,12 +253,12 @@ export function DashboardPage() {
           <div key={visit.id} className="list-item">
             <strong>
               {visit.property?.title ??
-                visit.externalPropertyTitle ??
+                visit.title ??
                 t('dashboard.propertyFallback')}
             </strong>
             <span>
               {visit.contact?.displayName ?? t('common.noContact')} ·{' '}
-              {formatDateTime(visit.scheduledAt)}
+              {formatDateTime(visit.activityDate)}
             </span>
           </div>
         ))}

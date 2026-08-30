@@ -219,6 +219,7 @@ export function AppraisalRequestFormPage() {
               loadingLabel={t('common.loading')}
               noResultsLabel={t('common.noData')}
               required
+              remoteSearch
             />
           </label>
           <label>

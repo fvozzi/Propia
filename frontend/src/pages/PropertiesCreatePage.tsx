@@ -254,6 +254,7 @@ export function PropertiesCreatePage() {
               loadingLabel={t('common.loading')}
               noResultsLabel={t('common.noData')}
               disabled={Boolean(form.appraisalRequestId)}
+              remoteSearch
             />
           </label>
           <label>

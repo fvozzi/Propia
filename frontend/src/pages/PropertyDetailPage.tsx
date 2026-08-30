@@ -257,6 +257,7 @@ export function PropertyDetailPage() {
                 noResultsLabel={t('common.noData')}
                 disabled={Boolean(property.appraisalRequestId)}
                 name="ownerContactId"
+                remoteSearch
               />
             </label>
             <label className="full-span">

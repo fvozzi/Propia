@@ -14,7 +14,6 @@ import { CommercialOpportunity } from '../commercial-opportunities/commercial-op
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { buildOpportunityPipelineGroups } from '../use-cases/commercial-opportunity-pipeline.use-case';
-import { Visit } from '../visits/visit.entity';
 
 @Injectable()
 export class DashboardService {
@@ -23,8 +22,6 @@ export class DashboardService {
     private readonly activitiesRepository: Repository<Activity>,
     @InjectRepository(ActivityGoal)
     private readonly activityGoalsRepository: Repository<ActivityGoal>,
-    @InjectRepository(Visit)
-    private readonly visitsRepository: Repository<Visit>,
     @InjectRepository(Property)
     private readonly propertiesRepository: Repository<Property>,
     @InjectRepository(SearchRequirement)
@@ -72,14 +69,17 @@ export class DashboardService {
           .andWhere('activity.nextFollowUpDate < :start', { start: start.toISOString() })
           .orderBy('activity.nextFollowUpDate', 'ASC')
           .getMany(),
-        this.visitsRepository
-          .createQueryBuilder('visit')
-          .leftJoinAndSelect('visit.contact', 'contact')
-          .leftJoinAndSelect('visit.property', 'property')
-          .where('visit.teamId = :teamId', { teamId })
-          .andWhere('visit.scheduledAt >= :start', { start: start.toISOString() })
-          .andWhere('visit.scheduledAt < :end', { end: end.toISOString() })
-          .orderBy('visit.scheduledAt', 'ASC')
+        this.activitiesRepository
+          .createQueryBuilder('activity')
+          .leftJoinAndSelect('activity.contact', 'contact')
+          .leftJoinAndSelect('activity.property', 'property')
+          .where('activity.teamId = :teamId', { teamId })
+          .andWhere('activity.activityType = :activityType', {
+            activityType: ActivityType.VISIT,
+          })
+          .andWhere('activity.activityDate >= :start', { start: start.toISOString() })
+          .andWhere('activity.activityDate < :end', { end: end.toISOString() })
+          .orderBy('activity.activityDate', 'ASC')
           .getMany(),
         this.propertiesRepository.count({
           where: { status: PropertyStatus.ACTIVE, teamId },

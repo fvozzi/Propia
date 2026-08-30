@@ -12,28 +12,50 @@ import type {
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
 type ShareableVisit = Pick<
   Visit,
-  'scheduledAt' | 'status' | 'notes' | 'externalUrl' | 'externalPropertyTitle' | 'externalPropertyAddress'
+  | 'scheduledAt'
+  | 'status'
+  | 'notes'
+  | 'externalUrl'
+  | 'externalPropertyTitle'
+  | 'externalPropertyAddress'
 > & {
-  property?: Pick<Property, 'address' | 'city' | 'neighborhood'> | null;
+  property?: Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> | null;
+};
+type ShareableVisitActivity = Pick<
+  Activity,
+  'activityDate' | 'description' | 'externalUrl' | 'title'
+> & {
+  property?: Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> | null;
 };
 type ShareableCandidateProperty = Pick<
   Property,
   'address' | 'city' | 'neighborhood' | 'title'
 >;
 
-export function buildPropertySearchMessage(activity: Pick<Activity, 'externalUrl' | 'whatsappComment'>) {
+export function buildPropertySearchMessage(
+  activity: Pick<Activity, 'externalUrl' | 'whatsappComment'>,
+) {
   return [activity.whatsappComment, activity.externalUrl].filter(Boolean).join('\n\n');
 }
 
-export function buildVisitWhatsappMessage(visit: ShareableVisit) {
-  const statusLine = getVisitWhatsappStatusLine(visit.status);
-  const date = new Date(visit.scheduledAt);
+export function buildVisitWhatsappMessage(
+  visit: ShareableVisit | ShareableVisitActivity,
+) {
+  const scheduledAt = 'scheduledAt' in visit ? visit.scheduledAt : visit.activityDate;
+  const statusLine =
+    'status' in visit ? getVisitWhatsappStatusLine(visit.status) : 'VISITA CONFIRMADA';
+  const notes = 'notes' in visit ? visit.notes : visit.description;
+  const fallbackTitle =
+    'externalPropertyTitle' in visit
+      ? visit.externalPropertyTitle?.trim() || null
+      : 'title' in visit
+        ? visit.title?.trim() || null
+        : null;
+  const date = new Date(scheduledAt);
   const weekday = new Intl.DateTimeFormat('es-AR', {
     weekday: 'long',
     timeZone: 'America/Argentina/Buenos_Aires',
-  })
-    .format(date)
-    .toUpperCase();
+  }).format(date);
   const calendarDate = new Intl.DateTimeFormat('es-AR', {
     day: '2-digit',
     month: '2-digit',
@@ -50,17 +72,17 @@ export function buildVisitWhatsappMessage(visit: ShareableVisit) {
     [visit.property?.address, visit.property?.neighborhood || visit.property?.city]
       .filter(Boolean)
       .join(', ') ||
-    visit.externalPropertyAddress?.trim() ||
-    visit.externalPropertyTitle?.trim() ||
+    ('externalPropertyAddress' in visit ? visit.externalPropertyAddress?.trim() : null) ||
+    fallbackTitle ||
     '';
 
   return [
     statusLine,
-    `🗓️ ${weekday} ${calendarDate}`,
-    `🕒 ${time} hs`,
-    address ? `📍 ${address}` : null,
-    visit.notes?.trim() ? visit.notes.trim() : null,
-    visit.externalUrl?.trim() ? `🔗 ${visit.externalUrl.trim()}` : null,
+    `Fecha: ${weekday} ${calendarDate}`,
+    `Hora: ${time} hs`,
+    address ? `Propiedad: ${address}` : null,
+    notes?.trim() ? `Notas: ${notes.trim()}` : null,
+    visit.externalUrl?.trim() ? `URL: ${visit.externalUrl.trim()}` : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -70,7 +92,7 @@ export function buildBirthdayWhatsappMessage(contactName: string) {
   const trimmedName = contactName.trim();
   const greetingTarget = trimmedName ? ` ${trimmedName}` : '';
 
-  return `Feliz cumpleaños${greetingTarget}! Espero que tengas un gran día.`;
+  return `Feliz cumpleanos${greetingTarget}! Espero que tengas un gran dia.`;
 }
 
 export function buildBuyerSearchAgentMessage(input: {
@@ -110,7 +132,8 @@ export function buildBuyerTourWhatsappMessage(
     .slice()
     .sort(
       (left, right) =>
-        new Date(left.scheduledVisitAt).getTime() - new Date(right.scheduledVisitAt).getTime(),
+        new Date(left.scheduledVisitAt).getTime() -
+        new Date(right.scheduledVisitAt).getTime(),
     )
     .map((candidate) => {
       const date = new Date(candidate.scheduledVisitAt);
@@ -155,18 +178,24 @@ export function buildReservationTreasuryWhatsappMessage(
 
   return [
     `* Agente: ${reservation.agentName || fallbackAgentName || '-'}`,
-    `* Monto operación: ${formatMoney(reservation.operationAmount, reservation.operationCurrency)}`,
-    `* Dirección: ${reservation.propertyAddress || activity.property?.address || '-'}`,
+    `* Monto operacion: ${formatMoney(
+      reservation.operationAmount,
+      reservation.operationCurrency,
+    )}`,
+    `* Direccion: ${reservation.propertyAddress || activity.property?.address || '-'}`,
     `* Barrio: ${reservation.propertyNeighborhood || activity.property?.neighborhood || '-'}`,
-    `* Operación: ${formatOperationType(reservation.operationType)}`,
+    `* Operacion: ${formatOperationType(reservation.operationType)}`,
     `* Puntas: ${formatScalar(reservation.sidesCount)}`,
     `* Porcentaje: ${formatPercent(reservation.commissionPercent)}`,
-    `* Cuánto dejaron de reserva: ${formatMoney(reservation.reservationAmount, reservation.reservationCurrency)}`,
+    `* Cuanto dejaron de reserva: ${formatMoney(
+      reservation.reservationAmount,
+      reservation.reservationCurrency,
+    )}`,
     `* Compartida con Inmobiliaria: ${formatYesNo(reservation.sharedWithRealEstate)}`,
     `* Conformada: ${formatYesNo(reservation.conformed)}`,
-    `* Crédito: ${formatYesNo(reservation.credit)}`,
+    `* Credito: ${formatYesNo(reservation.credit)}`,
     `* Tipo propiedad: ${formatPropertyType(reservation.propertyType)}`,
-    `* Reubicación: ${formatYesNo(reservation.relocation)}`,
+    `* Reubicacion: ${formatYesNo(reservation.relocation)}`,
     `* Mes estimado de Cierre: ${reservation.estimatedClosingMonth || '-'}`,
     `* Documento reserva: ${activity.externalUrl?.trim() || '-'}`,
     `* Observaciones: ${observations}`,
@@ -228,14 +257,14 @@ function isMobileWhatsAppShareTarget() {
 function getVisitWhatsappStatusLine(status: Visit['status']) {
   switch (status) {
     case 'DONE':
-      return '✅ VISITA REALIZADA';
+      return 'VISITA REALIZADA';
     case 'CANCELLED':
-      return '❌ VISITA CANCELADA';
+      return 'VISITA CANCELADA';
     case 'RESCHEDULED':
-      return '🔄 VISITA REPROGRAMADA';
+      return 'VISITA REPROGRAMADA';
     case 'SCHEDULED':
     default:
-      return '✅ VISITA CONFIRMADA';
+      return 'VISITA CONFIRMADA';
   }
 }
 
@@ -261,7 +290,10 @@ function normalizeMobileWhatsappPhone(rawPhone: string) {
   return '';
 }
 
-function formatMoney(amount: number | null | undefined, currency: CurrencyType | null | undefined) {
+function formatMoney(
+  amount: number | null | undefined,
+  currency: CurrencyType | null | undefined,
+) {
   if (amount === null || amount === undefined) {
     return '-';
   }

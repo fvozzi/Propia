@@ -142,6 +142,7 @@ export function VisitsPage() {
                 noResultsLabel={t('common.noData')}
                 required
                 name="contactId"
+                remoteSearch
               />
             </label>
             <label>

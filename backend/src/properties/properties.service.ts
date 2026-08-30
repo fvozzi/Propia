@@ -7,6 +7,7 @@ import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-use
 import { paginate } from '../common/pagination';
 import { Contact } from '../contacts/contact.entity';
 import {
+  ActivityType,
   CommercialOpportunityStage,
   CommercialOpportunityStatus,
   OperationType,
@@ -194,12 +195,11 @@ export class PropertiesService {
           currency: true,
         },
       }),
-      this.visitsRepository.find({
-        where: { teamId },
+      this.activitiesRepository.find({
+        where: { teamId, activityType: ActivityType.VISIT },
         select: {
           propertyId: true,
-          scheduledAt: true,
-          status: true,
+          activityDate: true,
         },
       }),
     ]);
@@ -503,6 +503,7 @@ export class PropertiesService {
       opportunity.operationType = OperationType.SALE;
       opportunity.stage = CommercialOpportunityStage.PROPERTY_READY;
       opportunity.status = CommercialOpportunityStatus.OPEN;
+      opportunity.isExternalBuyerLead = false;
       opportunity.title = title;
       if (linkedRequirement) {
         opportunity.searchRequirementId = linkedRequirement.id;
@@ -519,6 +520,7 @@ export class PropertiesService {
         operationType: OperationType.SALE,
         stage: CommercialOpportunityStage.PROPERTY_READY,
         status: CommercialOpportunityStatus.OPEN,
+        isExternalBuyerLead: false,
         sourceActivityId: null,
         searchRequirementId: linkedRequirement?.id ?? null,
         appraisalRequestId: property.appraisalRequestId ?? null,

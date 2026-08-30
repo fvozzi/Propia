@@ -28,6 +28,7 @@ type OpportunityFormState = {
   operationType: OperationType;
   stage: CommercialOpportunityStage;
   status: CommercialOpportunityStatus;
+  isExternalBuyerLead: boolean;
   propertyId: string;
   searchRequirementId: string;
   appraisalRequestId: string;
@@ -43,6 +44,7 @@ const initialFormState: OpportunityFormState = {
   operationType: 'BUY',
   stage: 'SEARCHING',
   status: 'OPEN',
+  isExternalBuyerLead: false,
   propertyId: '',
   searchRequirementId: '',
   appraisalRequestId: '',
@@ -170,6 +172,7 @@ export function CommercialOpportunitiesPage() {
       operationType: opportunity.operationType,
       stage: opportunity.stage,
       status: opportunity.status,
+      isExternalBuyerLead: opportunity.isExternalBuyerLead,
       propertyId: opportunity.propertyId ? String(opportunity.propertyId) : '',
       searchRequirementId: opportunity.searchRequirementId
         ? String(opportunity.searchRequirementId)
@@ -201,6 +204,7 @@ export function CommercialOpportunitiesPage() {
         operationType: form.operationType,
         stage: form.stage,
         status: form.status,
+        isExternalBuyerLead: form.isExternalBuyerLead,
         propertyId: form.propertyId ? Number(form.propertyId) : undefined,
         searchRequirementId: form.searchRequirementId
           ? Number(form.searchRequirementId)
@@ -364,6 +368,7 @@ export function CommercialOpportunitiesPage() {
                 loadingLabel={t('common.loading')}
                 noResultsLabel={t('common.noData')}
                 required
+                remoteSearch
               />
             </label>
 
@@ -400,6 +405,22 @@ export function CommercialOpportunitiesPage() {
                 ))}
               </select>
             </label>
+
+            {form.operationType === 'BUY' ? (
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={form.isExternalBuyerLead}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      isExternalBuyerLead: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{t('commercialOpportunities.externalBuyerLead')}</span>
+              </label>
+            ) : null}
 
             <label>
               {t('commercialOpportunities.stage')}
@@ -587,6 +608,11 @@ export function CommercialOpportunitiesPage() {
                     <td>
                       <div className="table-cell-stack">
                         <strong>{opportunity.title}</strong>
+                        {opportunity.isExternalBuyerLead ? (
+                          <span className="muted">
+                            {t('commercialOpportunities.externalBuyerLead')}
+                          </span>
+                        ) : null}
                         {opportunity.summary ? (
                           <span className="muted">{opportunity.summary}</span>
                         ) : null}
