@@ -4,6 +4,7 @@ import { Activity } from '../activities/activity.entity';
 import { ActivityGoal } from '../activity-goals/activity-goal.entity';
 import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { FinancialEntry } from '../finances/financial-entry.entity';
+import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { DashboardController } from './dashboard.controller';
@@ -11,6 +12,7 @@ import { DashboardService } from './dashboard.service';
 
 @Module({
   imports: [
+    ExchangeRatesModule,
     TypeOrmModule.forFeature([
       Activity,
       ActivityGoal,

@@ -1443,6 +1443,124 @@ label {
   padding-top: 0.75rem;
 }
 
+.dashboard-financial-history {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--line);
+}
+
+.dashboard-chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-chart-header h4,
+.dashboard-chart-header p {
+  margin: 0;
+}
+
+.dashboard-chart-header p {
+  margin-top: 0.3rem;
+}
+
+.dashboard-currency-selector {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dashboard-currency-selector > div {
+  display: flex;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.dashboard-currency-selector button {
+  min-width: 58px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 0.45rem 0.7rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dashboard-currency-selector button.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(23, 107, 91, 0.2);
+}
+
+.dashboard-exchange-rate {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.dashboard-exchange-rate a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.dashboard-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.1rem;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.dashboard-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dashboard-chart-legend i {
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+}
+
+.dashboard-chart-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.52);
+  padding: 0.6rem;
+}
+
+.dashboard-financial-chart {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+}
+
+.dashboard-chart-gridline {
+  stroke: rgba(25, 57, 65, 0.1);
+  stroke-width: 1;
+}
+
+.dashboard-chart-axis {
+  stroke: rgba(25, 57, 65, 0.34);
+  stroke-width: 1;
+}
+
+.dashboard-chart-axis-label {
+  fill: var(--ink-soft);
+  font-size: 12px;
+}
+
 .dashboard-operation-card {
   display: grid;
   gap: 0.35rem;
@@ -1783,6 +1901,15 @@ label {
 }
 
 @media (max-width: 640px) {
+  .dashboard-chart-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-currency-selector {
+    justify-items: start;
+  }
+
   .calendar-month-panel {
     padding: 1rem;
   }

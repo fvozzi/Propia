@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { FinancialHistoryChart } from '../components/FinancialHistoryChart';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import type {
@@ -147,6 +148,9 @@ export function DashboardPage() {
             </article>
           ))}
         </div>
+        {data?.financialHistory ? (
+          <FinancialHistoryChart history={data.financialHistory} />
+        ) : null}
       </section>
 
       <section className="card">

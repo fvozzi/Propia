@@ -67,6 +67,37 @@ function createInitialForm(config: FinanceConfig): EntryFormState {
   };
 }
 
+function createEditForm(
+  entry: FinancialEntry,
+  config: FinanceConfig,
+): EntryFormState {
+  return {
+    entryType: entry.entryType,
+    entryDate: entry.entryDate.slice(0, 10),
+    currency: entry.currency,
+    expenseCategory: entry.expenseCategory ?? 'OTHER',
+    activityId: entry.activityId ? String(entry.activityId) : '',
+    commercialOpportunityId: entry.commercialOpportunityId
+      ? String(entry.commercialOpportunityId)
+      : '',
+    amount: entry.entryType === 'EXPENSE' ? String(entry.amount) : '',
+    operationAmount:
+      entry.operationAmount === null ? '' : String(entry.operationAmount),
+    commissionPercent: String(
+      entry.commissionPercent ??
+        (entry.incomeOperationType === 'BUY'
+          ? config.purchaseCommissionPercent
+          : config.saleCommissionPercent),
+    ),
+    agentParticipationPercent: String(entry.agentParticipationPercent ?? 100),
+    extraAmount: String(entry.extraAmount ?? 0),
+    franchisePercent: String(
+      entry.franchisePercent ?? config.franchisePercent,
+    ),
+    notes: entry.notes ?? '',
+  };
+}
+
 export function FinancesPage() {
   const { t, translateEnum } = useI18n();
   const translateActivityType = (value: string) =>
@@ -86,6 +117,7 @@ export function FinancesPage() {
     createInitialForm(defaultFinanceConfig),
   );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -191,8 +223,20 @@ export function FinancesPage() {
 
       setFinanceConfig(configResponse);
       setEntries(entriesResponse);
-      setActivities(activitiesResponse.items);
-      setOpportunities(opportunitiesResponse.items);
+      setActivities(
+        mergeById(
+          activitiesResponse.items,
+          entriesResponse.flatMap((entry) => (entry.activity ? [entry.activity] : [])),
+        ),
+      );
+      setOpportunities(
+        mergeById(
+          opportunitiesResponse.items,
+          entriesResponse.flatMap((entry) =>
+            entry.commercialOpportunity ? [entry.commercialOpportunity] : [],
+          ),
+        ),
+      );
       setForm(createInitialForm(configResponse));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t('finances.loadError'));
@@ -268,43 +312,63 @@ export function FinancesPage() {
     }));
   }
 
-  async function handleCreateEntry(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSaveEntry(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError('');
     setNotice('');
 
     try {
-      await apiRequest('/financial-entries', {
-        method: 'POST',
-        body: JSON.stringify({
-          entryType: form.entryType,
-          entryDate: form.entryDate,
-          currency: form.currency,
-          expenseCategory: form.entryType === 'EXPENSE' ? form.expenseCategory : undefined,
-          activityId: form.activityId ? Number(form.activityId) : undefined,
-          commercialOpportunityId: form.commercialOpportunityId
+      await apiRequest(
+        editingEntryId
+          ? `/financial-entries/${editingEntryId}`
+          : '/financial-entries',
+        {
+          method: editingEntryId ? 'PUT' : 'POST',
+          body: JSON.stringify({
+            entryType: form.entryType,
+            entryDate: form.entryDate,
+            currency: form.currency,
+            expenseCategory:
+              form.entryType === 'EXPENSE' ? form.expenseCategory : undefined,
+            activityId: form.activityId ? Number(form.activityId) : undefined,
+            commercialOpportunityId: form.commercialOpportunityId
               ? Number(form.commercialOpportunityId)
               : undefined,
-          amount: form.entryType === 'EXPENSE' ? Number(form.amount) : undefined,
-          operationAmount:
-            form.entryType === 'INCOME' ? Number(form.operationAmount) : undefined,
-          commissionPercent:
-            form.entryType === 'INCOME' ? Number(form.commissionPercent) : undefined,
-          agentParticipationPercent:
-            form.entryType === 'INCOME'
-              ? Number(form.agentParticipationPercent)
-              : undefined,
-          extraAmount:
-            form.entryType === 'INCOME' ? Number(form.extraAmount || 0) : undefined,
-          franchisePercent:
-            form.entryType === 'INCOME' ? Number(form.franchisePercent) : undefined,
-          notes: form.notes || undefined,
-        }),
-      });
+            amount:
+              form.entryType === 'EXPENSE' ? Number(form.amount) : undefined,
+            operationAmount:
+              form.entryType === 'INCOME'
+                ? Number(form.operationAmount)
+                : undefined,
+            commissionPercent:
+              form.entryType === 'INCOME'
+                ? Number(form.commissionPercent)
+                : undefined,
+            agentParticipationPercent:
+              form.entryType === 'INCOME'
+                ? Number(form.agentParticipationPercent)
+                : undefined,
+            extraAmount:
+              form.entryType === 'INCOME'
+                ? Number(form.extraAmount || 0)
+                : undefined,
+            franchisePercent:
+              form.entryType === 'INCOME'
+                ? Number(form.franchisePercent)
+                : undefined,
+            notes: form.notes || undefined,
+          }),
+        },
+      );
 
-      setNotice(t('finances.entrySaved'));
+      setNotice(
+        editingEntryId
+          ? t('finances.entryUpdated')
+          : t('finances.entrySaved'),
+      );
       setForm(createInitialForm(financeConfig));
+      setEditingEntryId(null);
       setIsCreateOpen(false);
       await load();
     } catch (saveError) {
@@ -312,6 +376,19 @@ export function FinancesPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleEditEntry(entry: FinancialEntry) {
+    setError('');
+    setNotice('');
+    setEditingEntryId(entry.id);
+    setForm(createEditForm(entry, financeConfig));
+    setIsCreateOpen(true);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById('financial-entry-form')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   async function handleDeleteEntry(entryId: number) {
@@ -326,6 +403,10 @@ export function FinancesPage() {
       await apiRequest(`/financial-entries/${entryId}`, {
         method: 'DELETE',
       });
+      if (editingEntryId === entryId) {
+        setEditingEntryId(null);
+        setIsCreateOpen(false);
+      }
       setNotice(t('finances.entryDeleted'));
       await load();
     } catch (deleteError) {
@@ -335,6 +416,7 @@ export function FinancesPage() {
 
   function handleCloseCreateForm() {
     setForm(createInitialForm(financeConfig));
+    setEditingEntryId(null);
     setIsCreateOpen(false);
   }
 
@@ -361,6 +443,7 @@ export function FinancesPage() {
                 type="button"
                 onClick={() => {
                   setForm(createInitialForm(financeConfig));
+                  setEditingEntryId(null);
                   setIsCreateOpen(true);
                 }}
               >
@@ -375,11 +458,15 @@ export function FinancesPage() {
       {notice ? <div className="card">{notice}</div> : null}
 
       {isCreateOpen ? (
-        <section className="card">
-          <h3>{t('finances.newEntry')}</h3>
+        <section className="card" id="financial-entry-form">
+          <h3>
+            {editingEntryId
+              ? t('finances.editEntry')
+              : t('finances.newEntry')}
+          </h3>
           <p className="muted">{t('finances.subtitle')}</p>
 
-          <form className="form-grid" onSubmit={handleCreateEntry}>
+          <form className="form-grid" onSubmit={handleSaveEntry}>
             <label>
               {t('finances.entryType')}
               <select
@@ -615,6 +702,8 @@ export function FinancesPage() {
               <button type="submit" disabled={saving}>
                 {saving
                   ? t('common.loading')
+                  : editingEntryId
+                    ? t('finances.updateEntry')
                   : form.entryType === 'EXPENSE'
                     ? t('finances.saveExpense')
                     : t('finances.saveIncome')}
@@ -708,13 +797,22 @@ export function FinancesPage() {
                     </td>
                     <td>{entry.notes?.trim() ? entry.notes : '-'}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => void handleDeleteEntry(entry.id)}
-                      >
-                        {t('common.delete')}
-                      </button>
+                      <div className="candidate-actions">
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => handleEditEntry(entry)}
+                        >
+                          {t('common.edit')}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void handleDeleteEntry(entry.id)}
+                        >
+                          {t('common.delete')}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -842,4 +940,12 @@ function formatMoney(value: number, currency: 'USD' | 'ARS') {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function mergeById<T extends { id: number }>(primary: T[], related: T[]) {
+  const merged = new Map(primary.map((item) => [item.id, item]));
+  for (const item of related) {
+    if (!merged.has(item.id)) merged.set(item.id, item);
+  }
+  return Array.from(merged.values());
 }

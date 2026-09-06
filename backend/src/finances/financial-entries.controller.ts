@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -15,6 +16,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FinancesService } from './finances.service';
 import { CreateFinancialEntryDto } from './dto/create-financial-entry.dto';
+import { UpdateFinancialEntryDto } from './dto/update-financial-entry.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('financial-entries')
@@ -32,6 +34,15 @@ export class FinancialEntriesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.financesService.createEntry(dto, user);
+  }
+
+  @Put(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateFinancialEntryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.financesService.updateEntry(id, dto, user);
   }
 
   @Delete(':id')

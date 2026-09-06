@@ -624,6 +624,7 @@ export interface DashboardData {
   weeklyActivityGoals: WeeklyActivityGoalProgress[];
   opportunityPipelineGroups: DashboardOpportunityPipelineGroup[];
   financialSummary: DashboardFinancialSummary[];
+  financialHistory: DashboardFinancialHistory;
 }
 
 export interface DashboardFinancialSummary {
@@ -631,6 +632,29 @@ export interface DashboardFinancialSummary {
   income: number;
   expenses: number;
   balance: number;
+}
+
+export interface DashboardFinancialHistoryPoint {
+  date: string;
+  incomeArs: number;
+  expensesArs: number;
+  incomeUsd: number;
+  expensesUsd: number;
+  exchangeRate: DashboardExchangeRate | null;
+}
+
+export interface DashboardExchangeRate {
+  provider: 'BNA';
+  rateDate: string;
+  sourceDate: string;
+  buyRate: number;
+  sellRate: number;
+  carriedForward: boolean;
+}
+
+export interface DashboardFinancialHistory {
+  points: DashboardFinancialHistoryPoint[];
+  exchangeRate: DashboardExchangeRate | null;
 }
 
 export interface WeeklyActivityGoalProgress {

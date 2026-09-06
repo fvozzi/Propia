@@ -13,9 +13,14 @@ import {
 } from '../common/enums';
 import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { FinancialEntry } from '../finances/financial-entry.entity';
+import { BnaExchangeRatesService } from '../exchange-rates/bna-exchange-rates.service';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { buildOpportunityPipelineGroups } from '../use-cases/commercial-opportunity-pipeline.use-case';
+import {
+  buildFinancialHistory,
+  type FinancialHistoryRow,
+} from '../use-cases/financial-history.use-case';
 import {
   buildFinancialSummary,
   type FinancialSummaryRow,
@@ -36,6 +41,7 @@ export class DashboardService {
     private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
     @InjectRepository(FinancialEntry)
     private readonly financialEntriesRepository: Repository<FinancialEntry>,
+    private readonly bnaExchangeRatesService: BnaExchangeRatesService,
   ) {}
 
   async getToday(user: AuthenticatedUser) {
@@ -58,6 +64,8 @@ export class DashboardService {
       activeOpportunities,
       activityGoals,
       financialSummaryRows,
+      financialHistoryRows,
+      effectiveExchangeRate,
     ] =
       await Promise.all([
         this.activitiesRepository
@@ -141,6 +149,30 @@ export class DashboardService {
           .groupBy('entry.currency')
           .addGroupBy('entry.entryType')
           .getRawMany<FinancialSummaryRow>(),
+        this.financialEntriesRepository
+          .createQueryBuilder('entry')
+          .select(
+            `TO_CHAR(entry."entryDate" AT TIME ZONE 'America/Argentina/Buenos_Aires', 'YYYY-MM-DD')`,
+            'date',
+          )
+          .addSelect('entry.currency', 'currency')
+          .addSelect('entry.entryType', 'entryType')
+          .addSelect('SUM(entry.amount)', 'total')
+          .where('entry.teamId = :teamId', { teamId })
+          .andWhere('entry.entryType IN (:...entryTypes)', {
+            entryTypes: [FinancialEntryType.INCOME, FinancialEntryType.EXPENSE],
+          })
+          .groupBy(
+            `TO_CHAR(entry."entryDate" AT TIME ZONE 'America/Argentina/Buenos_Aires', 'YYYY-MM-DD')`,
+          )
+          .addGroupBy('entry.currency')
+          .addGroupBy('entry.entryType')
+          .orderBy(
+            `TO_CHAR(entry."entryDate" AT TIME ZONE 'America/Argentina/Buenos_Aires', 'YYYY-MM-DD')`,
+            'ASC',
+          )
+          .getRawMany<FinancialHistoryRow>(),
+        this.bnaExchangeRatesService.getTodayEffectiveRate(),
       ]);
 
     const opportunityIds = activeOpportunities.map(
@@ -172,6 +204,12 @@ export class DashboardService {
       weekEnd,
     );
 
+    const financialHistoryPoints = buildFinancialHistory(financialHistoryRows);
+    const historicalExchangeRates =
+      await this.bnaExchangeRatesService.getEffectiveRatesForDates(
+        financialHistoryPoints.map((point) => point.date),
+      );
+
     return {
       followUpsDueToday,
       overdueFollowUps,
@@ -183,6 +221,13 @@ export class DashboardService {
       weeklyActivityGoals,
       opportunityPipelineGroups,
       financialSummary: buildFinancialSummary(financialSummaryRows),
+      financialHistory: {
+        points: financialHistoryPoints.map((point) => ({
+          ...point,
+          exchangeRate: historicalExchangeRates[point.date] ?? null,
+        })),
+        exchangeRate: effectiveExchangeRate,
+      },
     };
   }
 

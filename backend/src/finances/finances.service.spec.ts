@@ -362,4 +362,120 @@ describe('FinancesService', () => {
       ),
     );
   });
+
+  it('updates an income and recalculates every derived amount', async () => {
+    const {
+      service,
+      financeConfigRepository,
+      financialEntryRepository,
+      activitiesRepository,
+    } = await createService();
+    const existing = {
+      id: 44,
+      teamId: 12,
+      ownerUserId: 3,
+      entryType: FinancialEntryType.INCOME,
+      amount: 1,
+    };
+    financialEntryRepository.findOne.mockResolvedValue(existing);
+    financeConfigRepository.findOne.mockResolvedValue({
+      id: 1,
+      teamId: 12,
+      franchisePercent: 55,
+      saleCommissionPercent: 3,
+      purchaseCommissionPercent: 4,
+    });
+    activitiesRepository.findOne.mockResolvedValue({
+      id: 4,
+      teamId: 12,
+      activityType: ActivityType.SALE_DEED,
+      commercialOpportunityId: null,
+    });
+
+    const updated = await service.updateEntry(
+      44,
+      {
+        entryType: FinancialEntryType.INCOME,
+        entryDate: '2026-09-08',
+        currency: CurrencyType.USD,
+        activityId: 4,
+        operationAmount: 275000,
+        commissionPercent: 3,
+        agentParticipationPercent: 15,
+        extraAmount: 200,
+        franchisePercent: 55,
+        notes: ' trabajo adicional ',
+      },
+      user,
+    );
+
+    expect(financialEntryRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 44, teamId: 12 },
+    });
+    expect(financialEntryRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 44,
+        ownerUserId: 3,
+        amount: 756.87,
+        commissionAmount: 8250,
+        agentGrossAmount: 1237.5,
+        franchiseAmount: 680.63,
+        netIncomeAmount: 756.87,
+        notes: 'trabajo adicional',
+      }),
+    );
+    expect(updated).toMatchObject({ id: 44, amount: 756.87 });
+  });
+
+  it('can correct an income into an expense and clears income-only fields', async () => {
+    const {
+      service,
+      financeConfigRepository,
+      financialEntryRepository,
+    } = await createService();
+    financialEntryRepository.findOne.mockResolvedValue({
+      id: 45,
+      teamId: 12,
+      ownerUserId: 7,
+      entryType: FinancialEntryType.INCOME,
+      commissionAmount: 300,
+      extraAmount: 50,
+    });
+    financeConfigRepository.findOne.mockResolvedValue({
+      id: 1,
+      teamId: 12,
+      franchisePercent: 55,
+      saleCommissionPercent: 3,
+      purchaseCommissionPercent: 4,
+    });
+
+    await service.updateEntry(
+      45,
+      {
+        entryType: FinancialEntryType.EXPENSE,
+        entryDate: '2026-09-08',
+        currency: CurrencyType.ARS,
+        amount: 25000,
+        expenseCategory: ExpenseCategory.TRANSPORT,
+      },
+      user,
+    );
+
+    expect(financialEntryRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 45,
+        entryType: FinancialEntryType.EXPENSE,
+        amount: 25000,
+        expenseCategory: ExpenseCategory.TRANSPORT,
+        incomeOperationType: null,
+        operationAmount: null,
+        commissionAmount: null,
+        agentParticipationPercent: null,
+        agentGrossAmount: null,
+        extraAmount: null,
+        franchiseAmount: null,
+        netIncomeAmount: null,
+      }),
+    );
+  });
 });

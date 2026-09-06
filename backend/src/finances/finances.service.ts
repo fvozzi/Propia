@@ -21,6 +21,7 @@ import { FinanceConfig } from './finance-config.entity';
 import { FinancialEntry } from './financial-entry.entity';
 import { CreateFinancialEntryDto } from './dto/create-financial-entry.dto';
 import { UpdateFinanceConfigDto } from './dto/update-finance-config.dto';
+import { UpdateFinancialEntryDto } from './dto/update-financial-entry.dto';
 
 @Injectable()
 export class FinancesService {
@@ -72,6 +73,40 @@ export class FinancesService {
   }
 
   async createEntry(dto: CreateFinancialEntryDto, user: AuthenticatedUser) {
+    const teamId = requireActiveTeamId(user);
+    const entryData = await this.buildEntryData(dto, user);
+    const entry = this.financialEntryRepository.create({
+      teamId,
+      ownerUserId: user.sub,
+      ...entryData,
+    });
+
+    return this.financialEntryRepository.save(entry);
+  }
+
+  async updateEntry(
+    id: number,
+    dto: UpdateFinancialEntryDto,
+    user: AuthenticatedUser,
+  ) {
+    const teamId = requireActiveTeamId(user);
+    const entry = await this.financialEntryRepository.findOne({
+      where: { id, teamId },
+    });
+
+    if (!entry) {
+      throw new NotFoundException('Movimiento no encontrado');
+    }
+
+    const entryData = await this.buildEntryData(dto, user);
+    Object.assign(entry, entryData);
+    return this.financialEntryRepository.save(entry);
+  }
+
+  private async buildEntryData(
+    dto: CreateFinancialEntryDto,
+    user: AuthenticatedUser,
+  ) {
     const teamId = requireActiveTeamId(user);
     const [config, activity, searchRequirement, selectedOpportunity] = await Promise.all([
       this.ensureConfig(teamId),
@@ -150,9 +185,7 @@ export class FinancesService {
         throw new BadRequestException('Debes indicar un monto valido');
       }
 
-      const expense = this.financialEntryRepository.create({
-        teamId,
-        ownerUserId: user.sub,
+      return {
         entryType: FinancialEntryType.EXPENSE,
         entryDate: new Date(dto.entryDate),
         currency: dto.currency,
@@ -172,9 +205,7 @@ export class FinancesService {
         franchiseAmount: null,
         netIncomeAmount: null,
         notes: dto.notes?.trim() || null,
-      });
-
-      return this.financialEntryRepository.save(expense);
+      };
     }
 
     if (!activity) {
@@ -217,9 +248,7 @@ export class FinancesService {
       agentGrossAmount - franchiseAmount + extraAmount,
     );
 
-    const income = this.financialEntryRepository.create({
-      teamId,
-      ownerUserId: user.sub,
+    return {
       entryType: FinancialEntryType.INCOME,
       entryDate: new Date(dto.entryDate),
       currency: dto.currency,
@@ -239,9 +268,7 @@ export class FinancesService {
       franchiseAmount,
       netIncomeAmount,
       notes: dto.notes?.trim() || null,
-    });
-
-    return this.financialEntryRepository.save(income);
+    };
   }
 
   async removeEntry(id: number, user: AuthenticatedUser) {
