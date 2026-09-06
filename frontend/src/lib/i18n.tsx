@@ -86,6 +86,11 @@ const translations = {
     layout: {
       title: 'Personal real estate CRM',
       subtitle: 'Simple daily operation to capture, follow up, and close.',
+      navigation: 'Navigation',
+      openNavigation: 'Menu',
+      closeNavigation: 'Close',
+      collapseNavigation: 'Collapse navigation',
+      expandNavigation: 'Expand navigation',
     },
     login: {
       title: 'Personal real estate CRM',
@@ -965,6 +970,11 @@ const translations = {
     layout: {
       title: 'CRM inmobiliario personal',
       subtitle: 'Operacion simple para captar, seguir y cerrar.',
+      navigation: 'Navegacion',
+      openNavigation: 'Menu',
+      closeNavigation: 'Cerrar',
+      collapseNavigation: 'Contraer menu',
+      expandNavigation: 'Expandir menu',
     },
     login: {
       title: 'CRM inmobiliario personal',

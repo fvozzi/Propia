@@ -8,6 +8,7 @@ import { useI18n } from '../lib/i18n';
 type NavItem = {
   to: string;
   label: string;
+  icon: string;
 };
 
 type NavGroup = {
@@ -21,10 +22,19 @@ export function Layout() {
   const { locale, setLocale, t } = useI18n();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    readStoredSidebarCollapsed(),
+  );
+  const [usesOverlayNavigation, setUsesOverlayNavigation] = useState(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(max-width: 960px)').matches
+      : false,
+  );
+  const isSidebarCollapsed = sidebarCollapsed && !usesOverlayNavigation;
 
   const primaryLinks: NavItem[] = [
-    { to: '/', label: t('nav.dashboard') },
-    { to: '/calendar', label: t('nav.calendar') },
+    { to: '/', label: t('nav.dashboard'), icon: '⌂' },
+    { to: '/calendar', label: t('nav.calendar'), icon: '▦' },
   ];
 
   const groupedLinks: NavGroup[] = [
@@ -32,41 +42,41 @@ export function Layout() {
       id: 'commercial',
       label: t('navGroups.commercial'),
       links: [
-        { to: '/contacts', label: t('nav.contacts') },
-        { to: '/opportunities', label: t('nav.commercialOpportunities') },
-        { to: '/activities', label: t('nav.activities') },
-        { to: '/visits', label: t('nav.visits') },
+        { to: '/contacts', label: t('nav.contacts'), icon: '◎' },
+        { to: '/opportunities', label: t('nav.commercialOpportunities'), icon: '↗' },
+        { to: '/activities', label: t('nav.activities'), icon: '✓' },
+        { to: '/visits', label: t('nav.visits'), icon: '⌖' },
       ],
     },
     {
       id: 'capture',
       label: t('navGroups.capture'),
       links: [
-        { to: '/properties', label: t('nav.properties') },
-        { to: '/map', label: t('nav.map') },
-        { to: '/appraisals', label: t('nav.appraisals') },
-        { to: '/requirements', label: t('nav.requirements') },
+        { to: '/properties', label: t('nav.properties'), icon: '▱' },
+        { to: '/map', label: t('nav.map'), icon: '⌗' },
+        { to: '/appraisals', label: t('nav.appraisals'), icon: '◇' },
+        { to: '/requirements', label: t('nav.requirements'), icon: '⌕' },
       ],
     },
     {
       id: 'operations',
       label: t('navGroups.operations'),
       links: [
-        { to: '/documents', label: t('nav.documents') },
-        { to: '/finances', label: t('nav.finances') },
+        { to: '/documents', label: t('nav.documents'), icon: '▤' },
+        { to: '/finances', label: t('nav.finances'), icon: '$' },
       ],
     },
     {
       id: 'system',
       label: t('navGroups.system'),
       links: [
-        { to: '/use-cases', label: t('nav.useCases') },
-        { to: '/settings', label: t('nav.settings') },
+        { to: '/use-cases', label: t('nav.useCases'), icon: '?' },
+        { to: '/settings', label: t('nav.settings'), icon: '⚙' },
         ...(user?.appRole === 'ADMIN'
-          ? [{ to: '/users', label: t('nav.users') }]
+          ? [{ to: '/users', label: t('nav.users'), icon: '♙' }]
           : []),
         ...(user?.appRole === 'ADMIN' && user.backofficeAccess
-          ? [{ to: '/backoffice', label: 'Backoffice' }]
+          ? [{ to: '/backoffice', label: 'Backoffice', icon: 'B' }]
           : []),
       ],
     },
@@ -90,6 +100,27 @@ export function Layout() {
 
     window.localStorage.setItem('propia.sidebar.groups', JSON.stringify(openGroups));
   }, [openGroups]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      'propia.sidebar.collapsed',
+      String(sidebarCollapsed),
+    );
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 960px)');
+    const handleChange = () => {
+      setUsesOverlayNavigation(mediaQuery.matches);
+      if (!mediaQuery.matches) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   async function handleTeamChange(teamId: number) {
     if (teamId === user?.activeTeamId) {
@@ -118,7 +149,15 @@ export function Layout() {
   }
 
   return (
-    <div className={mobileMenuOpen ? 'shell mobile-menu-open' : 'shell'}>
+    <div
+      className={[
+        'shell',
+        mobileMenuOpen ? 'mobile-menu-open' : '',
+        isSidebarCollapsed ? 'sidebar-collapsed' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <button
         type="button"
         className="mobile-nav-toggle"
@@ -126,13 +165,14 @@ export function Layout() {
         aria-controls="app-sidebar"
         onClick={() => setMobileMenuOpen(true)}
       >
-        Menu
+        <span aria-hidden="true">☰</span>
+        <span>{t('layout.openNavigation')}</span>
       </button>
       {mobileMenuOpen ? (
         <button
           type="button"
           className="mobile-nav-backdrop"
-          aria-label="Close navigation"
+          aria-label={t('layout.closeNavigation')}
           onClick={() => setMobileMenuOpen(false)}
         />
       ) : null}
@@ -140,14 +180,33 @@ export function Layout() {
         id="app-sidebar"
         className={mobileMenuOpen ? 'sidebar sidebar-open' : 'sidebar'}
       >
+        <button
+          type="button"
+          className="sidebar-collapse-toggle"
+          aria-label={
+            isSidebarCollapsed
+              ? t('layout.expandNavigation')
+              : t('layout.collapseNavigation')
+          }
+          aria-expanded={!isSidebarCollapsed}
+          aria-controls="app-sidebar"
+          title={
+            isSidebarCollapsed
+              ? t('layout.expandNavigation')
+              : t('layout.collapseNavigation')
+          }
+          onClick={() => setSidebarCollapsed((current) => !current)}
+        >
+          <span aria-hidden="true">{isSidebarCollapsed ? '›' : '‹'}</span>
+        </button>
         <div className="sidebar-mobile-header">
-          <strong>Menu</strong>
+          <strong>{t('layout.navigation')}</strong>
           <button
             type="button"
             className="ghost-button sidebar-close"
             onClick={() => setMobileMenuOpen(false)}
           >
-            Cerrar
+            {t('layout.closeNavigation')}
           </button>
         </div>
         <div className="sidebar-brand">
@@ -161,8 +220,11 @@ export function Layout() {
                 to={link.to}
                 end={link.to === '/'}
                 className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                aria-label={link.label}
+                title={link.label}
               >
-                {link.label}
+                <span className="nav-link-icon" aria-hidden="true">{link.icon}</span>
+                <span className="nav-link-label">{link.label}</span>
               </NavLink>
             ))}
           </div>
@@ -190,7 +252,7 @@ export function Layout() {
                   </span>
                 </button>
 
-                {isOpen ? (
+                {isSidebarCollapsed || isOpen ? (
                   <div className="nav-group-links">
                     {group.links.map((link) => (
                       <NavLink
@@ -202,8 +264,11 @@ export function Layout() {
                             ? 'nav-link nav-link-grouped active'
                             : 'nav-link nav-link-grouped'
                         }
+                        aria-label={link.label}
+                        title={link.label}
                       >
-                        {link.label}
+                        <span className="nav-link-icon" aria-hidden="true">{link.icon}</span>
+                        <span className="nav-link-label">{link.label}</span>
                       </NavLink>
                     ))}
                   </div>
@@ -235,16 +300,22 @@ export function Layout() {
               </select>
             </label>
           ) : null}
-          <div>
+          <div className="sidebar-user-details">
             <strong>{user?.name}</strong>
             <p className="muted">{user?.email}</p>
           </div>
-          <div>
+          <div className="sidebar-build-info">
             <p className="muted">v{APP_VERSION}</p>
             <p className="muted">build {APP_BUILD}</p>
           </div>
-          <button className="ghost-button" onClick={logout}>
-            {t('common.signOut')}
+          <button
+            className="ghost-button sidebar-logout"
+            onClick={logout}
+            title={t('common.signOut')}
+            aria-label={t('common.signOut')}
+          >
+            <span className="nav-link-icon" aria-hidden="true">↪</span>
+            <span className="sidebar-footer-label">{t('common.signOut')}</span>
           </button>
         </div>
       </aside>
@@ -269,6 +340,13 @@ export function Layout() {
       </main>
     </div>
   );
+}
+
+function readStoredSidebarCollapsed() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return window.localStorage.getItem('propia.sidebar.collapsed') === 'true';
 }
 
 function buildInitialOpenGroups(groups: NavGroup[], pathname: string) {
