@@ -1013,9 +1013,10 @@
 2. La usuaria crea un nuevo movimiento de tipo `Ingreso`.
 3. El sistema obliga a elegir una actividad de tipo `Escritura de venta` o `Escritura de compra`.
 4. El sistema propone monto total de la operacion, porcentaje de comision y porcentaje de franquicia.
-5. La usuaria puede editar esos valores antes de guardar.
-6. El sistema calcula comision de la operacion, monto de franquicia e ingreso neto de la usuaria.
-7. El movimiento queda registrado y debe poder imputarse al caso comercial relacionado cuando exista.
+5. La usuaria indica que porcentaje de la comision le corresponde por su participacion en la operacion; el valor inicial es `100%`.
+6. La usuaria puede editar esos valores antes de guardar.
+7. El sistema calcula comision de la operacion, comision bruta de la usuaria, monto de franquicia e ingreso neto de la usuaria.
+8. El movimiento queda registrado y debe poder imputarse al caso comercial relacionado cuando exista.
 
 ### Primera version implementada
 
@@ -1024,9 +1025,12 @@
   - venta: `saleCommissionPercent`
   - compra: `purchaseCommissionPercent`
 - El porcentaje de franquicia sugerido sale de `FinanceConfig.franchisePercent`.
+- El porcentaje de participacion de la agente comienza en `100%` y puede editarse para operaciones compartidas o colaboraciones.
 - A futuro el ingreso deberia quedar asociado a una oportunidad comercial, no solo a la actividad puntual de escritura.
 - El sistema calcula:
   - `commissionAmount`
+  - `agentParticipationPercent`
+  - `agentGrossAmount`
   - `franchiseAmount`
   - `netIncomeAmount`
 
@@ -1036,6 +1040,8 @@
 - Debe poder elegirse una escritura de venta o compra como origen del ingreso.
 - El monto total de la operacion debe ser editable.
 - Los porcentajes de comision y franquicia deben poder editarse antes de guardar.
+- El porcentaje de participacion de la agente debe poder editarse antes de guardar.
+- La franquicia debe calcularse sobre la comision bruta correspondiente a la agente, luego de aplicar su participacion.
 - El sistema debe mostrar de forma visible el ingreso neto resultante.
 - El historial debe mostrar ingresos junto con su actividad vinculada y los montos calculados.
 

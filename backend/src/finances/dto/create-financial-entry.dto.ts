@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 import {
@@ -60,6 +61,13 @@ export class CreateFinancialEntryDto {
   @IsNumber()
   @Min(0)
   commissionPercent?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  agentParticipationPercent?: number;
 
   @IsOptional()
   @Type(() => Number)

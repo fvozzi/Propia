@@ -375,6 +375,8 @@ export interface FinancialEntry {
   operationAmount: number | null;
   commissionPercent: number | null;
   commissionAmount: number | null;
+  agentParticipationPercent: number | null;
+  agentGrossAmount: number | null;
   franchisePercent: number | null;
   franchiseAmount: number | null;
   netIncomeAmount: number | null;

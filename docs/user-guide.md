@@ -185,6 +185,8 @@ En [Finanzas](/finances) registrar:
 - ingresos de escrituras
 - balance del negocio
 
+Al registrar un ingreso, indicar el monto total de la operacion, el porcentaje de comision y el porcentaje de participacion de la agente. En una operacion propia la participacion queda en `100%`; en una colaboracion se ingresa el porcentaje acordado, por ejemplo `15%`. La franquicia se descuenta despues, sobre la comision bruta correspondiente a la agente.
+
 ## Indicadores para usar todos los dias
 
 Orden recomendado de trabajo:

@@ -245,6 +245,8 @@ describe('FinancesService', () => {
         operationAmount: 92000,
         commissionPercent: 3,
         commissionAmount: 2760,
+        agentParticipationPercent: 100,
+        agentGrossAmount: 2760,
         franchisePercent: 55,
         franchiseAmount: 1518,
         netIncomeAmount: 1242,
@@ -257,6 +259,58 @@ describe('FinancesService', () => {
       incomeOperationType: OperationType.SALE,
       amount: 1242,
       netIncomeAmount: 1242,
+    });
+  });
+
+  it('applies the franchise percentage after the agent participation percentage', async () => {
+    const {
+      service,
+      financeConfigRepository,
+      financialEntryRepository,
+      activitiesRepository,
+    } = await createService();
+
+    financeConfigRepository.findOne.mockResolvedValue({
+      id: 1,
+      teamId: 12,
+      franchisePercent: 55,
+      saleCommissionPercent: 3,
+      purchaseCommissionPercent: 4,
+    });
+    activitiesRepository.findOne.mockResolvedValue({
+      id: 4,
+      teamId: 12,
+      activityType: ActivityType.SALE_DEED,
+      commercialOpportunityId: null,
+    });
+
+    const created = await service.createEntry(
+      {
+        entryType: FinancialEntryType.INCOME,
+        entryDate: '2026-09-06',
+        currency: CurrencyType.USD,
+        activityId: 4,
+        operationAmount: 275000,
+        commissionPercent: 3,
+        agentParticipationPercent: 15,
+        franchisePercent: 55,
+      },
+      user,
+    );
+
+    expect(financialEntryRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commissionAmount: 8250,
+        agentParticipationPercent: 15,
+        agentGrossAmount: 1237.5,
+        franchiseAmount: 680.63,
+        netIncomeAmount: 556.87,
+        amount: 556.87,
+      }),
+    );
+    expect(created).toMatchObject({
+      amount: 556.87,
+      netIncomeAmount: 556.87,
     });
   });
 

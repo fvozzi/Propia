@@ -165,6 +165,8 @@ export class FinancesService {
         operationAmount: null,
         commissionPercent: null,
         commissionAmount: null,
+        agentParticipationPercent: null,
+        agentGrossAmount: null,
         franchisePercent: null,
         franchiseAmount: null,
         netIncomeAmount: null,
@@ -202,10 +204,14 @@ export class FinancesService {
     const commissionAmount = roundMoney(
       dto.operationAmount * (commissionPercent / 100),
     );
-    const franchiseAmount = roundMoney(
-      commissionAmount * (franchisePercent / 100),
+    const agentParticipationPercent = dto.agentParticipationPercent ?? 100;
+    const agentGrossAmount = roundMoney(
+      commissionAmount * (agentParticipationPercent / 100),
     );
-    const netIncomeAmount = roundMoney(commissionAmount - franchiseAmount);
+    const franchiseAmount = roundMoney(
+      agentGrossAmount * (franchisePercent / 100),
+    );
+    const netIncomeAmount = roundMoney(agentGrossAmount - franchiseAmount);
 
     const income = this.financialEntryRepository.create({
       teamId,
@@ -222,6 +228,8 @@ export class FinancesService {
       operationAmount: dto.operationAmount,
       commissionPercent,
       commissionAmount,
+      agentParticipationPercent,
+      agentGrossAmount,
       franchisePercent,
       franchiseAmount,
       netIncomeAmount,

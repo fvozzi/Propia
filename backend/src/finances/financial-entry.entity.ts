@@ -80,6 +80,12 @@ export class FinancialEntry {
   commissionAmount: number | null;
 
   @Column({ type: 'double precision', nullable: true })
+  agentParticipationPercent: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  agentGrossAmount: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
   franchisePercent: number | null;
 
   @Column({ type: 'double precision', nullable: true })

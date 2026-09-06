@@ -24,6 +24,7 @@ type EntryFormState = {
   amount: string;
   operationAmount: string;
   commissionPercent: string;
+  agentParticipationPercent: string;
   franchisePercent: string;
   notes: string;
 };
@@ -58,6 +59,7 @@ function createInitialForm(config: FinanceConfig): EntryFormState {
     amount: '',
     operationAmount: '',
     commissionPercent: String(config.saleCommissionPercent),
+    agentParticipationPercent: '100',
     franchisePercent: String(config.franchisePercent),
     notes: '',
   };
@@ -104,17 +106,27 @@ export function FinancesPage() {
   const incomePreview = useMemo(() => {
     const operationAmount = Number(form.operationAmount || 0);
     const commissionPercent = Number(form.commissionPercent || 0);
+    const agentParticipationPercent = Number(form.agentParticipationPercent || 0);
     const franchisePercent = Number(form.franchisePercent || 0);
     const commissionAmount = roundMoney(operationAmount * (commissionPercent / 100));
-    const franchiseAmount = roundMoney(commissionAmount * (franchisePercent / 100));
-    const netIncome = roundMoney(commissionAmount - franchiseAmount);
+    const agentGrossAmount = roundMoney(
+      commissionAmount * (agentParticipationPercent / 100),
+    );
+    const franchiseAmount = roundMoney(agentGrossAmount * (franchisePercent / 100));
+    const netIncome = roundMoney(agentGrossAmount - franchiseAmount);
 
     return {
       commissionAmount,
+      agentGrossAmount,
       franchiseAmount,
       netIncome,
     };
-  }, [form.operationAmount, form.commissionPercent, form.franchisePercent]);
+  }, [
+    form.operationAmount,
+    form.commissionPercent,
+    form.agentParticipationPercent,
+    form.franchisePercent,
+  ]);
 
   const opportunitySummaries = useMemo(() => {
     const map = new Map<string, OpportunitySummary>();
@@ -202,6 +214,10 @@ export function FinancesPage() {
         entryType === 'INCOME'
           ? current.commissionPercent || String(financeConfig.saleCommissionPercent)
           : current.commissionPercent,
+      agentParticipationPercent:
+        entryType === 'INCOME'
+          ? current.agentParticipationPercent || '100'
+          : current.agentParticipationPercent,
       franchisePercent:
         entryType === 'INCOME'
           ? current.franchisePercent || String(financeConfig.franchisePercent)
@@ -270,6 +286,10 @@ export function FinancesPage() {
             form.entryType === 'INCOME' ? Number(form.operationAmount) : undefined,
           commissionPercent:
             form.entryType === 'INCOME' ? Number(form.commissionPercent) : undefined,
+          agentParticipationPercent:
+            form.entryType === 'INCOME'
+              ? Number(form.agentParticipationPercent)
+              : undefined,
           franchisePercent:
             form.entryType === 'INCOME' ? Number(form.franchisePercent) : undefined,
           notes: form.notes || undefined,
@@ -511,6 +531,22 @@ export function FinancesPage() {
                 </label>
 
                 <label>
+                  {t('finances.agentParticipationPercent')}
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={form.agentParticipationPercent}
+                    onChange={(event) =>
+                      updateForm({ agentParticipationPercent: event.target.value })
+                    }
+                    required
+                  />
+                  <span className="muted">{t('finances.agentParticipationHint')}</span>
+                </label>
+
+                <label>
                   {t('finances.franchisePercent')}
                   <input
                     type="number"
@@ -527,6 +563,10 @@ export function FinancesPage() {
                 <div className="list-item">
                   <strong>{t('finances.commissionAmount')}</strong>
                   <span>{formatMoney(incomePreview.commissionAmount, form.currency)}</span>
+                </div>
+                <div className="list-item">
+                  <strong>{t('finances.agentGrossAmount')}</strong>
+                  <span>{formatMoney(incomePreview.agentGrossAmount, form.currency)}</span>
                 </div>
                 <div className="list-item">
                   <strong>{t('finances.franchiseAmount')}</strong>
@@ -609,6 +649,12 @@ export function FinancesPage() {
                           <span className="muted">
                             {t('finances.commissionAmount')}:{' '}
                             {formatMoney(entry.commissionAmount ?? 0, entry.currency)} |{' '}
+                            {t('finances.agentGrossAmount')}:{' '}
+                            {formatMoney(
+                              entry.agentGrossAmount ?? entry.commissionAmount ?? 0,
+                              entry.currency,
+                            )}{' '}
+                            ({entry.agentParticipationPercent ?? 100}%) |{' '}
                             {t('finances.franchiseAmount')}:{' '}
                             {formatMoney(entry.franchiseAmount ?? 0, entry.currency)}
                           </span>
