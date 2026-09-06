@@ -3,18 +3,12 @@ import type {
   DashboardFinancialHistoryPoint,
 } from '../types';
 
-export type FinancialChartSeriesKey =
-  | 'incomeArs'
-  | 'expensesArs'
-  | 'incomeUsd'
-  | 'expensesUsd';
+export type FinancialChartSeriesKey = 'income' | 'expenses';
 
 export type ConvertedFinancialHistoryPoint = {
   date: string;
-  incomeArs: number;
-  expensesArs: number;
-  incomeUsd: number;
-  expensesUsd: number;
+  income: number;
+  expenses: number;
   exchangeRate: DashboardFinancialHistoryPoint['exchangeRate'];
 };
 
@@ -29,12 +23,16 @@ export function convertFinancialHistory(
 
   return points.map((point) => {
     const usdSellRate = point.exchangeRate?.sellRate ?? fallbackUsdSellRate;
+    const income =
+      convert(point.incomeArs, 'ARS', displayCurrency, usdSellRate) +
+      convert(point.incomeUsd, 'USD', displayCurrency, usdSellRate);
+    const expenses =
+      convert(point.expensesArs, 'ARS', displayCurrency, usdSellRate) +
+      convert(point.expensesUsd, 'USD', displayCurrency, usdSellRate);
     return {
       date: point.date,
-      incomeArs: convert(point.incomeArs, 'ARS', displayCurrency, usdSellRate),
-      expensesArs: convert(point.expensesArs, 'ARS', displayCurrency, usdSellRate),
-      incomeUsd: convert(point.incomeUsd, 'USD', displayCurrency, usdSellRate),
-      expensesUsd: convert(point.expensesUsd, 'USD', displayCurrency, usdSellRate),
+      income: roundMoney(income),
+      expenses: roundMoney(expenses),
       exchangeRate: point.exchangeRate,
     };
   });
@@ -50,4 +48,8 @@ function convert(
     return value;
   }
   return sourceCurrency === 'USD' ? value * usdSellRate : value / usdSellRate;
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
 }

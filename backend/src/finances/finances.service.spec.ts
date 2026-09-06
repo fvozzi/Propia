@@ -169,7 +169,7 @@ describe('FinancesService', () => {
         entryDate: '2026-07-11',
         currency: CurrencyType.ARS,
         amount: 15000,
-        expenseCategory: ExpenseCategory.ADVERTISING,
+        expenseCategory: ExpenseCategory.C21_MONTHLY_FEE,
         searchRequirementId: 8,
         notes: '  pauta semanal  ',
       },
@@ -183,7 +183,7 @@ describe('FinancesService', () => {
       expect.objectContaining({
         entryType: FinancialEntryType.EXPENSE,
         amount: 15000,
-        expenseCategory: ExpenseCategory.ADVERTISING,
+        expenseCategory: ExpenseCategory.C21_MONTHLY_FEE,
         searchRequirementId: 8,
         commercialOpportunityId: 14,
         notes: 'pauta semanal',

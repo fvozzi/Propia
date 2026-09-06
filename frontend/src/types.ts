@@ -107,6 +107,7 @@ export type ExpenseCategory =
   | 'ADVERTISING'
   | 'PROPERTY_SEARCH_SERVICES'
   | 'PHOTOCOPIES'
+  | 'C21_MONTHLY_FEE'
   | 'OTHER';
 export type CommercialOpportunityStage =
   | 'NEW'

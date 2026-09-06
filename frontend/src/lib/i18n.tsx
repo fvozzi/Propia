@@ -114,13 +114,9 @@ const translations = {
       financialBalance: 'Balance',
       openFinances: 'Open finances',
       financialHistoryTitle: 'Income and expense history',
-      financialHistorySubtitle: 'Daily amounts converted with the effective BNA rate for each date.',
+      financialHistorySubtitle: 'Total income and expenses in the selected currency, using the effective BNA rate for each date.',
       financialHistoryEmpty: 'There are no financial movements to chart yet.',
       chartDisplayCurrency: 'View in',
-      chartIncomeArs: 'ARS income',
-      chartExpensesArs: 'ARS expenses',
-      chartIncomeUsd: 'USD income',
-      chartExpensesUsd: 'USD expenses',
       chartBnaSellRate: 'BNA bill sell rate',
       chartCurrentRateReference: 'Current reference',
       chartLastSavedReference: 'Last saved reference',
@@ -834,6 +830,7 @@ const translations = {
         ADVERTISING: 'Advertising',
         PROPERTY_SEARCH_SERVICES: 'Property search services',
         PHOTOCOPIES: 'Photocopies',
+        C21_MONTHLY_FEE: 'C21 monthly fee',
         OTHER: 'Other',
       },
       commercialOpportunityStage: {
@@ -996,13 +993,9 @@ const translations = {
       financialBalance: 'Saldo',
       openFinances: 'Abrir finanzas',
       financialHistoryTitle: 'Historial de ingresos y egresos',
-      financialHistorySubtitle: 'Montos diarios convertidos con la cotizacion BNA vigente en cada fecha.',
+      financialHistorySubtitle: 'Ingresos y egresos totales en la moneda elegida, usando la cotizacion BNA vigente en cada fecha.',
       financialHistoryEmpty: 'Todavia no hay movimientos financieros para graficar.',
       chartDisplayCurrency: 'Ver en',
-      chartIncomeArs: 'Ingresos ARS',
-      chartExpensesArs: 'Egresos ARS',
-      chartIncomeUsd: 'Ingresos USD',
-      chartExpensesUsd: 'Egresos USD',
       chartBnaSellRate: 'Dolar billete vendedor BNA',
       chartCurrentRateReference: 'Referencia actual',
       chartLastSavedReference: 'Ultima referencia guardada',
@@ -1724,6 +1717,7 @@ const translations = {
         ADVERTISING: 'Publicidad / pauta',
         PROPERTY_SEARCH_SERVICES: 'Servicios de busqueda de propiedades',
         PHOTOCOPIES: 'Fotocopias',
+        C21_MONTHLY_FEE: 'Fee mensual C21',
         OTHER: 'Otro',
       },
       commercialOpportunityStage: {
@@ -1939,7 +1933,7 @@ export const calendarActivityTypeOptions = [
   'SALE_DEED',
   'PURCHASE_DEED',
 ] as const;
-export const expenseCategoryOptions = ['PHOTOGRAPHY', 'TRANSPORT', 'ADVERTISING', 'PROPERTY_SEARCH_SERVICES', 'PHOTOCOPIES', 'OTHER'] as const;
+export const expenseCategoryOptions = ['PHOTOGRAPHY', 'TRANSPORT', 'ADVERTISING', 'PROPERTY_SEARCH_SERVICES', 'PHOTOCOPIES', 'C21_MONTHLY_FEE', 'OTHER'] as const;
 export const commercialOpportunityStageOptions = [
   'NEW',
   'QUALIFYING',

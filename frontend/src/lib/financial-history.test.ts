@@ -20,27 +20,23 @@ const points = [
 ];
 
 describe('financial history conversion', () => {
-  it('converts all four series to ARS using the BNA sell rate', () => {
+  it('combines both source currencies into income and expenses expressed in ARS', () => {
     expect(convertFinancialHistory(points, 'ARS', 1535)).toEqual([
       {
         date: '2026-09-06',
-        incomeArs: 153500,
-        expensesArs: 76750,
-        incomeUsd: 153500,
-        expensesUsd: 76750,
+        income: 307000,
+        expenses: 153500,
         exchangeRate: points[0].exchangeRate,
       },
     ]);
   });
 
-  it('converts all four series to USD using the reciprocal sell rate', () => {
+  it('combines both source currencies into income and expenses expressed in USD', () => {
     expect(convertFinancialHistory(points, 'USD', 1535)).toEqual([
       {
         date: '2026-09-06',
-        incomeArs: 100,
-        expensesArs: 50,
-        incomeUsd: 100,
-        expensesUsd: 50,
+        income: 200,
+        expenses: 100,
         exchangeRate: points[0].exchangeRate,
       },
     ]);
@@ -59,7 +55,7 @@ describe('financial history conversion', () => {
         ],
         'ARS',
         2000,
-      ).map((point) => point.incomeUsd),
-    ).toEqual([153500, 160000]);
+      ).map((point) => point.income),
+    ).toEqual([307000, 313500]);
   });
 });

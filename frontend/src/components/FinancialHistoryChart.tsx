@@ -16,10 +16,18 @@ const SERIES: Array<{
   color: string;
   dashed: boolean;
 }> = [
-  { key: 'incomeArs', labelKey: 'dashboard.chartIncomeArs', color: '#176b5b', dashed: false },
-  { key: 'expensesArs', labelKey: 'dashboard.chartExpensesArs', color: '#d97706', dashed: true },
-  { key: 'incomeUsd', labelKey: 'dashboard.chartIncomeUsd', color: '#2563eb', dashed: false },
-  { key: 'expensesUsd', labelKey: 'dashboard.chartExpensesUsd', color: '#a23c6f', dashed: true },
+  {
+    key: 'income',
+    labelKey: 'dashboard.financialIncome',
+    color: '#176b5b',
+    dashed: false,
+  },
+  {
+    key: 'expenses',
+    labelKey: 'dashboard.financialExpenses',
+    color: '#d97706',
+    dashed: true,
+  },
 ];
 
 export function FinancialHistoryChart({
@@ -119,7 +127,7 @@ export function FinancialHistoryChart({
             {SERIES.map((series) => (
               <span key={series.key}>
                 <i style={{ backgroundColor: series.color }} />
-                {t(series.labelKey)}
+                {t(series.labelKey)} ({displayCurrency})
               </span>
             ))}
           </div>
