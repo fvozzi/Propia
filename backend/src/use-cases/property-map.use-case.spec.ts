@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OperationType, VisitStatus } from '../common/enums';
+import { OperationType } from '../common/enums';
 import { buildPropertyMapItems } from './property-map.use-case';
 
 describe('property-map use case', () => {
@@ -32,7 +32,7 @@ describe('property-map use case', () => {
     ]);
   });
 
-  it('includes visited properties when they have at least one done visit', () => {
+  it('includes visited properties when they have at least one past visit activity', () => {
     const items = buildPropertyMapItems(
       [
         {
@@ -51,8 +51,7 @@ describe('property-map use case', () => {
       [
         {
           propertyId: 2,
-          status: VisitStatus.DONE,
-          scheduledAt: '2026-05-22T15:00:00.000Z',
+          activityDate: '2026-05-22T15:00:00.000Z',
         },
       ],
     );
@@ -67,7 +66,7 @@ describe('property-map use case', () => {
     ]);
   });
 
-  it('marks a property with both categories and ignores non-completed visits', () => {
+  it('marks a property with both categories and ignores future visit activities', () => {
     const items = buildPropertyMapItems(
       [
         {
@@ -86,18 +85,15 @@ describe('property-map use case', () => {
       [
         {
           propertyId: 3,
-          status: VisitStatus.SCHEDULED,
-          scheduledAt: '2026-05-23T15:00:00.000Z',
+          activityDate: '2999-05-23T15:00:00.000Z',
         },
         {
           propertyId: 3,
-          status: VisitStatus.DONE,
-          scheduledAt: '2026-05-21T15:00:00.000Z',
+          activityDate: '2026-05-21T15:00:00.000Z',
         },
         {
           propertyId: 3,
-          status: VisitStatus.DONE,
-          scheduledAt: '2026-05-24T15:00:00.000Z',
+          activityDate: '2026-05-24T15:00:00.000Z',
         },
       ],
     );
