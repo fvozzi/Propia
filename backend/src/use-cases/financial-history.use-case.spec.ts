@@ -45,4 +45,49 @@ describe('financial history use case', () => {
       },
     ]);
   });
+
+  it('fills empty dates through today when the last movement was in the prior month', () => {
+    expect(
+      buildFinancialHistory(
+        [
+          {
+            date: '2026-08-31',
+            currency: CurrencyType.ARS,
+            entryType: FinancialEntryType.INCOME,
+            total: '1000',
+          },
+        ],
+        '2026-09-03',
+      ),
+    ).toEqual([
+      {
+        date: '2026-08-31',
+        incomeArs: 1000,
+        expensesArs: 0,
+        incomeUsd: 0,
+        expensesUsd: 0,
+      },
+      {
+        date: '2026-09-01',
+        incomeArs: 0,
+        expensesArs: 0,
+        incomeUsd: 0,
+        expensesUsd: 0,
+      },
+      {
+        date: '2026-09-02',
+        incomeArs: 0,
+        expensesArs: 0,
+        incomeUsd: 0,
+        expensesUsd: 0,
+      },
+      {
+        date: '2026-09-03',
+        incomeArs: 0,
+        expensesArs: 0,
+        incomeUsd: 0,
+        expensesUsd: 0,
+      },
+    ]);
+  });
 });

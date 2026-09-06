@@ -20,6 +20,7 @@ export type FinancialHistoryPoint = {
 
 export function buildFinancialHistory(
   rows: FinancialHistoryRow[],
+  throughDate?: string,
 ): FinancialHistoryPoint[] {
   const points = new Map<string, FinancialHistoryPoint>();
 
@@ -52,9 +53,27 @@ export function buildFinancialHistory(
     points.set(row.date, point);
   }
 
-  return Array.from(points.values()).sort((left, right) =>
+  const sortedPoints = Array.from(points.values()).sort((left, right) =>
     left.date.localeCompare(right.date),
   );
+  if (sortedPoints.length === 0 || !throughDate) {
+    return sortedPoints;
+  }
+
+  const firstDate = sortedPoints[0].date;
+  const lastDate = sortedPoints.at(-1)!.date;
+  const endDate = throughDate > lastDate ? throughDate : lastDate;
+  const completeHistory: FinancialHistoryPoint[] = [];
+
+  for (
+    let date = firstDate;
+    date <= endDate;
+    date = addDays(date, 1)
+  ) {
+    completeHistory.push(points.get(date) ?? emptyPoint(date));
+  }
+
+  return completeHistory;
 }
 
 function emptyPoint(date: string): FinancialHistoryPoint {
@@ -74,4 +93,11 @@ function readNumber(value: string | number) {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function addDays(dateKey: string, amount: number) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
 }

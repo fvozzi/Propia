@@ -14,6 +14,7 @@ import {
 import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
 import { FinancialEntry } from '../finances/financial-entry.entity';
 import { BnaExchangeRatesService } from '../exchange-rates/bna-exchange-rates.service';
+import { getArgentinaDateKey } from '../exchange-rates/bna-exchange-rate.parser';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { buildOpportunityPipelineGroups } from '../use-cases/commercial-opportunity-pipeline.use-case';
@@ -204,7 +205,10 @@ export class DashboardService {
       weekEnd,
     );
 
-    const financialHistoryPoints = buildFinancialHistory(financialHistoryRows);
+    const financialHistoryPoints = buildFinancialHistory(
+      financialHistoryRows,
+      getArgentinaDateKey(new Date()),
+    );
     const historicalExchangeRates =
       await this.bnaExchangeRatesService.getEffectiveRatesForDates(
         financialHistoryPoints.map((point) => point.date),
