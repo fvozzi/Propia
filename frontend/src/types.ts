@@ -101,7 +101,6 @@ export type PortalSearchRunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED'
 export type DocumentTemplatePresetKey = 'CUSTOM' | 'EXCLUSIVE_SALE_AUTHORIZATION';
 export type DocumentTemplateFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select';
 export type FinancialEntryType = 'EXPENSE' | 'INCOME';
-export type FinancialIncomeType = 'OPERATION' | 'EXTRA';
 export type ExpenseCategory =
   | 'PHOTOGRAPHY'
   | 'TRANSPORT'
@@ -378,6 +377,7 @@ export interface FinancialEntry {
   commissionAmount: number | null;
   agentParticipationPercent: number | null;
   agentGrossAmount: number | null;
+  extraAmount: number | null;
   franchisePercent: number | null;
   franchiseAmount: number | null;
   netIncomeAmount: number | null;

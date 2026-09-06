@@ -185,9 +185,7 @@ En [Finanzas](/finances) registrar:
 - ingresos de escrituras
 - balance del negocio
 
-Al registrar un ingreso, indicar el monto total de la operacion, el porcentaje de comision y el porcentaje de participacion de la agente. En una operacion propia la participacion queda en `100%`; en una colaboracion se ingresa el porcentaje acordado, por ejemplo `15%`. La franquicia se descuenta despues, sobre la comision bruta correspondiente a la agente.
-
-Para registrar un reconocimiento economico por trabajo adicional, elegir `Ingreso extra` como tipo de ingreso. Solo se solicitan fecha, moneda, monto y motivo; no se aplican porcentajes de comision ni franquicia.
+Al registrar un ingreso, indicar el monto total de la operacion, el porcentaje de comision y el porcentaje de participacion de la agente. En una operacion propia la participacion queda en `100%`; en una colaboracion se ingresa el porcentaje acordado, por ejemplo `15%`. La franquicia se descuenta despues, sobre la comision bruta correspondiente a la agente. Si hubo un reconocimiento economico adicional por el trabajo realizado, cargarlo en `Ingreso extra` y detallar el motivo en las notas; ese importe se suma al ingreso neto de la misma operacion.
 
 ## Indicadores para usar todos los dias
 

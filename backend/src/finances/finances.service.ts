@@ -14,7 +14,6 @@ import { CommercialOpportunity } from '../commercial-opportunities/commercial-op
 import {
   ActivityType,
   FinancialEntryType,
-  FinancialIncomeType,
   OperationType,
 } from '../common/enums';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
@@ -168,6 +167,7 @@ export class FinancesService {
         commissionAmount: null,
         agentParticipationPercent: null,
         agentGrossAmount: null,
+        extraAmount: null,
         franchisePercent: null,
         franchiseAmount: null,
         netIncomeAmount: null,
@@ -175,43 +175,6 @@ export class FinancesService {
       });
 
       return this.financialEntryRepository.save(expense);
-    }
-
-    const incomeType = dto.incomeType ?? FinancialIncomeType.OPERATION;
-    if (incomeType === FinancialIncomeType.EXTRA) {
-      if (!dto.amount || dto.amount <= 0) {
-        throw new BadRequestException('Debes indicar un monto valido');
-      }
-
-      const reason = dto.notes?.trim();
-      if (!reason) {
-        throw new BadRequestException('Debes indicar el motivo del ingreso extra');
-      }
-
-      const extraIncome = this.financialEntryRepository.create({
-        teamId,
-        ownerUserId: user.sub,
-        entryType: FinancialEntryType.INCOME,
-        entryDate: new Date(dto.entryDate),
-        currency: dto.currency,
-        amount: dto.amount,
-        expenseCategory: null,
-        activityId: null,
-        searchRequirementId: null,
-        commercialOpportunityId: null,
-        incomeOperationType: null,
-        operationAmount: null,
-        commissionPercent: null,
-        commissionAmount: null,
-        agentParticipationPercent: null,
-        agentGrossAmount: null,
-        franchisePercent: null,
-        franchiseAmount: null,
-        netIncomeAmount: dto.amount,
-        notes: reason,
-      });
-
-      return this.financialEntryRepository.save(extraIncome);
     }
 
     if (!activity) {
@@ -249,7 +212,10 @@ export class FinancesService {
     const franchiseAmount = roundMoney(
       agentGrossAmount * (franchisePercent / 100),
     );
-    const netIncomeAmount = roundMoney(agentGrossAmount - franchiseAmount);
+    const extraAmount = roundMoney(dto.extraAmount ?? 0);
+    const netIncomeAmount = roundMoney(
+      agentGrossAmount - franchiseAmount + extraAmount,
+    );
 
     const income = this.financialEntryRepository.create({
       teamId,
@@ -268,6 +234,7 @@ export class FinancesService {
       commissionAmount,
       agentParticipationPercent,
       agentGrossAmount,
+      extraAmount,
       franchisePercent,
       franchiseAmount,
       netIncomeAmount,

@@ -1014,14 +1014,14 @@
 3. El sistema obliga a elegir una actividad de tipo `Escritura de venta` o `Escritura de compra`.
 4. El sistema propone monto total de la operacion, porcentaje de comision y porcentaje de franquicia.
 5. La usuaria indica que porcentaje de la comision le corresponde por su participacion en la operacion; el valor inicial es `100%`.
-6. La usuaria puede editar esos valores antes de guardar.
-7. El sistema calcula comision de la operacion, comision bruta de la usuaria, monto de franquicia e ingreso neto de la usuaria.
-8. El movimiento queda registrado y debe poder imputarse al caso comercial relacionado cuando exista.
+6. La usuaria puede agregar un monto extra por trabajo adicional en esa operacion y describir el motivo en las notas.
+7. La usuaria puede editar esos valores antes de guardar.
+8. El sistema calcula comision de la operacion, comision bruta de la usuaria, monto de franquicia e ingreso neto de la usuaria, sumando el extra luego de descontar la franquicia.
+9. El movimiento queda registrado y debe poder imputarse al caso comercial relacionado cuando exista.
 
 ### Primera version implementada
 
 - Los ingresos solo pueden vincularse a actividades de tipo `SALE_DEED` o `PURCHASE_DEED`.
-- Los ingresos extra se registran sin escritura ni oportunidad, con fecha, moneda, monto directo y motivo obligatorio.
 - El porcentaje de comision sugerido sale de `FinanceConfig`:
   - venta: `saleCommissionPercent`
   - compra: `purchaseCommissionPercent`
@@ -1032,18 +1032,19 @@
   - `commissionAmount`
   - `agentParticipationPercent`
   - `agentGrossAmount`
+  - `extraAmount`
   - `franchiseAmount`
   - `netIncomeAmount`
 
 ### Criterios de aceptacion
 
 - Un ingreso no debe poder guardarse sin estar vinculado a una actividad de escritura.
-- La excepcion son los ingresos de tipo `EXTRA`, que no requieren escritura y deben tener monto y motivo.
 - Debe poder elegirse una escritura de venta o compra como origen del ingreso.
 - El monto total de la operacion debe ser editable.
 - Los porcentajes de comision y franquicia deben poder editarse antes de guardar.
 - El porcentaje de participacion de la agente debe poder editarse antes de guardar.
 - La franquicia debe calcularse sobre la comision bruta correspondiente a la agente, luego de aplicar su participacion.
+- El monto extra debe sumarse al ingreso neto despues de descontar la franquicia.
 - El sistema debe mostrar de forma visible el ingreso neto resultante.
 - El historial debe mostrar ingresos junto con su actividad vinculada y los montos calculados.
 
