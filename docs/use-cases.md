@@ -1021,6 +1021,7 @@
 ### Primera version implementada
 
 - Los ingresos solo pueden vincularse a actividades de tipo `SALE_DEED` o `PURCHASE_DEED`.
+- Los ingresos extra se registran sin escritura ni oportunidad, con fecha, moneda, monto directo y motivo obligatorio.
 - El porcentaje de comision sugerido sale de `FinanceConfig`:
   - venta: `saleCommissionPercent`
   - compra: `purchaseCommissionPercent`
@@ -1037,6 +1038,7 @@
 ### Criterios de aceptacion
 
 - Un ingreso no debe poder guardarse sin estar vinculado a una actividad de escritura.
+- La excepcion son los ingresos de tipo `EXTRA`, que no requieren escritura y deben tener monto y motivo.
 - Debe poder elegirse una escritura de venta o compra como origen del ingreso.
 - El monto total de la operacion debe ser editable.
 - Los porcentajes de comision y franquicia deben poder editarse antes de guardar.

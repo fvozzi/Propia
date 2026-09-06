@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Activity } from '../activities/activity.entity';
 import { ActivityGoal } from '../activity-goals/activity-goal.entity';
 import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
+import { FinancialEntry } from '../finances/financial-entry.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { DashboardController } from './dashboard.controller';
@@ -16,6 +17,7 @@ import { DashboardService } from './dashboard.service';
       Property,
       SearchRequirement,
       CommercialOpportunity,
+      FinancialEntry,
     ]),
   ],
   controllers: [DashboardController],

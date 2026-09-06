@@ -115,6 +115,42 @@ export function DashboardPage() {
 
       <section className="card">
         <div className="page-header">
+          <div>
+            <h3>{t('dashboard.financialSummaryTitle')}</h3>
+            <p className="muted">{t('dashboard.financialSummarySubtitle')}</p>
+          </div>
+          <Link to="/finances" className="agenda-link">
+            {t('dashboard.openFinances')}
+          </Link>
+        </div>
+
+        <div className="dashboard-financial-grid">
+          {(data?.financialSummary ?? []).map((summary) => (
+            <article key={summary.currency} className="dashboard-financial-card">
+              <strong className="dashboard-financial-currency">
+                {summary.currency}
+              </strong>
+              <div className="dashboard-financial-values">
+                <div>
+                  <span>{t('dashboard.financialIncome')}</span>
+                  <strong>{formatMoney(summary.income, summary.currency)}</strong>
+                </div>
+                <div>
+                  <span>{t('dashboard.financialExpenses')}</span>
+                  <strong>{formatMoney(summary.expenses, summary.currency)}</strong>
+                </div>
+                <div className="dashboard-financial-balance">
+                  <span>{t('dashboard.financialBalance')}</span>
+                  <strong>{formatMoney(summary.balance, summary.currency)}</strong>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="page-header">
           <h3>{t('dashboard.weeklyGoalsTitle')}</h3>
         </div>
         {(data?.weeklyActivityGoals ?? []).length === 0 ? (
@@ -287,6 +323,15 @@ function formatDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatMoney(value: number, currency: 'USD' | 'ARS') {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function GroupedActivityList({

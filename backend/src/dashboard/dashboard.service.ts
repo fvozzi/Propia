@@ -7,13 +7,19 @@ import { ActivityGoal } from '../activity-goals/activity-goal.entity';
 import {
   ActivityType,
   CommercialOpportunityStatus,
+  FinancialEntryType,
   PropertyStatus,
   SearchRequirementStatus,
 } from '../common/enums';
 import { CommercialOpportunity } from '../commercial-opportunities/commercial-opportunity.entity';
+import { FinancialEntry } from '../finances/financial-entry.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { buildOpportunityPipelineGroups } from '../use-cases/commercial-opportunity-pipeline.use-case';
+import {
+  buildFinancialSummary,
+  type FinancialSummaryRow,
+} from '../use-cases/financial-summary.use-case';
 
 @Injectable()
 export class DashboardService {
@@ -28,6 +34,8 @@ export class DashboardService {
     private readonly requirementsRepository: Repository<SearchRequirement>,
     @InjectRepository(CommercialOpportunity)
     private readonly opportunitiesRepository: Repository<CommercialOpportunity>,
+    @InjectRepository(FinancialEntry)
+    private readonly financialEntriesRepository: Repository<FinancialEntry>,
   ) {}
 
   async getToday(user: AuthenticatedUser) {
@@ -49,6 +57,7 @@ export class DashboardService {
       pendingBuyerPropertyShares,
       activeOpportunities,
       activityGoals,
+      financialSummaryRows,
     ] =
       await Promise.all([
         this.activitiesRepository
@@ -120,6 +129,18 @@ export class DashboardService {
           where: { teamId },
           order: { activityType: 'ASC', createdAt: 'ASC' },
         }),
+        this.financialEntriesRepository
+          .createQueryBuilder('entry')
+          .select('entry.currency', 'currency')
+          .addSelect('entry.entryType', 'entryType')
+          .addSelect('SUM(entry.amount)', 'total')
+          .where('entry.teamId = :teamId', { teamId })
+          .andWhere('entry.entryType IN (:...entryTypes)', {
+            entryTypes: [FinancialEntryType.INCOME, FinancialEntryType.EXPENSE],
+          })
+          .groupBy('entry.currency')
+          .addGroupBy('entry.entryType')
+          .getRawMany<FinancialSummaryRow>(),
       ]);
 
     const opportunityIds = activeOpportunities.map(
@@ -161,6 +182,7 @@ export class DashboardService {
       pendingBuyerPropertyShares,
       weeklyActivityGoals,
       opportunityPipelineGroups,
+      financialSummary: buildFinancialSummary(financialSummaryRows),
     };
   }
 

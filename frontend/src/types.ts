@@ -101,6 +101,7 @@ export type PortalSearchRunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED'
 export type DocumentTemplatePresetKey = 'CUSTOM' | 'EXCLUSIVE_SALE_AUTHORIZATION';
 export type DocumentTemplateFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select';
 export type FinancialEntryType = 'EXPENSE' | 'INCOME';
+export type FinancialIncomeType = 'OPERATION' | 'EXTRA';
 export type ExpenseCategory =
   | 'PHOTOGRAPHY'
   | 'TRANSPORT'
@@ -622,6 +623,14 @@ export interface DashboardData {
   pendingBuyerPropertyShares: Activity[];
   weeklyActivityGoals: WeeklyActivityGoalProgress[];
   opportunityPipelineGroups: DashboardOpportunityPipelineGroup[];
+  financialSummary: DashboardFinancialSummary[];
+}
+
+export interface DashboardFinancialSummary {
+  currency: CurrencyType;
+  income: number;
+  expenses: number;
+  balance: number;
 }
 
 export interface WeeklyActivityGoalProgress {

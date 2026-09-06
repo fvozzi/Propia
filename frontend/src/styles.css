@@ -1398,6 +1398,51 @@ label {
   margin-bottom: 1.25rem;
 }
 
+.dashboard-financial-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.dashboard-financial-card {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 1.15rem;
+}
+
+.dashboard-financial-currency {
+  font-size: 1.1rem;
+}
+
+.dashboard-financial-values {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dashboard-financial-values > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.dashboard-financial-values span {
+  color: var(--ink-soft);
+}
+
+.dashboard-financial-values strong {
+  text-align: right;
+}
+
+.dashboard-financial-balance {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
 .dashboard-operation-card {
   display: grid;
   gap: 0.35rem;

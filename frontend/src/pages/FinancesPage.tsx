@@ -10,12 +10,14 @@ import type {
   FinanceConfig,
   FinancialEntry,
   FinancialEntryType,
+  FinancialIncomeType,
   Paginated,
   SearchRequirement,
 } from '../types';
 
 type EntryFormState = {
   entryType: FinancialEntryType;
+  incomeType: FinancialIncomeType;
   entryDate: string;
   currency: 'USD' | 'ARS';
   expenseCategory: ExpenseCategory;
@@ -51,6 +53,7 @@ const defaultFinanceConfig: FinanceConfig = {
 function createInitialForm(config: FinanceConfig): EntryFormState {
   return {
     entryType: 'EXPENSE',
+    incomeType: 'OPERATION',
     entryDate: new Date().toISOString().slice(0, 10),
     currency: 'ARS',
     expenseCategory: 'PHOTOGRAPHY',
@@ -207,6 +210,7 @@ export function FinancesPage() {
     setForm((current) => ({
       ...current,
       entryType,
+      incomeType: entryType === 'INCOME' ? current.incomeType : 'OPERATION',
       currency: entryType === 'EXPENSE' ? 'ARS' : current.currency,
       amount: entryType === 'EXPENSE' ? current.amount : '',
       operationAmount: entryType === 'INCOME' ? current.operationAmount : '',
@@ -228,6 +232,16 @@ export function FinancesPage() {
           : entryType === 'EXPENSE'
             ? current.activityId
             : '',
+    }));
+  }
+
+  function handleIncomeTypeChange(incomeType: FinancialIncomeType) {
+    setForm((current) => ({
+      ...current,
+      incomeType,
+      activityId: incomeType === 'EXTRA' ? '' : current.activityId,
+      commercialOpportunityId:
+        incomeType === 'EXTRA' ? '' : current.commercialOpportunityId,
     }));
   }
 
@@ -274,24 +288,38 @@ export function FinancesPage() {
         method: 'POST',
         body: JSON.stringify({
           entryType: form.entryType,
+          incomeType: form.entryType === 'INCOME' ? form.incomeType : undefined,
           entryDate: form.entryDate,
           currency: form.currency,
           expenseCategory: form.entryType === 'EXPENSE' ? form.expenseCategory : undefined,
-          activityId: form.activityId ? Number(form.activityId) : undefined,
-          commercialOpportunityId: form.commercialOpportunityId
-            ? Number(form.commercialOpportunityId)
-            : undefined,
-          amount: form.entryType === 'EXPENSE' ? Number(form.amount) : undefined,
+          activityId:
+            form.incomeType !== 'EXTRA' && form.activityId
+              ? Number(form.activityId)
+              : undefined,
+          commercialOpportunityId:
+            form.incomeType !== 'EXTRA' && form.commercialOpportunityId
+              ? Number(form.commercialOpportunityId)
+              : undefined,
+          amount:
+            form.entryType === 'EXPENSE' || form.incomeType === 'EXTRA'
+              ? Number(form.amount)
+              : undefined,
           operationAmount:
-            form.entryType === 'INCOME' ? Number(form.operationAmount) : undefined,
+            form.entryType === 'INCOME' && form.incomeType === 'OPERATION'
+              ? Number(form.operationAmount)
+              : undefined,
           commissionPercent:
-            form.entryType === 'INCOME' ? Number(form.commissionPercent) : undefined,
+            form.entryType === 'INCOME' && form.incomeType === 'OPERATION'
+              ? Number(form.commissionPercent)
+              : undefined,
           agentParticipationPercent:
-            form.entryType === 'INCOME'
+            form.entryType === 'INCOME' && form.incomeType === 'OPERATION'
               ? Number(form.agentParticipationPercent)
               : undefined,
           franchisePercent:
-            form.entryType === 'INCOME' ? Number(form.franchisePercent) : undefined,
+            form.entryType === 'INCOME' && form.incomeType === 'OPERATION'
+              ? Number(form.franchisePercent)
+              : undefined,
           notes: form.notes || undefined,
         }),
       });
@@ -409,22 +437,39 @@ export function FinancesPage() {
               </select>
             </label>
 
-            <label>
-              {t('finances.opportunityOptional')}
-              <select
-                value={form.commercialOpportunityId}
-                onChange={(event) =>
-                  updateForm({ commercialOpportunityId: event.target.value })
-                }
-              >
-                <option value="">{t('finances.noOpportunitySelected')}</option>
-                {opportunities.map((opportunity) => (
-                  <option key={opportunity.id} value={opportunity.id}>
-                    {buildOpportunityLabel(opportunity, translateOperationType)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {form.entryType === 'INCOME' ? (
+              <label>
+                {t('finances.incomeType')}
+                <select
+                  value={form.incomeType}
+                  onChange={(event) =>
+                    handleIncomeTypeChange(event.target.value as FinancialIncomeType)
+                  }
+                >
+                  <option value="OPERATION">{t('finances.operationIncome')}</option>
+                  <option value="EXTRA">{t('finances.extraIncome')}</option>
+                </select>
+              </label>
+            ) : null}
+
+            {form.incomeType !== 'EXTRA' ? (
+              <label>
+                {t('finances.opportunityOptional')}
+                <select
+                  value={form.commercialOpportunityId}
+                  onChange={(event) =>
+                    updateForm({ commercialOpportunityId: event.target.value })
+                  }
+                >
+                  <option value="">{t('finances.noOpportunitySelected')}</option>
+                  {opportunities.map((opportunity) => (
+                    <option key={opportunity.id} value={opportunity.id}>
+                      {buildOpportunityLabel(opportunity, translateOperationType)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
 
             {form.entryType === 'EXPENSE' ? (
               <>
@@ -474,6 +519,22 @@ export function FinancesPage() {
                 </label>
 
                 <p className="muted">{t('finances.amountHint')}</p>
+              </>
+            ) : form.incomeType === 'EXTRA' ? (
+              <>
+                <label>
+                  {t('common.amount')}
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.amount}
+                    onChange={(event) => updateForm({ amount: event.target.value })}
+                    required
+                  />
+                </label>
+
+                <p className="muted">{t('finances.extraIncomeHint')}</p>
               </>
             ) : (
               <>
@@ -580,11 +641,16 @@ export function FinancesPage() {
             )}
 
             <label className="full-span">
-              {t('common.notes')}
+              {form.entryType === 'INCOME' && form.incomeType === 'EXTRA'
+                ? t('finances.extraReason')
+                : t('common.notes')}
               <textarea
                 rows={3}
                 value={form.notes}
                 onChange={(event) => updateForm({ notes: event.target.value })}
+                required={
+                  form.entryType === 'INCOME' && form.incomeType === 'EXTRA'
+                }
               />
             </label>
 
@@ -643,9 +709,11 @@ export function FinancesPage() {
                         <strong>
                           {entry.entryType === 'EXPENSE'
                             ? translateEnum('expenseCategory', entry.expenseCategory ?? 'OTHER')
-                            : t('finances.incomeEntry')}
+                            : entry.incomeOperationType === null
+                              ? t('finances.extraIncome')
+                              : t('finances.operationIncome')}
                         </strong>
-                        {entry.entryType === 'INCOME' ? (
+                        {entry.entryType === 'INCOME' && entry.incomeOperationType !== null ? (
                           <span className="muted">
                             {t('finances.commissionAmount')}:{' '}
                             {formatMoney(entry.commissionAmount ?? 0, entry.currency)} |{' '}

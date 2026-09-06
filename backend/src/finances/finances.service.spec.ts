@@ -5,6 +5,7 @@ import {
   CurrencyType,
   ExpenseCategory,
   FinancialEntryType,
+  FinancialIncomeType,
   OperationType,
 } from '../common/enums';
 
@@ -260,6 +261,87 @@ describe('FinancesService', () => {
       amount: 1242,
       netIncomeAmount: 1242,
     });
+  });
+
+  it('creates a direct extra income without requiring a deed activity', async () => {
+    const { service, financeConfigRepository, financialEntryRepository } =
+      await createService();
+
+    financeConfigRepository.findOne.mockResolvedValue({
+      id: 1,
+      teamId: 12,
+      franchisePercent: 55,
+      saleCommissionPercent: 3,
+      purchaseCommissionPercent: 4,
+    });
+
+    const created = await service.createEntry(
+      {
+        entryType: FinancialEntryType.INCOME,
+        incomeType: FinancialIncomeType.EXTRA,
+        entryDate: '2026-09-06',
+        currency: CurrencyType.USD,
+        amount: 250,
+        notes: '  Trabajo adicional en la negociacion  ',
+      },
+      user,
+    );
+
+    expect(financialEntryRepository.create).toHaveBeenCalledWith({
+      teamId: 12,
+      ownerUserId: 7,
+      entryType: FinancialEntryType.INCOME,
+      entryDate: new Date('2026-09-06'),
+      currency: CurrencyType.USD,
+      amount: 250,
+      expenseCategory: null,
+      activityId: null,
+      searchRequirementId: null,
+      commercialOpportunityId: null,
+      incomeOperationType: null,
+      operationAmount: null,
+      commissionPercent: null,
+      commissionAmount: null,
+      agentParticipationPercent: null,
+      agentGrossAmount: null,
+      franchisePercent: null,
+      franchiseAmount: null,
+      netIncomeAmount: 250,
+      notes: 'Trabajo adicional en la negociacion',
+    });
+    expect(created).toMatchObject({
+      id: 99,
+      amount: 250,
+      netIncomeAmount: 250,
+    });
+  });
+
+  it('requires a reason for an extra income', async () => {
+    const { service, financeConfigRepository } = await createService();
+
+    financeConfigRepository.findOne.mockResolvedValue({
+      id: 1,
+      teamId: 12,
+      franchisePercent: 55,
+      saleCommissionPercent: 3,
+      purchaseCommissionPercent: 4,
+    });
+
+    await expect(
+      service.createEntry(
+        {
+          entryType: FinancialEntryType.INCOME,
+          incomeType: FinancialIncomeType.EXTRA,
+          entryDate: '2026-09-06',
+          currency: CurrencyType.ARS,
+          amount: 50000,
+          notes: '   ',
+        },
+        user,
+      ),
+    ).rejects.toThrow(
+      new BadRequestException('Debes indicar el motivo del ingreso extra'),
+    );
   });
 
   it('applies the franchise percentage after the agent participation percentage', async () => {

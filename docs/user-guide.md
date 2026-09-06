@@ -187,7 +187,11 @@ En [Finanzas](/finances) registrar:
 
 Al registrar un ingreso, indicar el monto total de la operacion, el porcentaje de comision y el porcentaje de participacion de la agente. En una operacion propia la participacion queda en `100%`; en una colaboracion se ingresa el porcentaje acordado, por ejemplo `15%`. La franquicia se descuenta despues, sobre la comision bruta correspondiente a la agente.
 
+Para registrar un reconocimiento economico por trabajo adicional, elegir `Ingreso extra` como tipo de ingreso. Solo se solicitan fecha, moneda, monto y motivo; no se aplican porcentajes de comision ni franquicia.
+
 ## Indicadores para usar todos los dias
+
+El tablero muestra un resumen financiero acumulado con ingresos, egresos y saldo separados en ARS y USD. Los montos de monedas diferentes nunca se suman entre si.
 
 Orden recomendado de trabajo:
 

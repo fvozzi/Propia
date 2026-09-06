@@ -13,6 +13,7 @@ import {
   CurrencyType,
   ExpenseCategory,
   FinancialEntryType,
+  FinancialIncomeType,
 } from '../../common/enums';
 
 export class CreateFinancialEntryDto {
@@ -24,6 +25,10 @@ export class CreateFinancialEntryDto {
 
   @IsEnum(CurrencyType)
   currency: CurrencyType;
+
+  @IsOptional()
+  @IsEnum(FinancialIncomeType)
+  incomeType?: FinancialIncomeType;
 
   @IsOptional()
   @Type(() => Number)

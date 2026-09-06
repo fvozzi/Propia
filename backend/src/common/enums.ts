@@ -169,6 +169,11 @@ export enum FinancialEntryType {
   INCOME = 'INCOME',
 }
 
+export enum FinancialIncomeType {
+  OPERATION = 'OPERATION',
+  EXTRA = 'EXTRA',
+}
+
 export enum ExpenseCategory {
   PHOTOGRAPHY = 'PHOTOGRAPHY',
   TRANSPORT = 'TRANSPORT',
