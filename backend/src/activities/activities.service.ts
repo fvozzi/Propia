@@ -269,6 +269,13 @@ export class ActivitiesService {
     return activity;
   }
 
+  async syncCalendar(id: number, user: AuthenticatedUser) {
+    // Verify team access before using the internal, unscoped sync service.
+    await this.findOne(id, user);
+    await this.activityCalendarSyncService.syncById(id, 'update');
+    return this.findOne(id, user);
+  }
+
   async update(id: number, dto: UpdateActivityDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
     const activity = await this.activitiesRepository.findOne({

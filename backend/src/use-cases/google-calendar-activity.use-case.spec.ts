@@ -3,6 +3,21 @@ import { ActivityType } from '../common/enums';
 import { buildActivityCalendarEvent } from './google-calendar-activity.use-case';
 
 describe('google-calendar-activity use case', () => {
+  it.each([
+    [ActivityType.VISIT, 'Muestra de propiedad'],
+    [ActivityType.SALE_DEED, 'Escritura de venta'],
+    [ActivityType.PURCHASE_DEED, 'Escritura de compra'],
+  ] as const)('builds a dated event for %s without requiring a property or contact', (activityType, label) => {
+    const event = buildActivityCalendarEvent({
+      activityType,
+      title: 'Prueba',
+      activityDate: new Date('2026-09-16T12:00:00-03:00'),
+    });
+    expect(event.summary).toBe(`${label} - Prueba`);
+    expect(event.start.dateTime).toBe('2026-09-16T15:00:00.000Z');
+    expect(event.end.dateTime).toBe('2026-09-16T16:00:00.000Z');
+  });
+
   it('builds a property search event with link and feedback', () => {
     const event = buildActivityCalendarEvent(
       {

@@ -38,6 +38,7 @@ type AgendaItem = {
   notes?: string | null;
   externalUrl?: string | null;
   visit?: Visit;
+  activity?: Activity;
 };
 
 type ActivityFormState = {
@@ -79,6 +80,9 @@ export function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [savingTask, setSavingTask] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [taskError, setTaskError] = useState('');
+  const [syncingActivityId, setSyncingActivityId] = useState<number | null>(null);
   const [savingVisit, setSavingVisit] = useState(false);
   const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
   const [sharingBirthdayId, setSharingBirthdayId] = useState<string | null>(null);
@@ -139,16 +143,18 @@ export function CalendarPage() {
     }
   }
 
-  async function handleCreateTask(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (savingTask) return;
     setSavingTask(true);
+    setTaskError('');
 
     try {
-      await apiRequest('/activities', {
-        method: 'POST',
+      await apiRequest(editingActivity ? `/activities/${editingActivity.id}` : '/activities', {
+        method: editingActivity ? 'PATCH' : 'POST',
         body: JSON.stringify({
-          contactId: activityForm.contactId ? Number(activityForm.contactId) : undefined,
-          propertyId: activityForm.propertyId ? Number(activityForm.propertyId) : undefined,
+          contactId: activityForm.contactId ? Number(activityForm.contactId) : null,
+          propertyId: activityForm.propertyId ? Number(activityForm.propertyId) : null,
           activityType: activityForm.activityType,
           title:
             activityForm.activityType === 'APPRAISAL_REQUEST'
@@ -156,21 +162,49 @@ export function CalendarPage() {
               : activityForm.title,
           description:
             activityForm.activityType === 'APPRAISAL_REQUEST'
-              ? undefined
-              : activityForm.description || undefined,
-          activityDate: activityForm.activityDate,
-          nextFollowUpDate: activityForm.nextFollowUpDate || undefined,
+              ? null
+              : activityForm.description || null,
+          activityDate: new Date(activityForm.activityDate).toISOString(),
+          nextFollowUpDate: activityForm.nextFollowUpDate
+            ? new Date(activityForm.nextFollowUpDate).toISOString()
+            : null,
           appraisalPropertyAddress:
             activityForm.activityType === 'APPRAISAL_REQUEST'
               ? activityForm.appraisalPropertyAddress || undefined
               : undefined,
         }),
       });
-      setActivityForm(createInitialActivityForm(selectedDateKey));
+      const savedDate = new Date(activityForm.activityDate);
+      const savedDayKey = formatDateKey(savedDate);
+      setSelectedDateKey(savedDayKey);
+      setActivityForm(createInitialActivityForm(savedDayKey));
+      setEditingActivity(null);
       setComposerMode(null);
-      await loadAgenda();
+      if (startOfMonth(savedDate).getTime() !== visibleMonth.getTime()) {
+        setVisibleMonth(startOfMonth(savedDate));
+      } else {
+        await loadAgenda();
+      }
+    } catch (error) {
+      setTaskError(error instanceof Error ? error.message : t('calendar.saveTaskError'));
     } finally {
       setSavingTask(false);
+    }
+  }
+
+  async function handleRetryActivitySync(activity: Activity) {
+    if (syncingActivityId !== null) return;
+    setSyncingActivityId(activity.id);
+    setLoadError('');
+    try {
+      const updated = await apiRequest<Activity>(`/activities/${activity.id}/sync-calendar`, {
+        method: 'POST',
+      });
+      setActivities((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : t('calendar.googleSyncFailed'));
+    } finally {
+      setSyncingActivityId(null);
     }
   }
 
@@ -237,8 +271,38 @@ export function CalendarPage() {
   }
 
   function openTaskComposer(dayKey = selectedDateKey) {
+    setEditingActivity(null);
+    setTaskError('');
     setSelectedDateKey(dayKey);
     setActivityForm(createInitialActivityForm(dayKey));
+    setComposerMode('task');
+  }
+
+  function openActivityEditor(activity: Activity) {
+    const { contact, property } = activity;
+    setEditingActivity(activity);
+    setTaskError('');
+    setSelectedDateKey(formatDateKey(new Date(activity.activityDate)));
+    setActivityForm({
+      activityType: activity.activityType,
+      contactId: activity.contactId ? String(activity.contactId) : '',
+      propertyId: activity.propertyId ? String(activity.propertyId) : '',
+      title: activity.title,
+      description: activity.description ?? '',
+      activityDate: toDateTimeLocalValue(activity.activityDate),
+      nextFollowUpDate: toDateTimeLocalValue(activity.nextFollowUpDate),
+      appraisalPropertyAddress: activity.appraisalRequest?.propertyAddress ?? '',
+    });
+    if (contact) {
+      setContacts((current) =>
+        current.some((item) => item.id === contact.id) ? current : [...current, contact],
+      );
+    }
+    if (property) {
+      setProperties((current) =>
+        current.some((item) => item.id === property.id) ? current : [...current, property],
+      );
+    }
     setComposerMode('task');
   }
 
@@ -249,7 +313,10 @@ export function CalendarPage() {
   }
 
   function closeComposer() {
+    if (savingTask || savingVisit) return;
     setComposerMode(null);
+    setEditingActivity(null);
+    setTaskError('');
   }
 
   function handleDayContextMenu(event: MouseEvent<HTMLButtonElement>, dayKey: string) {
@@ -434,7 +501,44 @@ export function CalendarPage() {
                   </div>
                   <p className="muted">{item.detail}</p>
                   {item.notes ? <p className="agenda-notes">{item.notes}</p> : null}
+                  {item.activity ? (
+                    <div className="stack-gap" aria-live="polite">
+                      <p className="muted">
+                        {item.activity.googleSyncStatus === 'SYNCED'
+                          ? t('calendar.googleSynced')
+                          : item.activity.googleSyncStatus === 'ERROR'
+                            ? t('calendar.googleSyncFailed')
+                            : item.activity.googleSyncStatus === 'NOT_CONNECTED'
+                              ? t('calendar.googleSyncNotConnected')
+                              : t('calendar.googleSyncPending')}
+                      </p>
+                      {item.activity.googleSyncStatus === 'ERROR' && item.activity.googleSyncError ? (
+                        <p className="agenda-notes">{item.activity.googleSyncError}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="agenda-links">
+                    {item.activity ? (
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => openActivityEditor(item.activity!)}
+                      >
+                        {t('activities.editActivity')}
+                      </button>
+                    ) : null}
+                    {item.activity && item.activity.googleSyncStatus !== 'SYNCED' ? (
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        disabled={syncingActivityId !== null}
+                        onClick={() => void handleRetryActivitySync(item.activity!)}
+                      >
+                        {syncingActivityId === item.activity.id
+                          ? t('common.loading')
+                          : t('calendar.retryGoogleSync')}
+                      </button>
+                    ) : null}
                     {item.contact ? (
                       <Link to={`/contacts/${item.contact.id}`} className="agenda-link">
                         {t('calendar.openContact')}
@@ -508,6 +612,15 @@ export function CalendarPage() {
                   </span>
                   <strong>{item.title}</strong>
                   <p className="muted">{item.detail}</p>
+                  {item.activity ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => openActivityEditor(item.activity!)}
+                    >
+                      {t('activities.editActivity')}
+                    </button>
+                  ) : null}
                 </article>
               ))
             ) : (
@@ -525,19 +638,21 @@ export function CalendarPage() {
           <section className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <p className="eyebrow">{t('calendar.newTask')}</p>
-                <h3>{t('calendar.taskTitle')}</h3>
+                <p className="eyebrow">{editingActivity ? t('activities.editActivity') : t('calendar.newTask')}</p>
+                <h3>{editingActivity ? t('activities.editActivity') : t('calendar.taskTitle')}</h3>
                 <p className="muted">{formatLongDate(selectedDateKey, locale)}</p>
               </div>
               <button type="button" className="ghost-button" onClick={closeComposer}>
                 {t('calendar.closeComposer')}
               </button>
             </div>
-            <form className="form-grid" onSubmit={handleCreateTask}>
+            {taskError ? <div className="alert" role="alert">{taskError}</div> : null}
+            <form className="form-grid" onSubmit={handleSaveTask}>
               <label>
                 {t('common.type')}
                 <select
                   value={activityForm.activityType}
+                  disabled={editingActivity?.activityType === 'APPRAISAL_REQUEST'}
                   onChange={(event) =>
                     setActivityForm({
                       ...activityForm,
@@ -649,7 +764,9 @@ export function CalendarPage() {
                 />
               </label>
               <button type="submit" disabled={savingTask}>
-                {savingTask ? t('common.loading') : t('calendar.saveTask')}
+                {savingTask
+                  ? t('common.loading')
+                  : editingActivity ? t('common.saveChanges') : t('calendar.saveTask')}
               </button>
             </form>
           </section>
@@ -784,6 +901,7 @@ function mapActivityToAgendaItem(activity: Activity): AgendaItem {
     contact: activity.contact,
     property: activity.property,
     notes: activity.description,
+    activity,
   };
 }
 
@@ -918,6 +1036,14 @@ function formatDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function toDateTimeLocalValue(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${formatDateKey(date)}T${hours}:${minutes}`;
 }
 
 function formatLongDate(value: string, locale: 'es' | 'en') {

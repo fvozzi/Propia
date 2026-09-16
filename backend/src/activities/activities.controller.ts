@@ -60,6 +60,14 @@ export class ActivitiesController {
     return this.activitiesService.share(id, dto, user);
   }
 
+  @Post(':id/sync-calendar')
+  syncCalendar(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.activitiesService.syncCalendar(id, user);
+  }
+
   @Post(':id/send-whatsapp')
   sendWhatsapp(
     @Param('id', ParseIntPipe) id: number,

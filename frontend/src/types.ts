@@ -485,6 +485,10 @@ export interface BuyerPropertyCandidate {
 
 export interface Activity {
   id: number;
+  googleEventId?: string | null;
+  googleSyncStatus?: string;
+  lastSyncedAt?: string | null;
+  googleSyncError?: string | null;
   contactId: number | null;
   propertyId: number | null;
   appraisalRequestId: number | null;
