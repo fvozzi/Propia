@@ -161,6 +161,10 @@ export class VisitsService {
     return { success: true };
   }
 
+  async syncCalendar(id: number, user: AuthenticatedUser) {
+    return this.syncVisit(id, user, 'update');
+  }
+
   private async syncVisit(
     visitId: number,
     user: AuthenticatedUser,
@@ -179,8 +183,8 @@ export class VisitsService {
     try {
       const result =
         mode === 'create'
-          ? await this.googleCalendarService.syncVisitCreate(user.sub, visit)
-          : await this.googleCalendarService.syncVisitUpdate(user.sub, visit);
+          ? await this.googleCalendarService.syncVisitCreate(visit.ownerUserId, visit)
+          : await this.googleCalendarService.syncVisitUpdate(visit.ownerUserId, visit);
 
       Object.assign(visit, result);
     } catch (error) {

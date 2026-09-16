@@ -50,4 +50,9 @@ export class VisitsController {
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.visitsService.remove(id, user);
   }
+
+  @Post(':id/sync-calendar')
+  syncCalendar(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.visitsService.syncCalendar(id, user);
+  }
 }

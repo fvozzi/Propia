@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRequest } from '../lib/api';
 import { CalendarPage } from './CalendarPage';
-import type { Activity } from '../types';
+import type { Activity, Visit } from '../types';
 
 vi.mock('../lib/api', () => ({ apiRequest: vi.fn() }));
 vi.mock('../lib/i18n', async (importOriginal) => ({
@@ -16,6 +16,7 @@ describe('calendar activity editing', () => {
   let container: HTMLDivElement;
   let root: Root;
   let activity: Activity;
+  let visit: Visit;
   let failSave: boolean;
 
   beforeEach(async () => {
@@ -33,8 +34,27 @@ describe('calendar activity editing', () => {
       nextFollowUpDate: new Date(2026, 8, 17, 10).toISOString(),
     } as Activity;
     failSave = false;
+    visit = {
+      id: 91, contactId: 11, propertyId: null, status: 'SCHEDULED',
+      scheduledAt: new Date(2026, 8, 16, 11).toISOString(),
+      externalPropertyTitle: 'Visita colega', externalPropertyAddress: 'Calle 123',
+      externalUrl: 'https://example.com/propiedad', notes: 'Llevar llaves',
+      contact: { id: 11, displayName: 'Cliente de prueba' },
+      googleSyncStatus: 'ERROR', googleSyncError: 'Google unavailable',
+    } as Visit;
     vi.mocked(apiRequest).mockReset();
     vi.mocked(apiRequest).mockImplementation(async (path, options) => {
+      if (path === '/visits/91/sync-calendar') {
+        visit = { ...visit, googleSyncStatus: 'SYNCED', googleSyncError: null };
+        return visit;
+      }
+      if (path.startsWith('/visits') && options?.method) {
+        if (failSave) throw new Error('No se pudo guardar');
+        visit = { ...visit, ...JSON.parse(options.body as string) };
+        return visit;
+      }
+      if (path.startsWith('/visits?')) return { items: [visit] };
+      if (path.startsWith('/contacts?')) return { items: [visit.contact] };
       if (path === '/activities/42/sync-calendar') {
         if (failSave) throw new Error('No se pudo reintentar');
         activity = { ...activity, googleSyncStatus: 'SYNCED', googleSyncError: null, googleEventId: 'google-42' };
@@ -95,6 +115,81 @@ describe('calendar activity editing', () => {
       container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     });
   }
+
+  async function select(label: string, value: string) {
+    const input = Array.from(container.querySelectorAll('.modal-card label'))
+      .find((item) => item.textContent?.startsWith(label))!.querySelector('select')!;
+    await act(async () => {
+      input.value = value;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+
+  function visitArticle(selector = '.agenda-item') {
+    return Array.from(container.querySelectorAll(selector)).find((item) => item.textContent?.includes('Visita colega'))!;
+  }
+
+  it('creates a colleague visit from New activity with an address and no CRM property', async () => {
+    expect(container.textContent).not.toContain('calendar.addVisit');
+    await clickButton('calendar.addTask');
+    await select('common.type', 'EXTERNAL_VISIT');
+    const combobox = container.querySelector('[role="combobox"]') as HTMLInputElement;
+    await act(async () => combobox.focus());
+    await clickButton('Cliente de prueba');
+    await changeField('calendar.externalPropertyAddress', 'Av. Ejemplo 456');
+    await changeField('visits.listingUrl', 'https://example.com/otra-propiedad');
+    expect(field('calendar.externalPropertyTitle').required).toBe(false);
+    expect(container.querySelector('form')!.checkValidity()).toBe(true);
+    await submit();
+    const writes = vi.mocked(apiRequest).mock.calls.filter(([, options]) => options?.method);
+    expect(writes).toHaveLength(1);
+    expect(writes[0][0]).toBe('/visits');
+    expect(writes[0][1]?.method).toBe('POST');
+    expect(JSON.parse(writes[0][1]!.body as string)).toMatchObject({
+      propertyId: null, contactId: 11, status: 'SCHEDULED',
+      externalPropertyTitle: 'Av. Ejemplo 456', externalPropertyAddress: 'Av. Ejemplo 456',
+      scheduledAt: new Date(2026, 8, 16, 10).toISOString(),
+    });
+    expect(container.querySelector('.modal-card')).toBeNull();
+    expect(container.textContent).toContain('Av. Ejemplo 456');
+  });
+
+  it('edits an existing colleague visit, keeps the draft after failure and reschedules it', async () => {
+    await clickButton('activities.editActivity', visitArticle('.mini-agenda-item'));
+    expect(field('activities.activityDate').value).toBe('2026-09-16T11:00');
+    expect(field('calendar.externalPropertyTitle').value).toBe('Visita colega');
+    expect(field('calendar.externalPropertyAddress').value).toBe('Calle 123');
+    await changeField('activities.activityDate', '2026-10-20T15:30');
+    await changeField('common.description', '');
+    await select('common.status', 'RESCHEDULED');
+    failSave = true;
+    await submit();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('No se pudo guardar');
+    expect(field('activities.activityDate').value).toBe('2026-10-20T15:30');
+    failSave = false;
+    await submit();
+    expect(apiRequest).toHaveBeenCalledWith('/visits/91', expect.objectContaining({ method: 'PATCH' }));
+    expect(visit).toMatchObject({ status: 'RESCHEDULED', notes: null, scheduledAt: new Date(2026, 9, 20, 15, 30).toISOString() });
+    expect(container.querySelector('.calendar-month-title')?.textContent).toContain('octubre');
+    expect(visitArticle()).toBeTruthy();
+  });
+
+  it('retries Google sync for the visit and shows the returned status', async () => {
+    await clickButton('calendar.retryGoogleSync', visitArticle());
+    expect(apiRequest).toHaveBeenCalledWith('/visits/91/sync-calendar', { method: 'POST' });
+    expect(visitArticle().textContent).toContain('calendar.googleSynced');
+    expect(visitArticle().textContent).not.toContain('Google unavailable');
+  });
+
+  it.each(['dblclick', 'contextmenu'])('opens the unified activity composer on %s', async (eventType) => {
+    await act(async () => {
+      container.querySelector('button.calendar-day.selected')!.dispatchEvent(
+        new MouseEvent(eventType, { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(container.querySelectorAll('.modal-card')).toHaveLength(1);
+    expect(container.querySelector('option[value="EXTERNAL_VISIT"]')).toBeTruthy();
+  });
 
   it('edits the existing activity, preserves local time and refreshes the agenda', async () => {
     await clickButton('activities.editActivity', container.querySelector('.agenda-item')!);

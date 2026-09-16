@@ -42,7 +42,7 @@ type AgendaItem = {
 };
 
 type ActivityFormState = {
-  activityType: ActivityType;
+  activityType: ActivityType | 'EXTERNAL_VISIT';
   contactId: string;
   propertyId: string;
   title: string;
@@ -50,18 +50,10 @@ type ActivityFormState = {
   activityDate: string;
   nextFollowUpDate: string;
   appraisalPropertyAddress: string;
-};
-
-type VisitFormState = {
-  propertyId: string;
-  contactId: string;
-  scheduledAt: string;
   status: string;
   externalUrl: string;
-  notes: string;
+  externalPropertyAddress: string;
 };
-
-type ComposerMode = 'task' | 'visit' | null;
 
 export function CalendarPage() {
   const { locale, t, translateEnum } = useI18n();
@@ -82,17 +74,17 @@ export function CalendarPage() {
   const [savingTask, setSavingTask] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [taskError, setTaskError] = useState('');
-  const [syncingActivityId, setSyncingActivityId] = useState<number | null>(null);
-  const [savingVisit, setSavingVisit] = useState(false);
+  const [syncingItemId, setSyncingItemId] = useState<string | null>(null);
   const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
   const [sharingBirthdayId, setSharingBirthdayId] = useState<string | null>(null);
-  const [composerMode, setComposerMode] = useState<ComposerMode>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [activityForm, setActivityForm] = useState<ActivityFormState>(() =>
     createInitialActivityForm(formatDateKey(new Date())),
   );
-  const [visitForm, setVisitForm] = useState<VisitFormState>(() =>
-    createInitialVisitForm(formatDateKey(new Date())),
-  );
+  const isExternalVisit = activityForm.activityType === 'EXTERNAL_VISIT';
+  const isEditing = Boolean(editingActivity || editingVisit);
+
 
   useEffect(() => {
     Promise.all([
@@ -150,36 +142,56 @@ export function CalendarPage() {
     setTaskError('');
 
     try {
-      await apiRequest(editingActivity ? `/activities/${editingActivity.id}` : '/activities', {
-        method: editingActivity ? 'PATCH' : 'POST',
-        body: JSON.stringify({
-          contactId: activityForm.contactId ? Number(activityForm.contactId) : null,
-          propertyId: activityForm.propertyId ? Number(activityForm.propertyId) : null,
-          activityType: activityForm.activityType,
-          title:
-            activityForm.activityType === 'APPRAISAL_REQUEST'
-              ? 'Prelisting'
-              : activityForm.title,
-          description:
-            activityForm.activityType === 'APPRAISAL_REQUEST'
-              ? null
-              : activityForm.description || null,
-          activityDate: new Date(activityForm.activityDate).toISOString(),
-          nextFollowUpDate: activityForm.nextFollowUpDate
-            ? new Date(activityForm.nextFollowUpDate).toISOString()
-            : null,
-          appraisalPropertyAddress:
-            activityForm.activityType === 'APPRAISAL_REQUEST'
-              ? activityForm.appraisalPropertyAddress || undefined
-              : undefined,
-        }),
-      });
+      if (isExternalVisit) {
+        await apiRequest(editingVisit ? `/visits/${editingVisit.id}` : '/visits', {
+          method: editingVisit ? 'PATCH' : 'POST',
+          body: JSON.stringify({
+            contactId: Number(activityForm.contactId),
+            propertyId: activityForm.propertyId ? Number(activityForm.propertyId) : null,
+            scheduledAt: new Date(activityForm.activityDate).toISOString(),
+            status: activityForm.status,
+            externalPropertyTitle: activityForm.title.trim()
+              || activityForm.externalPropertyAddress.trim()
+              || activityForm.externalUrl.trim()
+              || null,
+            externalPropertyAddress: activityForm.externalPropertyAddress.trim() || null,
+            externalUrl: activityForm.externalUrl.trim() || null,
+            notes: activityForm.description || null,
+          }),
+        });
+      } else {
+        await apiRequest(editingActivity ? `/activities/${editingActivity.id}` : '/activities', {
+          method: editingActivity ? 'PATCH' : 'POST',
+          body: JSON.stringify({
+            contactId: activityForm.contactId ? Number(activityForm.contactId) : null,
+            propertyId: activityForm.propertyId ? Number(activityForm.propertyId) : null,
+            activityType: activityForm.activityType,
+            title:
+              activityForm.activityType === 'APPRAISAL_REQUEST'
+                ? 'Prelisting'
+                : activityForm.title,
+            description:
+              activityForm.activityType === 'APPRAISAL_REQUEST'
+                ? null
+                : activityForm.description || null,
+            activityDate: new Date(activityForm.activityDate).toISOString(),
+            nextFollowUpDate: activityForm.nextFollowUpDate
+              ? new Date(activityForm.nextFollowUpDate).toISOString()
+              : null,
+            appraisalPropertyAddress:
+              activityForm.activityType === 'APPRAISAL_REQUEST'
+                ? activityForm.appraisalPropertyAddress || undefined
+                : undefined,
+          }),
+        });
+      }
       const savedDate = new Date(activityForm.activityDate);
       const savedDayKey = formatDateKey(savedDate);
       setSelectedDateKey(savedDayKey);
       setActivityForm(createInitialActivityForm(savedDayKey));
       setEditingActivity(null);
-      setComposerMode(null);
+      setEditingVisit(null);
+      setComposerOpen(false);
       if (startOfMonth(savedDate).getTime() !== visibleMonth.getTime()) {
         setVisibleMonth(startOfMonth(savedDate));
       } else {
@@ -192,43 +204,22 @@ export function CalendarPage() {
     }
   }
 
-  async function handleRetryActivitySync(activity: Activity) {
-    if (syncingActivityId !== null) return;
-    setSyncingActivityId(activity.id);
+  async function handleRetrySync(item: AgendaItem) {
+    if (syncingItemId !== null || (!item.activity && !item.visit)) return;
+    setSyncingItemId(item.id);
     setLoadError('');
     try {
-      const updated = await apiRequest<Activity>(`/activities/${activity.id}/sync-calendar`, {
-        method: 'POST',
-      });
-      setActivities((current) => current.map((item) => item.id === updated.id ? updated : item));
+      if (item.visit) {
+        const updated = await apiRequest<Visit>(`/visits/${item.visit.id}/sync-calendar`, { method: 'POST' });
+        setVisits((current) => current.map((visit) => visit.id === updated.id ? updated : visit));
+      } else if (item.activity) {
+        const updated = await apiRequest<Activity>(`/activities/${item.activity.id}/sync-calendar`, { method: 'POST' });
+        setActivities((current) => current.map((activity) => activity.id === updated.id ? updated : activity));
+      }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : t('calendar.googleSyncFailed'));
     } finally {
-      setSyncingActivityId(null);
-    }
-  }
-
-  async function handleCreateVisit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSavingVisit(true);
-
-    try {
-      await apiRequest('/visits', {
-        method: 'POST',
-        body: JSON.stringify({
-          propertyId: Number(visitForm.propertyId),
-          contactId: Number(visitForm.contactId),
-          scheduledAt: visitForm.scheduledAt,
-          status: visitForm.status,
-          externalUrl: visitForm.externalUrl || undefined,
-          notes: visitForm.notes || undefined,
-        }),
-      });
-      setVisitForm(createInitialVisitForm(selectedDateKey));
-      setComposerMode(null);
-      await loadAgenda();
-    } finally {
-      setSavingVisit(false);
+      setSyncingItemId(null);
     }
   }
 
@@ -272,18 +263,21 @@ export function CalendarPage() {
 
   function openTaskComposer(dayKey = selectedDateKey) {
     setEditingActivity(null);
+    setEditingVisit(null);
     setTaskError('');
     setSelectedDateKey(dayKey);
     setActivityForm(createInitialActivityForm(dayKey));
-    setComposerMode('task');
+    setComposerOpen(true);
   }
 
   function openActivityEditor(activity: Activity) {
     const { contact, property } = activity;
     setEditingActivity(activity);
+    setEditingVisit(null);
     setTaskError('');
     setSelectedDateKey(formatDateKey(new Date(activity.activityDate)));
     setActivityForm({
+      ...createInitialActivityForm(formatDateKey(new Date(activity.activityDate))),
       activityType: activity.activityType,
       contactId: activity.contactId ? String(activity.contactId) : '',
       propertyId: activity.propertyId ? String(activity.propertyId) : '',
@@ -303,19 +297,47 @@ export function CalendarPage() {
         current.some((item) => item.id === property.id) ? current : [...current, property],
       );
     }
-    setComposerMode('task');
+    setComposerOpen(true);
   }
 
-  function openVisitComposer(dayKey = selectedDateKey) {
-    setSelectedDateKey(dayKey);
-    setVisitForm(createInitialVisitForm(dayKey));
-    setComposerMode('visit');
+  function openAgendaEditor(item: AgendaItem) {
+    if (item.activity) {
+      openActivityEditor(item.activity);
+    } else if (item.visit) {
+      const visit = item.visit;
+      const dayKey = formatDateKey(new Date(visit.scheduledAt));
+      setEditingActivity(null);
+      setEditingVisit(visit);
+      setTaskError('');
+      setSelectedDateKey(dayKey);
+      setActivityForm({
+        ...createInitialActivityForm(dayKey),
+        activityType: 'EXTERNAL_VISIT',
+        contactId: String(visit.contactId),
+        propertyId: visit.propertyId ? String(visit.propertyId) : '',
+        title: visit.externalPropertyTitle ?? '',
+        description: visit.notes ?? '',
+        activityDate: toDateTimeLocalValue(visit.scheduledAt),
+        status: visit.status,
+        externalUrl: visit.externalUrl ?? '',
+        externalPropertyAddress: visit.externalPropertyAddress ?? '',
+      });
+      const { contact, property } = visit;
+      if (contact) {
+        setContacts((current) => current.some((item) => item.id === contact.id) ? current : [...current, contact]);
+      }
+      if (property) {
+        setProperties((current) => current.some((item) => item.id === property.id) ? current : [...current, property]);
+      }
+      setComposerOpen(true);
+    }
   }
 
   function closeComposer() {
-    if (savingTask || savingVisit) return;
-    setComposerMode(null);
+    if (savingTask) return;
+    setComposerOpen(false);
     setEditingActivity(null);
+    setEditingVisit(null);
     setTaskError('');
   }
 
@@ -369,7 +391,7 @@ export function CalendarPage() {
           </article>
           <article className="calendar-summary-card">
             <span className="calendar-summary-label">{t('calendar.monthTasks')}</span>
-            <strong className="calendar-summary-value">{schedulableActivities.length}</strong>
+            <strong className="calendar-summary-value">{schedulableActivities.length + visits.length}</strong>
           </article>
           <article className="calendar-summary-card">
             <span className="calendar-summary-label">{t('calendar.monthVisits')}</span>
@@ -449,7 +471,7 @@ export function CalendarPage() {
                   }${dayItems.length ? ' has-items' : ''}`}
                   aria-label={buildCalendarDayLabel(day, dayItems.length, locale)}
                   onClick={() => setSelectedDateKey(dayKey)}
-                  onDoubleClick={() => openVisitComposer(dayKey)}
+                  onDoubleClick={() => openTaskComposer(dayKey)}
                   onContextMenu={(event) => handleDayContextMenu(event, dayKey)}
                 >
                   <div className="calendar-day-header">
@@ -480,116 +502,116 @@ export function CalendarPage() {
               <button type="button" onClick={() => openTaskComposer()}>
                 {t('calendar.addTask')}
               </button>
-              <button type="button" className="ghost-button" onClick={() => openVisitComposer()}>
-                {t('calendar.addVisit')}
-              </button>
             </div>
           </div>
 
           <div className="stack-gap">
             {selectedItems.length ? (
-              selectedItems.map((item) => (
-                <article key={item.id} className="agenda-item">
-                  <div className="agenda-item-header">
-                    <div>
-                      <span className="agenda-time">
-                        {item.allDay ? t('calendar.allDay') : formatTime(item.startsAt, locale)}
-                      </span>
-                      <strong>{item.title}</strong>
+              selectedItems.map((item) => {
+                const record = item.activity ?? item.visit;
+                return (
+                  <article key={item.id} className="agenda-item">
+                    <div className="agenda-item-header">
+                      <div>
+                        <span className="agenda-time">
+                          {item.allDay ? t('calendar.allDay') : formatTime(item.startsAt, locale)}
+                        </span>
+                        <strong>{item.title}</strong>
+                      </div>
+                      {renderAgendaStatus(item, t)}
                     </div>
-                    {renderAgendaStatus(item, t)}
-                  </div>
-                  <p className="muted">{item.detail}</p>
-                  {item.notes ? <p className="agenda-notes">{item.notes}</p> : null}
-                  {item.activity ? (
-                    <div className="stack-gap" aria-live="polite">
-                      <p className="muted">
-                        {item.activity.googleSyncStatus === 'SYNCED'
-                          ? t('calendar.googleSynced')
-                          : item.activity.googleSyncStatus === 'ERROR'
-                            ? t('calendar.googleSyncFailed')
-                            : item.activity.googleSyncStatus === 'NOT_CONNECTED'
-                              ? t('calendar.googleSyncNotConnected')
-                              : t('calendar.googleSyncPending')}
-                      </p>
-                      {item.activity.googleSyncStatus === 'ERROR' && item.activity.googleSyncError ? (
-                        <p className="agenda-notes">{item.activity.googleSyncError}</p>
+                    <p className="muted">{item.detail}</p>
+                    {item.notes ? <p className="agenda-notes">{item.notes}</p> : null}
+                    {record ? (
+                      <div className="stack-gap" aria-live="polite">
+                        <p className="muted">
+                          {record.googleSyncStatus === 'SYNCED'
+                            ? t('calendar.googleSynced')
+                            : record.googleSyncStatus === 'ERROR'
+                              ? t('calendar.googleSyncFailed')
+                              : record.googleSyncStatus === 'NOT_CONNECTED'
+                                ? t('calendar.googleSyncNotConnected')
+                                : t('calendar.googleSyncPending')}
+                        </p>
+                        {record.googleSyncStatus === 'ERROR' && record.googleSyncError ? (
+                          <p className="agenda-notes">{record.googleSyncError}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="agenda-links">
+                      {record ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => openAgendaEditor(item)}
+                        >
+                          {t('activities.editActivity')}
+                        </button>
+                      ) : null}
+                      {record && record.googleSyncStatus !== 'SYNCED' ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          disabled={syncingItemId !== null}
+                          onClick={() => void handleRetrySync(item)}
+                        >
+                          {syncingItemId === item.id
+                            ? t('common.loading')
+                            : t('calendar.retryGoogleSync')}
+                        </button>
+                      ) : null}
+                      {item.contact ? (
+                        <Link to={`/contacts/${item.contact.id}`} className="agenda-link">
+                          {t('calendar.openContact')}
+                        </Link>
+                      ) : null}
+                      {item.property ? (
+                        <Link to={`/properties/${item.property.id}`} className="agenda-link">
+                          {t('calendar.openProperty')}
+                        </Link>
+                      ) : null}
+                      {item.entityType === 'visit' && item.externalUrl ? (
+                        <a href={item.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
+                          {t('visits.openListing')}
+                        </a>
+                      ) : null}
+                      {item.entityType === 'visit' &&
+                      item.visit &&
+                      item.contact &&
+                      item.externalUrl &&
+                      getContactWhatsappPhone(item.contact) ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => handleShareVisit(item.visit!)}
+                          disabled={sharingVisitId === item.visit.id}
+                        >
+                          {sharingVisitId === item.visit.id ? t('common.loading') : t('visits.shareNow')}
+                        </button>
+                      ) : null}
+                      {item.entityType === 'google' && item.externalUrl ? (
+                        <a href={item.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
+                          {t('calendar.openGoogleEvent')}
+                        </a>
+                      ) : null}
+                      {item.entityType === 'birthday' &&
+                      item.contact &&
+                      getContactWhatsappPhone(item.contact) ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void handleShareBirthday(item)}
+                          disabled={sharingBirthdayId === item.id}
+                        >
+                          {sharingBirthdayId === item.id
+                            ? t('common.loading')
+                            : t('calendar.sendBirthdayWhatsapp')}
+                        </button>
                       ) : null}
                     </div>
-                  ) : null}
-                  <div className="agenda-links">
-                    {item.activity ? (
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => openActivityEditor(item.activity!)}
-                      >
-                        {t('activities.editActivity')}
-                      </button>
-                    ) : null}
-                    {item.activity && item.activity.googleSyncStatus !== 'SYNCED' ? (
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        disabled={syncingActivityId !== null}
-                        onClick={() => void handleRetryActivitySync(item.activity!)}
-                      >
-                        {syncingActivityId === item.activity.id
-                          ? t('common.loading')
-                          : t('calendar.retryGoogleSync')}
-                      </button>
-                    ) : null}
-                    {item.contact ? (
-                      <Link to={`/contacts/${item.contact.id}`} className="agenda-link">
-                        {t('calendar.openContact')}
-                      </Link>
-                    ) : null}
-                    {item.property ? (
-                      <Link to={`/properties/${item.property.id}`} className="agenda-link">
-                        {t('calendar.openProperty')}
-                      </Link>
-                    ) : null}
-                    {item.entityType === 'visit' && item.externalUrl ? (
-                      <a href={item.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
-                        {t('visits.openListing')}
-                      </a>
-                    ) : null}
-                    {item.entityType === 'visit' &&
-                    item.visit &&
-                    item.contact &&
-                    item.externalUrl &&
-                    getContactWhatsappPhone(item.contact) ? (
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => handleShareVisit(item.visit!)}
-                        disabled={sharingVisitId === item.visit.id}
-                      >
-                        {sharingVisitId === item.visit.id ? t('common.loading') : t('visits.shareNow')}
-                      </button>
-                    ) : null}
-                    {item.entityType === 'google' && item.externalUrl ? (
-                      <a href={item.externalUrl} target="_blank" rel="noreferrer" className="agenda-link">
-                        {t('calendar.openGoogleEvent')}
-                      </a>
-                    ) : null}
-                    {item.entityType === 'birthday' &&
-                    item.contact &&
-                    getContactWhatsappPhone(item.contact) ? (
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => void handleShareBirthday(item)}
-                        disabled={sharingBirthdayId === item.id}
-                      >
-                        {sharingBirthdayId === item.id
-                          ? t('common.loading')
-                          : t('calendar.sendBirthdayWhatsapp')}
-                      </button>
-                    ) : null}
-                  </div>
-                </article>
-              ))
+                  </article>
+                );
+              })
             ) : (
               <p className="muted">{t('calendar.emptyDay')}</p>
             )}
@@ -612,11 +634,11 @@ export function CalendarPage() {
                   </span>
                   <strong>{item.title}</strong>
                   <p className="muted">{item.detail}</p>
-                  {item.activity ? (
+                  {item.activity || item.visit ? (
                     <button
                       type="button"
                       className="ghost-button"
-                      onClick={() => openActivityEditor(item.activity!)}
+                      onClick={() => openAgendaEditor(item)}
                     >
                       {t('activities.editActivity')}
                     </button>
@@ -633,13 +655,13 @@ export function CalendarPage() {
       {loadError ? <div className="alert">{loadError}</div> : null}
       {loading ? <p>{t('common.loading')}</p> : null}
 
-      {composerMode === 'task' ? (
+      {composerOpen ? (
         <div className="modal-overlay" onClick={closeComposer}>
           <section className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <p className="eyebrow">{editingActivity ? t('activities.editActivity') : t('calendar.newTask')}</p>
-                <h3>{editingActivity ? t('activities.editActivity') : t('calendar.taskTitle')}</h3>
+                <p className="eyebrow">{isEditing ? t('activities.editActivity') : t('calendar.newTask')}</p>
+                <h3>{isEditing ? t('activities.editActivity') : t('calendar.taskTitle')}</h3>
                 <p className="muted">{formatLongDate(selectedDateKey, locale)}</p>
               </div>
               <button type="button" className="ghost-button" onClick={closeComposer}>
@@ -652,11 +674,11 @@ export function CalendarPage() {
                 {t('common.type')}
                 <select
                   value={activityForm.activityType}
-                  disabled={editingActivity?.activityType === 'APPRAISAL_REQUEST'}
+                  disabled={Boolean(editingVisit) || editingActivity?.activityType === 'APPRAISAL_REQUEST'}
                   onChange={(event) =>
                     setActivityForm({
                       ...activityForm,
-                      activityType: event.target.value as ActivityType,
+                      activityType: event.target.value as ActivityFormState['activityType'],
                     })
                   }
                 >
@@ -665,6 +687,9 @@ export function CalendarPage() {
                       {translateEnum('activityType', option)}
                     </option>
                   ))}
+                  <option value="EXTERNAL_VISIT" disabled={Boolean(editingActivity)}>
+                    {t('calendar.externalVisitType')}
+                  </option>
                 </select>
               </label>
               <label>
@@ -678,10 +703,10 @@ export function CalendarPage() {
                     setActivityForm({ ...activityForm, contactId: value })
                   }
                   placeholder={t('contacts.searchPlaceholder')}
-                  emptyLabel={t('calendar.contactOptional')}
+                  emptyLabel={isExternalVisit ? t('common.select') : t('calendar.contactOptional')}
                   loadingLabel={t('common.loading')}
                   noResultsLabel={t('common.noData')}
-                  required={activityForm.activityType === 'APPRAISAL_REQUEST'}
+                  required={isExternalVisit || activityForm.activityType === 'APPRAISAL_REQUEST'}
                   remoteSearch
                 />
               </label>
@@ -735,7 +760,7 @@ export function CalendarPage() {
                   required
                 />
               </label>
-              <label>
+              {!isExternalVisit ? <label>
                 {t('activities.nextFollowUp')}
                 <input
                   type="datetime-local"
@@ -744,13 +769,35 @@ export function CalendarPage() {
                     setActivityForm({ ...activityForm, nextFollowUpDate: event.target.value })
                   }
                 />
-              </label>
+              </label> : null}
+              {isExternalVisit ? (
+                <>
+                  <label>
+                    {t('common.status')}
+                    <select value={activityForm.status} onChange={(event) => setActivityForm({ ...activityForm, status: event.target.value })}>
+                      {visitStatusOptions.map((status) => (
+                        <option key={status} value={status}>{translateEnum('visitStatus', status)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="full-span">
+                    {t('calendar.externalPropertyAddress')}
+                    <input value={activityForm.externalPropertyAddress} onChange={(event) => setActivityForm({ ...activityForm, externalPropertyAddress: event.target.value })} />
+                  </label>
+                  <label className="full-span">
+                    {t('visits.listingUrl')}
+                    <input type="url" placeholder="https://..." value={activityForm.externalUrl} onChange={(event) => setActivityForm({ ...activityForm, externalUrl: event.target.value })} />
+                  </label>
+                </>
+              ) : null}
               <label className="full-span">
-                {t('common.title')}
+                {isExternalVisit ? t('calendar.externalPropertyTitle') : t('common.title')}
                 <input
                   value={activityForm.title}
                   onChange={(event) => setActivityForm({ ...activityForm, title: event.target.value })}
-                  required={activityForm.activityType !== 'APPRAISAL_REQUEST'}
+                  required={isExternalVisit
+                    ? !activityForm.propertyId && !activityForm.externalPropertyAddress.trim() && !activityForm.externalUrl.trim()
+                    : activityForm.activityType !== 'APPRAISAL_REQUEST'}
                 />
               </label>
               <label className="full-span">
@@ -766,102 +813,13 @@ export function CalendarPage() {
               <button type="submit" disabled={savingTask}>
                 {savingTask
                   ? t('common.loading')
-                  : editingActivity ? t('common.saveChanges') : t('calendar.saveTask')}
+                  : isEditing ? t('common.saveChanges') : t('calendar.saveTask')}
               </button>
             </form>
           </section>
         </div>
       ) : null}
 
-      {composerMode === 'visit' ? (
-        <div className="modal-overlay" onClick={closeComposer}>
-          <section className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <p className="eyebrow">{t('calendar.newVisit')}</p>
-                <h3>{t('visits.title')}</h3>
-                <p className="muted">{formatLongDate(selectedDateKey, locale)}</p>
-              </div>
-              <button type="button" className="ghost-button" onClick={closeComposer}>
-                {t('calendar.closeComposer')}
-              </button>
-            </div>
-            <form className="form-grid" onSubmit={handleCreateVisit}>
-              <label>
-                {t('common.property')}
-                <select
-                  value={visitForm.propertyId}
-                  onChange={(event) => setVisitForm({ ...visitForm, propertyId: event.target.value })}
-                  required
-                >
-                  <option value="">{t('common.select')}</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t('common.contact')}
-                <ContactCombobox
-                  contacts={contacts}
-                  value={visitForm.contactId}
-                  onChange={(value) => setVisitForm({ ...visitForm, contactId: value })}
-                  placeholder={t('contacts.searchPlaceholder')}
-                  emptyLabel={t('common.select')}
-                  loadingLabel={t('common.loading')}
-                  noResultsLabel={t('common.noData')}
-                  required
-                  remoteSearch
-                />
-              </label>
-              <label>
-                {t('common.dateTime')}
-                <input
-                  type="datetime-local"
-                  value={visitForm.scheduledAt}
-                  onChange={(event) => setVisitForm({ ...visitForm, scheduledAt: event.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                {t('common.status')}
-                <select
-                  value={visitForm.status}
-                  onChange={(event) => setVisitForm({ ...visitForm, status: event.target.value })}
-                >
-                  {visitStatusOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {translateEnum('visitStatus', option)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="full-span">
-                {t('visits.listingUrl')}
-                <input
-                  type="url"
-                  value={visitForm.externalUrl}
-                  onChange={(event) => setVisitForm({ ...visitForm, externalUrl: event.target.value })}
-                  placeholder="https://..."
-                />
-              </label>
-              <label className="full-span">
-                {t('common.notes')}
-                <textarea
-                  rows={4}
-                  value={visitForm.notes}
-                  onChange={(event) => setVisitForm({ ...visitForm, notes: event.target.value })}
-                />
-              </label>
-              <button type="submit" disabled={savingVisit}>
-                {savingVisit ? t('common.loading') : t('calendar.saveVisit')}
-              </button>
-            </form>
-          </section>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -876,17 +834,9 @@ function createInitialActivityForm(dayKey: string): ActivityFormState {
     activityDate: `${dayKey}T10:00`,
     nextFollowUpDate: '',
     appraisalPropertyAddress: '',
-  };
-}
-
-function createInitialVisitForm(dayKey: string): VisitFormState {
-  return {
-    propertyId: '',
-    contactId: '',
-    scheduledAt: `${dayKey}T11:00`,
     status: 'SCHEDULED',
     externalUrl: '',
-    notes: '',
+    externalPropertyAddress: '',
   };
 }
 
@@ -914,7 +864,7 @@ function mapVisitToAgendaItem(visit: Visit): AgendaItem {
       visit.property?.title ??
       visit.externalPropertyTitle ??
       (visit.propertyId ? `Property #${visit.propertyId}` : 'Visita externa'),
-    detail: visit.contact?.displayName ?? `Contact #${visit.contactId}`,
+    detail: [visit.contact?.displayName ?? `Contact #${visit.contactId}`, visit.externalPropertyAddress].filter(Boolean).join(' - '),
     status: visit.status,
     contact: visit.contact,
     property: visit.property,
@@ -1100,7 +1050,11 @@ function renderAgendaStatus(
   item: AgendaItem,
   t: ReturnType<typeof useI18n>['t'],
 ) {
-  if (item.entityType === 'activity' || item.entityType === 'visit') {
+  if (item.entityType === 'visit') {
+    return <div><span className="pill">{t('calendar.externalVisitType')}</span> <StatusPill value={item.status} /></div>;
+  }
+
+  if (item.entityType === 'activity') {
     return <StatusPill value={item.status} />;
   }
 

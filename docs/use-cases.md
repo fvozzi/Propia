@@ -569,6 +569,11 @@
 - En calendario deben convivir ambas, pero no deben confundirse:
   - `Visitas` corresponde a la agenda comercial externa.
   - `Muestra de propiedad` corresponde al tipo de actividad `VISIT`.
+- En el calendario ambas se crean desde `Nueva actividad`, eligiendo el tipo.
+  `Visita a propiedad de colega` muestra los campos de contacto, estado, referencia,
+  direccion y enlace externo; la propiedad del CRM es opcional.
+- Ambas se editan desde la agenda y muestran su estado de sincronizacion con Google Calendar.
+  Los registros de visitas existentes conservan sus identificadores y relaciones.
 
 ## UC7. Navegacion por mapa
 
