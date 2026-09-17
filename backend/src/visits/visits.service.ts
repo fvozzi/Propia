@@ -152,7 +152,7 @@ export class VisitsService {
     }
 
     try {
-      await this.googleCalendarService.syncVisitDelete(user.sub, visit);
+      await this.googleCalendarService.syncVisitDelete(visit.ownerUserId, visit);
     } catch {
       // Ignore remote delete failures to preserve local delete.
     }

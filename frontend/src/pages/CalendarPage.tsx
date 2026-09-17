@@ -75,6 +75,7 @@ export function CalendarPage() {
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [taskError, setTaskError] = useState('');
   const [syncingItemId, setSyncingItemId] = useState<string | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
   const [sharingBirthdayId, setSharingBirthdayId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -205,7 +206,7 @@ export function CalendarPage() {
   }
 
   async function handleRetrySync(item: AgendaItem) {
-    if (syncingItemId !== null || (!item.activity && !item.visit)) return;
+    if (syncingItemId !== null || deletingItemId !== null || (!item.activity && !item.visit)) return;
     setSyncingItemId(item.id);
     setLoadError('');
     try {
@@ -220,6 +221,33 @@ export function CalendarPage() {
       setLoadError(error instanceof Error ? error.message : t('calendar.googleSyncFailed'));
     } finally {
       setSyncingItemId(null);
+    }
+  }
+
+  async function handleDeleteItem(item: AgendaItem) {
+    if (deletingItemId !== null || syncingItemId !== null || (!item.activity && !item.visit)) return;
+    const confirmation = [
+      t('common.yesDeleteActivity'),
+      item.title,
+      item.activity?.appraisalRequestId ? t('calendar.deleteAppraisalWarning') : null,
+    ].filter(Boolean).join('\n');
+    if (!window.confirm(confirmation)) return;
+
+    setDeletingItemId(item.id);
+    setLoadError('');
+    try {
+      if (item.activity) {
+        await apiRequest(`/activities/${item.activity.id}`, { method: 'DELETE' });
+        setActivities((current) => current.filter((activity) => activity.id !== item.activity!.id));
+      } else if (item.visit) {
+        await apiRequest(`/visits/${item.visit.id}`, { method: 'DELETE' });
+        setVisits((current) => current.filter((visit) => visit.id !== item.visit!.id));
+      }
+      await loadAgenda();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : t('calendar.deleteActivityError'));
+    } finally {
+      setDeletingItemId(null);
     }
   }
 
@@ -543,16 +571,27 @@ export function CalendarPage() {
                         <button
                           type="button"
                           className="ghost-button"
+                          disabled={deletingItemId !== null}
                           onClick={() => openAgendaEditor(item)}
                         >
                           {t('activities.editActivity')}
+                        </button>
+                      ) : null}
+                      {record ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          disabled={deletingItemId !== null || syncingItemId !== null}
+                          onClick={() => void handleDeleteItem(item)}
+                        >
+                          {deletingItemId === item.id ? t('common.loading') : t('calendar.deleteActivity')}
                         </button>
                       ) : null}
                       {record && record.googleSyncStatus !== 'SYNCED' ? (
                         <button
                           type="button"
                           className="ghost-button"
-                          disabled={syncingItemId !== null}
+                          disabled={syncingItemId !== null || deletingItemId !== null}
                           onClick={() => void handleRetrySync(item)}
                         >
                           {syncingItemId === item.id
@@ -638,9 +677,20 @@ export function CalendarPage() {
                     <button
                       type="button"
                       className="ghost-button"
+                      disabled={deletingItemId !== null}
                       onClick={() => openAgendaEditor(item)}
                     >
                       {t('activities.editActivity')}
+                    </button>
+                  ) : null}
+                  {item.activity || item.visit ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={deletingItemId !== null || syncingItemId !== null}
+                      onClick={() => void handleDeleteItem(item)}
+                    >
+                      {deletingItemId === item.id ? t('common.loading') : t('calendar.deleteActivity')}
                     </button>
                   ) : null}
                 </article>
@@ -652,7 +702,7 @@ export function CalendarPage() {
         </section>
       </div>
 
-      {loadError ? <div className="alert">{loadError}</div> : null}
+      {loadError ? <div className="alert" role="alert">{loadError}</div> : null}
       {loading ? <p>{t('common.loading')}</p> : null}
 
       {composerOpen ? (

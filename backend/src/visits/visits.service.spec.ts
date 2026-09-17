@@ -21,12 +21,14 @@ function setup() {
     findOne: vi.fn().mockResolvedValue(visit),
     create: vi.fn((value) => Object.assign(visit, value)),
     save: vi.fn(async (value) => value),
+    remove: vi.fn().mockResolvedValue(undefined),
   };
   const contacts = { findOne: vi.fn().mockResolvedValue({ id: 11 }) };
   const properties = { findOne: vi.fn() };
   const google = {
     syncVisitCreate: vi.fn().mockResolvedValue({ googleSyncStatus: 'SYNCED', googleSyncError: null }),
     syncVisitUpdate: vi.fn().mockResolvedValue({ googleSyncStatus: 'SYNCED', googleSyncError: null }),
+    syncVisitDelete: vi.fn().mockResolvedValue(undefined),
   };
   const service = new VisitsService(repository as unknown as Repository<Visit>, contacts as unknown as Repository<Contact>,
     properties as unknown as Repository<Property>, google as unknown as GoogleCalendarService);
@@ -35,6 +37,23 @@ function setup() {
 }
 
 describe('VisitsService unified calendar flow', () => {
+  it('deletes the linked Google event from the owner calendar before removing a visit', async () => {
+    const { service, user, visit, repository, google } = setup();
+    await service.remove(91, { ...user, sub: 8 });
+    expect(repository.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 91, teamId: 3 } }));
+    expect(google.syncVisitDelete).toHaveBeenCalledWith(7, visit);
+    expect(repository.remove).toHaveBeenCalledWith(visit);
+    expect(google.syncVisitDelete.mock.invocationCallOrder[0]).toBeLessThan(repository.remove.mock.invocationCallOrder[0]);
+  });
+
+  it('does not delete a visit outside the active team', async () => {
+    const { service, user, repository, google } = setup();
+    repository.findOne.mockResolvedValueOnce(null);
+    await expect(service.remove(91, user)).rejects.toBeInstanceOf(NotFoundException);
+    expect(repository.remove).not.toHaveBeenCalled();
+    expect(google.syncVisitDelete).not.toHaveBeenCalled();
+  });
+
   it('creates and syncs an external visit without a CRM property', async () => {
     const { service, user, properties, google } = setup();
     const saved = await service.create({ contactId: 11, propertyId: null,

@@ -18,6 +18,8 @@ describe('calendar activity editing', () => {
   let activity: Activity;
   let visit: Visit;
   let failSave: boolean;
+  let activityDeleted: boolean;
+  let visitDeleted: boolean;
 
   beforeEach(async () => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -34,6 +36,9 @@ describe('calendar activity editing', () => {
       nextFollowUpDate: new Date(2026, 8, 17, 10).toISOString(),
     } as Activity;
     failSave = false;
+    activityDeleted = false;
+    visitDeleted = false;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     visit = {
       id: 91, contactId: 11, propertyId: null, status: 'SCHEDULED',
       scheduledAt: new Date(2026, 8, 16, 11).toISOString(),
@@ -44,6 +49,12 @@ describe('calendar activity editing', () => {
     } as Visit;
     vi.mocked(apiRequest).mockReset();
     vi.mocked(apiRequest).mockImplementation(async (path, options) => {
+      if (options?.method === 'DELETE') {
+        if (failSave) throw new Error('No se pudo eliminar');
+        if (path === '/activities/42') activityDeleted = true;
+        if (path === '/visits/91') visitDeleted = true;
+        return { success: true };
+      }
       if (path === '/visits/91/sync-calendar') {
         visit = { ...visit, googleSyncStatus: 'SYNCED', googleSyncError: null };
         return visit;
@@ -53,7 +64,7 @@ describe('calendar activity editing', () => {
         visit = { ...visit, ...JSON.parse(options.body as string) };
         return visit;
       }
-      if (path.startsWith('/visits?')) return { items: [visit] };
+      if (path.startsWith('/visits?')) return { items: visitDeleted ? [] : [visit] };
       if (path.startsWith('/contacts?')) return { items: [visit.contact] };
       if (path === '/activities/42/sync-calendar') {
         if (failSave) throw new Error('No se pudo reintentar');
@@ -65,7 +76,7 @@ describe('calendar activity editing', () => {
         activity = { ...activity, ...JSON.parse(options.body as string) };
         return activity;
       }
-      if (path.startsWith('/activities?')) return { items: [activity] };
+      if (path.startsWith('/activities?')) return { items: activityDeleted ? [] : [activity] };
       if (path.startsWith('/calendar/agenda?')) {
         return { birthdays: [], googleEvents: [], googleCalendarConnected: false, googleCalendarPermissionGranted: false };
       }
@@ -84,6 +95,7 @@ describe('calendar activity editing', () => {
     container.remove();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   async function clickButton(text: string, parent: ParentNode = container) {
@@ -128,6 +140,37 @@ describe('calendar activity editing', () => {
   function visitArticle(selector = '.agenda-item') {
     return Array.from(container.querySelectorAll(selector)).find((item) => item.textContent?.includes('Visita colega'))!;
   }
+
+  it.each([
+    ['Muestra original', '/activities/42', '.agenda-item'],
+    ['Visita colega', '/visits/91', '.mini-agenda-item'],
+  ])('deletes %s after confirmation and updates the day, upcoming list and counts', async (title, path, selector) => {
+    const article = Array.from(container.querySelectorAll(selector)).find((item) => item.textContent?.includes(title))!;
+    await clickButton('calendar.deleteActivity', article);
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining(title));
+    expect(apiRequest).toHaveBeenCalledWith(path, { method: 'DELETE' });
+    expect(container.querySelector('.calendar-agenda-panel')?.textContent).not.toContain(title);
+    expect(container.querySelector('.calendar-day.selected strong')?.textContent).toBe('1');
+    expect(container.querySelector('.calendar-summary-value')?.textContent).toBe('1');
+  });
+
+  it('does not delete anything when the user cancels', async () => {
+    vi.mocked(window.confirm).mockReturnValue(false);
+    await clickButton('calendar.deleteActivity', visitArticle());
+    expect(vi.mocked(apiRequest).mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false);
+    expect(visitArticle()).toBeTruthy();
+  });
+
+  it('keeps the activity visible after a failed delete and allows a retry', async () => {
+    failSave = true;
+    await clickButton('calendar.deleteActivity', container.querySelector('.agenda-item')!);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('No se pudo eliminar');
+    expect(container.querySelector('.agenda-item')?.textContent).toContain('Muestra original');
+    failSave = false;
+    await clickButton('calendar.deleteActivity', container.querySelector('.agenda-item')!);
+    expect(container.querySelector('.calendar-agenda-panel')?.textContent).not.toContain('Muestra original');
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
 
   it('creates a colleague visit from New activity with an address and no CRM property', async () => {
     expect(container.textContent).not.toContain('calendar.addVisit');
