@@ -640,6 +640,15 @@ export function CommercialOpportunitiesPage() {
                     </td>
                     <td>
                       <div className="candidate-actions">
+                        {opportunity.operationType === 'SALE' ||
+                        opportunity.operationType === 'BUY' ? (
+                          <Link
+                            to={`/activities/new?activityType=EXPENSE_BREAKDOWN&opportunityId=${opportunity.id}`}
+                            className="ghost-button button-link"
+                          >
+                            {t('commercialOpportunities.expenseChecklist')}
+                          </Link>
+                        ) : null}
                         <button
                           type="button"
                           className="ghost-button"

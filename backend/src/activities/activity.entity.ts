@@ -37,6 +37,19 @@ export type ReservationActivityData = {
   observations: string | null;
 };
 
+export type ExpenseBreakdownActivityData = {
+  operationType: OperationType.SALE | OperationType.BUY;
+  operationAmount: number | null;
+  operationCurrency: CurrencyType;
+  propertyAddress: string | null;
+  commissionPercent: number | null;
+  vatPercent: number | null;
+  invoicedVatAmount: number | null;
+  amountAlreadyPaid: number | null;
+  notaryExpenses: string | null;
+  observations: string | null;
+};
+
 @Entity('activities')
 export class Activity {
   @PrimaryGeneratedColumn()
@@ -130,6 +143,9 @@ export class Activity {
 
   @Column({ type: 'jsonb', nullable: true })
   reservationData: ReservationActivityData | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  expenseBreakdownData: ExpenseBreakdownActivityData | null;
 
   @Column({ type: 'varchar', nullable: true })
   googleEventId: string | null;

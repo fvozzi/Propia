@@ -15,6 +15,8 @@ export type OpportunityPipelineStepKey =
   | 'PROPERTY_READY'
   | 'NEGOTIATING'
   | 'RESERVED'
+  | 'EXPENSE_BREAKDOWN_SENT'
+  | 'DEED_COMPLETED'
   | 'CLOSED_WON';
 
 export type OpportunityPipelineStep = {
@@ -104,11 +106,23 @@ export function buildOpportunityPipelineItem(
   const hasReservation = relatedActivities.some(
     (activity) => activity.activityType === ActivityType.RESERVATION,
   );
+  const hasExpenseBreakdown = relatedActivities.some(
+    (activity) =>
+      activity.activityType === ActivityType.EXPENSE_BREAKDOWN &&
+      activity.whatsappSharedAt !== null,
+  );
+  const expectedDeedType =
+    opportunity.operationType === OperationType.SALE
+      ? ActivityType.SALE_DEED
+      : ActivityType.PURCHASE_DEED;
+  const hasDeed = relatedActivities.some(
+    (activity) => activity.activityType === expectedDeedType,
+  );
   const isWon =
     opportunity.status === CommercialOpportunityStatus.WON ||
     opportunity.stage === CommercialOpportunityStage.CLOSED_WON;
 
-  const steps: OpportunityPipelineStep[] = buyLikeOperations.has(
+  let steps: OpportunityPipelineStep[] = buyLikeOperations.has(
     opportunity.operationType,
   )
     ? [
@@ -167,6 +181,18 @@ export function buildOpportunityPipelineItem(
         },
         { key: 'CLOSED_WON', completed: isWon },
       ];
+
+  if (
+    opportunity.operationType === OperationType.SALE ||
+    opportunity.operationType === OperationType.BUY
+  ) {
+    steps = [
+      ...steps.slice(0, -1),
+      { key: 'EXPENSE_BREAKDOWN_SENT', completed: hasExpenseBreakdown },
+      { key: 'DEED_COMPLETED', completed: hasDeed || isWon },
+      steps[steps.length - 1],
+    ];
+  }
 
   const completedStepsCount = steps.filter((step) => step.completed).length;
 

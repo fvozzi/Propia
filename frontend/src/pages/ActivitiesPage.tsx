@@ -17,6 +17,7 @@ import {
 import { activityTypeOptions, useI18n } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import {
+  buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
   buildWhatsAppShareUrl,
@@ -224,6 +225,18 @@ export function ActivitiesPage() {
             message,
           ),
         );
+        await apiRequest<Activity>(`/activities/${activity.id}/share`, {
+          method: 'PATCH',
+          body: JSON.stringify({}),
+        });
+        await load(page);
+      } else if (
+        activity.activityType === 'EXPENSE_BREAKDOWN' &&
+        activity.contact &&
+        activity.expenseBreakdownData
+      ) {
+        const message = buildExpenseBreakdownWhatsappMessage(activity);
+        openWhatsAppShareUrl(buildWhatsAppShareUrl(activity.contact, message));
         await apiRequest<Activity>(`/activities/${activity.id}/share`, {
           method: 'PATCH',
           body: JSON.stringify({}),
@@ -568,6 +581,16 @@ function ActivityListItem({
               : ''}
           </p>
         ) : null}
+        {activity.activityType === 'EXPENSE_BREAKDOWN' &&
+        activity.expenseBreakdownData ? (
+          <p className="muted">
+            {translateEnum(
+              'operationType',
+              activity.expenseBreakdownData.operationType,
+            )}{' '}
+            - {activity.expenseBreakdownData.propertyAddress ?? activity.property?.address ?? ''}
+          </p>
+        ) : null}
         {activity.activityType === 'PROPERTY_SEARCH' ? (
           <ActivityPreviewCard
             activity={activity}
@@ -585,6 +608,13 @@ function ActivityListItem({
           <p className="muted">
             {t('activities.reservationSentAt')}:{' '}
             {formatDateTime(activity.whatsappSharedAt)}
+          </p>
+        ) : null}
+        {activity.activityType === 'EXPENSE_BREAKDOWN' ? (
+          <p className="muted">
+            {activity.whatsappSharedAt
+              ? `${t('activities.expenseSentAt')}: ${formatDateTime(activity.whatsappSharedAt)}`
+              : t('activities.pendingShare')}
           </p>
         ) : null}
         <div className="candidate-actions">
@@ -677,6 +707,23 @@ function ActivityListItem({
               : activity.whatsappSharedAt
                 ? t('activities.reservationResendTreasury')
                 : t('activities.reservationSendTreasury')}
+          </button>
+        ) : null}
+        {activity.activityType === 'EXPENSE_BREAKDOWN' &&
+        activity.expenseBreakdownData &&
+        activity.contact &&
+        getContactWhatsappPhone(activity.contact) ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void onSendWhatsapp(activity)}
+            disabled={sharingActivityId === activity.id}
+          >
+            {sharingActivityId === activity.id
+              ? t('common.loading')
+              : activity.whatsappSharedAt
+                ? t('activities.expenseResendClient')
+                : t('activities.expenseSendClient')}
           </button>
         ) : null}
         <button

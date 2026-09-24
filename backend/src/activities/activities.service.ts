@@ -23,7 +23,11 @@ import {
 } from '../use-cases/appraisal-initial-intake.use-case';
 import { ActivityCalendarSyncService } from './activity-calendar-sync.service';
 import { extractDomain, parseActivityPreviewMetadata } from './activity-preview.utils';
-import { Activity, type ReservationActivityData } from './activity.entity';
+import {
+  Activity,
+  type ExpenseBreakdownActivityData,
+  type ReservationActivityData,
+} from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
 import { ShareActivityDto } from './dto/share-activity.dto';
@@ -47,11 +51,31 @@ export class ActivitiesService {
 
   async create(dto: CreateActivityDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
-    await this.assertScopedRelations(dto.contactId ?? null, dto.propertyId ?? null, dto.appraisalRequestId ?? null, teamId);
+    const selectedOpportunity = await this.resolveScopedOpportunity(
+      dto.commercialOpportunityId ?? null,
+      teamId,
+    );
+    this.assertExpenseBreakdownOpportunity(dto.activityType, selectedOpportunity);
+    this.assertOpportunityRelations(
+      selectedOpportunity,
+      dto.contactId ?? null,
+      dto.propertyId ?? null,
+    );
+    const contactId =
+      dto.activityType === ActivityType.EXPENSE_BREAKDOWN
+        ? selectedOpportunity?.contactId ?? null
+        : dto.contactId ?? null;
+    const propertyId =
+      dto.activityType === ActivityType.EXPENSE_BREAKDOWN
+        ? selectedOpportunity?.propertyId ?? null
+        : dto.propertyId ?? null;
+    await this.assertScopedRelations(contactId, propertyId, dto.appraisalRequestId ?? null, teamId);
     this.assertPropertySearchPayload(dto.activityType, dto.externalUrl);
     const draftTitle =
       dto.activityType === ActivityType.APPRAISAL_REQUEST
         ? buildAppraisalRequestActivityTitle(dto.appraisalPropertyAddress ?? null)
+        : dto.activityType === ActivityType.EXPENSE_BREAKDOWN && selectedOpportunity
+          ? buildExpenseBreakdownTitle(selectedOpportunity.operationType)
         : readOptionalString(dto.title) ?? buildDefaultActivityTitle(dto.activityType);
     const preview =
       dto.activityType === ActivityType.PROPERTY_SEARCH
@@ -86,13 +110,15 @@ export class ActivitiesService {
       appraisalRequestId = request.id;
     }
 
-    const commercialOpportunity = await this.resolveOpportunityForActivityDraft({
-      teamId,
-      contactId: dto.contactId ?? null,
-      propertyId: dto.propertyId ?? null,
-      appraisalRequestId,
-      activityType: dto.activityType,
-    });
+    const commercialOpportunity =
+      selectedOpportunity ??
+      (await this.resolveOpportunityForActivityDraft({
+        teamId,
+        contactId,
+        propertyId,
+        appraisalRequestId,
+        activityType: dto.activityType,
+      }));
 
     const activity = this.activitiesRepository.create({
       ...dto,
@@ -104,8 +130,8 @@ export class ActivitiesService {
       googleSyncError: null,
       activityDate: new Date(dto.activityDate),
       nextFollowUpDate: dto.nextFollowUpDate ? new Date(dto.nextFollowUpDate) : null,
-      contactId: dto.contactId ?? null,
-      propertyId: dto.propertyId ?? null,
+      contactId,
+      propertyId,
       appraisalRequestId,
       commercialOpportunityId: commercialOpportunity?.id ?? null,
       title: nextTitle,
@@ -126,6 +152,13 @@ export class ActivitiesService {
       reservationData:
         dto.activityType === ActivityType.RESERVATION
           ? sanitizeReservationData(dto.reservationData, user.name ?? null)
+          : null,
+      expenseBreakdownData:
+        dto.activityType === ActivityType.EXPENSE_BREAKDOWN && commercialOpportunity
+          ? sanitizeExpenseBreakdownData(
+              dto.expenseBreakdownData,
+              commercialOpportunity,
+            )
           : null,
     });
 
@@ -197,8 +230,12 @@ export class ActivitiesService {
     }
 
     if (query.whatsappShareStatus) {
-      qb.andWhere('activity.activityType = :shareActivityType', {
-        shareActivityType: ActivityType.PROPERTY_SEARCH,
+      qb.andWhere('activity.activityType IN (:...shareActivityTypes)', {
+        shareActivityTypes: [
+          ActivityType.PROPERTY_SEARCH,
+          ActivityType.RESERVATION,
+          ActivityType.EXPENSE_BREAKDOWN,
+        ],
       });
 
       if (query.whatsappShareStatus === 'PENDING') {
@@ -280,7 +317,7 @@ export class ActivitiesService {
     const teamId = requireActiveTeamId(user);
     const activity = await this.activitiesRepository.findOne({
       where: { id, teamId },
-      relations: { appraisalRequest: true },
+      relations: { appraisalRequest: true, commercialOpportunity: true },
     });
 
     if (!activity) {
@@ -292,8 +329,30 @@ export class ActivitiesService {
     }
 
     const nextActivityType = dto.activityType ?? activity.activityType;
-    const nextContactId = dto.contactId === undefined ? activity.contactId : dto.contactId ?? null;
-    const nextPropertyId = dto.propertyId === undefined ? activity.propertyId : dto.propertyId ?? null;
+    const selectedOpportunity = await this.resolveScopedOpportunity(
+      dto.commercialOpportunityId === undefined
+        ? activity.commercialOpportunityId
+        : dto.commercialOpportunityId ?? null,
+      teamId,
+    );
+    this.assertExpenseBreakdownOpportunity(nextActivityType, selectedOpportunity);
+    this.assertOpportunityRelations(
+      selectedOpportunity,
+      dto.contactId ?? null,
+      dto.propertyId ?? null,
+    );
+    const nextContactId =
+      nextActivityType === ActivityType.EXPENSE_BREAKDOWN
+        ? selectedOpportunity?.contactId ?? null
+        : dto.contactId === undefined
+          ? activity.contactId
+          : dto.contactId ?? null;
+    const nextPropertyId =
+      nextActivityType === ActivityType.EXPENSE_BREAKDOWN
+        ? selectedOpportunity?.propertyId ?? null
+        : dto.propertyId === undefined
+          ? activity.propertyId
+          : dto.propertyId ?? null;
     const nextAppraisalRequestId = activity.appraisalRequestId;
     await this.assertScopedRelations(nextContactId ?? null, nextPropertyId ?? null, nextAppraisalRequestId ?? null, teamId);
     this.assertPropertySearchPayload(nextActivityType, dto.externalUrl ?? activity.externalUrl ?? undefined);
@@ -340,13 +399,15 @@ export class ActivitiesService {
       }
     }
 
-    const linkedOpportunity = await this.resolveOpportunityForActivityDraft({
-      teamId,
-      contactId: nextContactId,
-      propertyId: nextPropertyId,
-      appraisalRequestId: nextAppraisalRequestId,
-      activityType: nextActivityType,
-    });
+    const linkedOpportunity =
+      selectedOpportunity ??
+      (await this.resolveOpportunityForActivityDraft({
+        teamId,
+        contactId: nextContactId,
+        propertyId: nextPropertyId,
+        appraisalRequestId: nextAppraisalRequestId,
+        activityType: nextActivityType,
+      }));
 
     Object.assign(activity, {
       ...dto,
@@ -378,13 +439,15 @@ export class ActivitiesService {
             : dto.whatsappComment?.trim() || null
           : null,
       whatsappSharedAt:
-        nextActivityType !== ActivityType.PROPERTY_SEARCH
+        nextActivityType !== ActivityType.PROPERTY_SEARCH &&
+        nextActivityType !== ActivityType.RESERVATION &&
+        nextActivityType !== ActivityType.EXPENSE_BREAKDOWN
           ? null
           : dto.whatsappSharedAt === undefined
-          ? activity.whatsappSharedAt
-          : dto.whatsappSharedAt
-            ? new Date(dto.whatsappSharedAt)
-            : null,
+            ? activity.whatsappSharedAt
+            : dto.whatsappSharedAt
+              ? new Date(dto.whatsappSharedAt)
+              : null,
       propertySearchLiked:
         nextActivityType !== ActivityType.PROPERTY_SEARCH
           ? null
@@ -397,6 +460,16 @@ export class ActivitiesService {
           : dto.reservationData === undefined
             ? activity.reservationData
             : sanitizeReservationData(dto.reservationData, user.name ?? null),
+      expenseBreakdownData:
+        nextActivityType !== ActivityType.EXPENSE_BREAKDOWN || !linkedOpportunity
+          ? null
+          : sanitizeExpenseBreakdownData(
+              dto.expenseBreakdownData === undefined
+                ? (activity.expenseBreakdownData as unknown as Record<string, unknown> | null) ??
+                    undefined
+                : dto.expenseBreakdownData,
+              linkedOpportunity,
+            ),
     });
 
     await this.activitiesRepository.save(activity);
@@ -445,16 +518,16 @@ export class ActivitiesService {
 
     if (
       activity.activityType !== ActivityType.PROPERTY_SEARCH &&
-      activity.activityType !== ActivityType.RESERVATION
+      activity.activityType !== ActivityType.RESERVATION &&
+      activity.activityType !== ActivityType.EXPENSE_BREAKDOWN
     ) {
       throw new BadRequestException(
-        'Solo las actividades de busqueda de propiedad y reservas se pueden compartir por WhatsApp',
+        'Esta actividad no se puede compartir por WhatsApp',
       );
     }
 
     if (
-      (activity.activityType === ActivityType.PROPERTY_SEARCH ||
-        activity.activityType === ActivityType.RESERVATION) &&
+      activity.activityType === ActivityType.PROPERTY_SEARCH &&
       !activity.externalUrl
     ) {
       throw new BadRequestException('La actividad no tiene link para compartir');
@@ -529,6 +602,73 @@ export class ActivitiesService {
       if (!appraisalRequest) {
         throw new NotFoundException('Prelisting no encontrado');
       }
+    }
+  }
+
+  private async resolveScopedOpportunity(id: number | null, teamId: number) {
+    if (!id) {
+      return null;
+    }
+
+    const opportunity = await this.opportunitiesRepository.findOne({
+      where: { id, teamId },
+      relations: { property: true },
+    });
+
+    if (!opportunity) {
+      throw new NotFoundException('Oportunidad comercial no encontrada');
+    }
+
+    return opportunity;
+  }
+
+  private assertExpenseBreakdownOpportunity(
+    activityType: ActivityType,
+    opportunity: CommercialOpportunity | null,
+  ) {
+    if (activityType !== ActivityType.EXPENSE_BREAKDOWN) {
+      return;
+    }
+
+    if (!opportunity) {
+      throw new BadRequestException(
+        'El detalle de gastos requiere una oportunidad comercial',
+      );
+    }
+
+    if (
+      opportunity.operationType !== OperationType.SALE &&
+      opportunity.operationType !== OperationType.BUY
+    ) {
+      throw new BadRequestException(
+        'El detalle de gastos solo aplica a operaciones de venta o compra',
+      );
+    }
+  }
+
+  private assertOpportunityRelations(
+    opportunity: CommercialOpportunity | null,
+    contactId: number | null,
+    propertyId: number | null,
+  ) {
+    if (!opportunity) {
+      return;
+    }
+
+    if (contactId && contactId !== opportunity.contactId) {
+      throw new BadRequestException(
+        'El contacto debe coincidir con la oportunidad comercial',
+      );
+    }
+
+    if (
+      propertyId &&
+      opportunity.propertyId &&
+      propertyId !== opportunity.propertyId
+    ) {
+      throw new BadRequestException(
+        'La propiedad debe coincidir con la oportunidad comercial',
+      );
     }
   }
 
@@ -775,6 +915,38 @@ function sanitizeReservationData(
   };
 }
 
+function sanitizeExpenseBreakdownData(
+  value: Record<string, unknown> | undefined,
+  opportunity: CommercialOpportunity,
+): ExpenseBreakdownActivityData {
+  const property = opportunity.property;
+  const operationType =
+    opportunity.operationType === OperationType.SALE
+      ? OperationType.SALE
+      : OperationType.BUY;
+
+  return {
+    operationType,
+    operationAmount:
+      readOptionalNumber(value?.operationAmount) ?? property?.price ?? null,
+    operationCurrency:
+      readEnumValue<CurrencyType>(value?.operationCurrency, [
+        CurrencyType.USD,
+        CurrencyType.ARS,
+      ]) ?? property?.currency ?? CurrencyType.USD,
+    propertyAddress:
+      readOptionalString(value?.propertyAddress) ?? property?.address ?? null,
+    commissionPercent:
+      readOptionalNumber(value?.commissionPercent) ??
+      (operationType === OperationType.SALE ? 3 : 4),
+    vatPercent: readOptionalNumber(value?.vatPercent) ?? 21,
+    invoicedVatAmount: readOptionalNumber(value?.invoicedVatAmount),
+    amountAlreadyPaid: readOptionalNumber(value?.amountAlreadyPaid),
+    notaryExpenses: readOptionalString(value?.notaryExpenses),
+    observations: readOptionalString(value?.observations),
+  };
+}
+
 function readOptionalString(value: unknown) {
   if (typeof value !== 'string') {
     return null;
@@ -971,9 +1143,16 @@ function buildDefaultActivityTitle(activityType: ActivityType) {
     [ActivityType.MARKET_ANALYSIS]: 'Analisis de mercado',
     [ActivityType.PHOTO_SESSION]: 'Sesion de fotos',
     [ActivityType.RESERVATION]: 'Reserva',
+    [ActivityType.EXPENSE_BREAKDOWN]: 'Detalle de gastos',
     [ActivityType.SALE_DEED]: 'Escritura de venta',
     [ActivityType.PURCHASE_DEED]: 'Escritura de compra',
   };
 
   return titles[activityType];
+}
+
+function buildExpenseBreakdownTitle(operationType: OperationType) {
+  return operationType === OperationType.SALE
+    ? 'Detalle de gastos - Venta'
+    : 'Detalle de gastos - Compra';
 }

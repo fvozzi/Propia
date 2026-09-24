@@ -27,6 +27,11 @@ export class CreateActivityDto {
   @IsInt()
   appraisalRequestId?: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  commercialOpportunityId?: number;
+
   @IsEnum(ActivityType)
   activityType: ActivityType;
 
@@ -63,6 +68,10 @@ export class CreateActivityDto {
   @IsOptional()
   @IsObject()
   reservationData?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  expenseBreakdownData?: Record<string, unknown>;
 
   @IsDateString()
   activityDate: string;

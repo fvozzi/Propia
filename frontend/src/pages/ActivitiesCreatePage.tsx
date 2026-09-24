@@ -1,13 +1,15 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { SearchableCombobox } from '../components/SearchableCombobox';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import {
+  buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
   buildWhatsAppShareUrl,
+  calculateExpenseBreakdown,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
 } from '../lib/whatsapp';
@@ -15,8 +17,10 @@ import { activityTypeOptions, useI18n } from '../lib/i18n';
 import type {
   Activity,
   ActivityType,
+  CommercialOpportunity,
   Contact,
   CurrencyType,
+  ExpenseBreakdownActivityData,
   OperationType,
   Paginated,
   Property,
@@ -39,6 +43,7 @@ type ActivityFormState = {
   whatsappComment: string;
   markShared: boolean;
   propertySearchFeedback: PropertySearchFeedback;
+  commercialOpportunityId: string;
   reservationAgentName: string;
   reservationOperationType: '' | OperationType;
   reservationOperationAmount: string;
@@ -56,6 +61,15 @@ type ActivityFormState = {
   reservationRelocation: boolean;
   reservationEstimatedClosingMonth: string;
   reservationObservations: string;
+  expenseOperationAmount: string;
+  expenseOperationCurrency: CurrencyType;
+  expensePropertyAddress: string;
+  expenseCommissionPercent: string;
+  expenseVatPercent: string;
+  expenseInvoicedVatAmount: string;
+  expenseAmountAlreadyPaid: string;
+  expenseNotaryExpenses: string;
+  expenseObservations: string;
 };
 
 const initialForm: ActivityFormState = {
@@ -71,6 +85,7 @@ const initialForm: ActivityFormState = {
   whatsappComment: '',
   markShared: false,
   propertySearchFeedback: '',
+  commercialOpportunityId: '',
   reservationAgentName: '',
   reservationOperationType: '',
   reservationOperationAmount: '',
@@ -88,10 +103,20 @@ const initialForm: ActivityFormState = {
   reservationRelocation: false,
   reservationEstimatedClosingMonth: '',
   reservationObservations: '',
+  expenseOperationAmount: '',
+  expenseOperationCurrency: 'USD',
+  expensePropertyAddress: '',
+  expenseCommissionPercent: '',
+  expenseVatPercent: '21',
+  expenseInvoicedVatAmount: '',
+  expenseAmountAlreadyPaid: '',
+  expenseNotaryExpenses: '',
+  expenseObservations: '',
 };
 
 export function ActivitiesCreatePage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, translateEnum } = useI18n();
   const { user } = useAuth();
@@ -100,6 +125,7 @@ export function ActivitiesCreatePage() {
   const [contactMatches, setContactMatches] = useState<Contact[] | null>(null);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [opportunities, setOpportunities] = useState<CommercialOpportunity[]>([]);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(Boolean(id));
   const [linkProperty, setLinkProperty] = useState(false);
@@ -113,6 +139,7 @@ export function ActivitiesCreatePage() {
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
   const isReservation = form.activityType === 'RESERVATION';
+  const isExpenseBreakdown = form.activityType === 'EXPENSE_BREAKDOWN';
   const contactSearchTerm = contactSearch.trim();
   const activityContact =
     activity?.contact && String(activity.contact.id) === form.contactId ? activity.contact : null;
@@ -126,6 +153,28 @@ export function ActivitiesCreatePage() {
     selectedContact ? [selectedContact] : [],
   );
   const selectedProperty = properties.find((property) => String(property.id) === form.propertyId) ?? null;
+  const selectedOpportunity =
+    opportunities.find(
+      (opportunity) => String(opportunity.id) === form.commercialOpportunityId,
+    ) ??
+    (activity?.commercialOpportunity &&
+    String(activity.commercialOpportunity.id) === form.commercialOpportunityId
+      ? activity.commercialOpportunity
+      : null);
+  const expenseBreakdownData = isExpenseBreakdown
+    ? buildExpenseBreakdownDataPayload(form, selectedOpportunity?.operationType)
+    : null;
+  const expenseCalculation = expenseBreakdownData
+    ? calculateExpenseBreakdown(expenseBreakdownData)
+    : null;
+  const expenseWhatsappMessage = expenseBreakdownData
+    ? buildExpenseBreakdownWhatsappMessage({
+        expenseBreakdownData,
+        description: form.description || null,
+        contact: selectedContact,
+        property: selectedProperty,
+      })
+    : '';
   const showSavedPreview =
     isPropertySearch &&
     activity &&
@@ -142,21 +191,43 @@ export function ActivitiesCreatePage() {
       getContactWhatsappPhone(selectedContact) &&
       form.externalUrl.trim(),
   );
+  const canShareExpense = Boolean(
+    isExpenseBreakdown &&
+      selectedOpportunity &&
+      selectedContact &&
+      getContactWhatsappPhone(selectedContact) &&
+      expenseBreakdownData?.operationAmount,
+  );
 
   useEffect(() => {
     async function loadDependencies() {
-      const [contactsData, propertiesData, activityData] = await Promise.all([
+      const [contactsData, propertiesData, opportunitiesData, activityData] = await Promise.all([
         apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC'),
         apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
+        apiRequest<Paginated<CommercialOpportunity>>(
+          '/commercial-opportunities?page=1&limit=100',
+        ),
         isEditing && activityId
           ? apiRequest<Activity>(`/activities/${activityId}`)
           : Promise.resolve(null),
       ]);
 
       setContacts(
-        mergeContacts(contactsData.items, activityData?.contact ? [activityData.contact] : []),
+        mergeContacts(
+          contactsData.items,
+          activityData?.contact ? [activityData.contact] : [],
+          opportunitiesData.items
+            .map((opportunity) => opportunity.contact)
+            .filter((contact): contact is Contact => Boolean(contact)),
+        ),
       );
       setProperties(propertiesData.items);
+      setOpportunities(
+        opportunitiesData.items.filter(
+          (opportunity) =>
+            opportunity.operationType === 'SALE' || opportunity.operationType === 'BUY',
+        ),
+      );
 
       if (activityData) {
         setActivity(activityData);
@@ -179,6 +250,9 @@ export function ActivitiesCreatePage() {
               : activityData.propertySearchLiked === false
                 ? 'DISLIKED'
                 : '',
+          commercialOpportunityId: activityData.commercialOpportunityId
+            ? String(activityData.commercialOpportunityId)
+            : '',
           reservationAgentName:
             activityData.reservationData?.agentName ?? user?.name ?? '',
           reservationOperationType:
@@ -222,14 +296,69 @@ export function ActivitiesCreatePage() {
             activityData.reservationData?.estimatedClosingMonth ?? '',
           reservationObservations:
             activityData.reservationData?.observations ?? '',
+          expenseOperationAmount: toInputNumberValue(
+            activityData.expenseBreakdownData?.operationAmount,
+          ),
+          expenseOperationCurrency:
+            activityData.expenseBreakdownData?.operationCurrency ?? 'USD',
+          expensePropertyAddress:
+            activityData.expenseBreakdownData?.propertyAddress ??
+            activityData.property?.address ??
+            '',
+          expenseCommissionPercent: toInputNumberValue(
+            activityData.expenseBreakdownData?.commissionPercent,
+          ),
+          expenseVatPercent: toInputNumberValue(
+            activityData.expenseBreakdownData?.vatPercent ?? 21,
+          ),
+          expenseInvoicedVatAmount: toInputNumberValue(
+            activityData.expenseBreakdownData?.invoicedVatAmount,
+          ),
+          expenseAmountAlreadyPaid: toInputNumberValue(
+            activityData.expenseBreakdownData?.amountAlreadyPaid,
+          ),
+          expenseNotaryExpenses:
+            activityData.expenseBreakdownData?.notaryExpenses ?? '',
+          expenseObservations:
+            activityData.expenseBreakdownData?.observations ?? '',
         });
+      } else if (searchParams.get('activityType') === 'EXPENSE_BREAKDOWN') {
+        const opportunityId = searchParams.get('opportunityId') ?? '';
+        const requestedOpportunity = opportunitiesData.items.find(
+          (opportunity) => String(opportunity.id) === opportunityId,
+        );
+
+        setForm((current) => ({
+          ...current,
+          activityType: 'EXPENSE_BREAKDOWN',
+          commercialOpportunityId: requestedOpportunity ? opportunityId : '',
+          contactId: requestedOpportunity
+            ? String(requestedOpportunity.contactId)
+            : '',
+          propertyId: requestedOpportunity?.propertyId
+            ? String(requestedOpportunity.propertyId)
+            : '',
+          expenseOperationAmount: toInputNumberValue(
+            requestedOpportunity?.property?.price,
+          ),
+          expenseOperationCurrency:
+            requestedOpportunity?.property?.currency ?? 'USD',
+          expensePropertyAddress:
+            requestedOpportunity?.property?.address ?? '',
+          expenseCommissionPercent:
+            requestedOpportunity?.operationType === 'SALE'
+              ? '3'
+              : requestedOpportunity?.operationType === 'BUY'
+                ? '4'
+                : '',
+        }));
       }
 
       setLoading(false);
     }
 
     void loadDependencies();
-  }, [activityId, isEditing, user?.name]);
+  }, [activityId, isEditing, searchParams, user?.name]);
 
   useEffect(() => {
     if (!contactSearchTerm) {
@@ -292,12 +421,39 @@ export function ActivitiesCreatePage() {
     }));
   }, [isReservation, selectedProperty]);
 
+  useEffect(() => {
+    if (!isExpenseBreakdown || !selectedOpportunity) {
+      return;
+    }
+
+    const opportunityProperty = selectedOpportunity.property ?? null;
+    setLinkProperty(Boolean(opportunityProperty));
+    setForm((current) => ({
+      ...current,
+      contactId: String(selectedOpportunity.contactId),
+      propertyId: opportunityProperty ? String(opportunityProperty.id) : '',
+      expenseOperationAmount:
+        current.expenseOperationAmount || toInputNumberValue(opportunityProperty?.price),
+      expenseOperationCurrency:
+        current.expenseOperationAmount
+          ? current.expenseOperationCurrency
+          : opportunityProperty?.currency ?? current.expenseOperationCurrency,
+      expensePropertyAddress:
+        current.expensePropertyAddress || opportunityProperty?.address || '',
+      expenseCommissionPercent:
+        current.expenseCommissionPercent ||
+        (selectedOpportunity.operationType === 'SALE' ? '3' : '4'),
+    }));
+  }, [isExpenseBreakdown, selectedOpportunity]);
+
   async function saveActivity(shareNow: boolean) {
     const saved = await apiRequest<Activity>(
       isEditing && activityId ? `/activities/${activityId}` : '/activities',
       {
         method: isEditing ? 'PATCH' : 'POST',
-        body: JSON.stringify(buildActivityPayload(form, linkProperty, activity)),
+        body: JSON.stringify(
+          buildActivityPayload(form, linkProperty, activity, selectedOpportunity),
+        ),
       },
     );
 
@@ -320,6 +476,22 @@ export function ActivitiesCreatePage() {
           message,
         ),
       );
+      const shared = await apiRequest<Activity>(`/activities/${nextActivity.id}/share`, {
+        method: 'PATCH',
+        body: JSON.stringify({}),
+      });
+      window.alert(t('common.whatsappSent'));
+      setActivity(shared);
+      return shared;
+    }
+
+    if (shareNow && isExpenseBreakdown) {
+      if (!nextActivity.contact || !getContactWhatsappPhone(nextActivity.contact)) {
+        throw new Error('El contacto de la oportunidad no tiene WhatsApp configurado');
+      }
+
+      const message = buildExpenseBreakdownWhatsappMessage(nextActivity);
+      openWhatsAppShareUrl(buildWhatsAppShareUrl(nextActivity.contact, message));
       const shared = await apiRequest<Activity>(`/activities/${nextActivity.id}/share`, {
         method: 'PATCH',
         body: JSON.stringify({}),
@@ -364,7 +536,7 @@ export function ActivitiesCreatePage() {
   }
 
   async function handleSaveAndShare() {
-    if (!canShareNow && !isReservation) return;
+    if (!canShareNow && !canShareExpense && !isReservation) return;
     if (!formRef.current?.reportValidity()) return;
 
     setSavingAndSharing(true);
@@ -382,6 +554,12 @@ export function ActivitiesCreatePage() {
     } finally {
       setSavingAndSharing(false);
     }
+  }
+
+  async function handleCopyExpenseMessage() {
+    if (!expenseWhatsappMessage) return;
+    await navigator.clipboard.writeText(expenseWhatsappMessage);
+    window.alert(t('activities.expenseMessageCopied'));
   }
 
   if (loading) {
@@ -436,6 +614,10 @@ export function ActivitiesCreatePage() {
                     event.target.value === 'RESERVATION'
                       ? current.reservationAgentName || user?.name || ''
                       : current.reservationAgentName,
+                  commercialOpportunityId:
+                    event.target.value === 'EXPENSE_BREAKDOWN'
+                      ? current.commercialOpportunityId
+                      : '',
                 }))
               }
               disabled={isEditing && activity?.activityType === 'APPRAISAL_REQUEST'}
@@ -447,6 +629,50 @@ export function ActivitiesCreatePage() {
               ))}
             </select>
           </label>
+          {isExpenseBreakdown ? (
+            <label className="full-span">
+              {t('activities.expenseOpportunity')}
+              <select
+                value={form.commercialOpportunityId}
+                onChange={(event) => {
+                  const nextOpportunity = opportunities.find(
+                    (opportunity) => String(opportunity.id) === event.target.value,
+                  );
+                  setForm((current) => ({
+                    ...current,
+                    commercialOpportunityId: event.target.value,
+                    contactId: nextOpportunity ? String(nextOpportunity.contactId) : '',
+                    propertyId: nextOpportunity?.propertyId
+                      ? String(nextOpportunity.propertyId)
+                      : '',
+                    expenseOperationAmount: toInputNumberValue(
+                      nextOpportunity?.property?.price,
+                    ),
+                    expenseOperationCurrency:
+                      nextOpportunity?.property?.currency ?? 'USD',
+                    expensePropertyAddress:
+                      nextOpportunity?.property?.address ?? '',
+                    expenseCommissionPercent:
+                      nextOpportunity?.operationType === 'SALE'
+                        ? '3'
+                        : nextOpportunity?.operationType === 'BUY'
+                          ? '4'
+                          : '',
+                  }));
+                }}
+                required
+              >
+                <option value="">{t('common.unassigned')}</option>
+                {opportunities.map((opportunity) => (
+                  <option key={opportunity.id} value={opportunity.id}>
+                    {translateEnum('operationType', opportunity.operationType)} -{' '}
+                    {opportunity.title}
+                  </option>
+                ))}
+              </select>
+              <p className="muted">{t('activities.expenseOpportunityHint')}</p>
+            </label>
+          ) : null}
           <label>
             {form.activityType === 'VISIT'
               ? t('activities.visitContactOptional')
@@ -467,6 +693,7 @@ export function ActivitiesCreatePage() {
               loadingLabel={t('common.loading')}
               noResultsLabel={t('common.noData')}
               required={isPropertySearch || isAppraisalRequest}
+              disabled={isExpenseBreakdown}
               loading={contactsLoading}
             />
           </label>
@@ -512,7 +739,7 @@ export function ActivitiesCreatePage() {
               </label>
             </>
           )}
-          {!isAppraisalRequest ? (
+          {!isAppraisalRequest && !isExpenseBreakdown ? (
             <div className="full-span stack-gap">
               <label className="checkbox-item">
                 <input
@@ -894,6 +1121,219 @@ export function ActivitiesCreatePage() {
                 />
               </label>
             </>
+          ) : isExpenseBreakdown ? (
+            <>
+              <div className="full-span stack-gap">
+                <strong>
+                  {selectedOpportunity?.operationType === 'SALE'
+                    ? t('activities.expenseSaleTitle')
+                    : t('activities.expensePurchaseTitle')}
+                </strong>
+                <p className="muted">{t('activities.expensePrefillHint')}</p>
+              </div>
+              <label>
+                {t('activities.expenseOperationAmount')}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.expenseOperationAmount}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expenseOperationAmount: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                {t('activities.expenseCurrency')}
+                <select
+                  value={form.expenseOperationCurrency}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expenseOperationCurrency: event.target.value as CurrencyType,
+                    }))
+                  }
+                >
+                  <option value="USD">USD</option>
+                  <option value="ARS">ARS</option>
+                </select>
+              </label>
+              <label className="full-span">
+                {t('activities.expensePropertyAddress')}
+                <input
+                  value={form.expensePropertyAddress}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expensePropertyAddress: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                {t('activities.expenseCommissionPercent')}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.expenseCommissionPercent}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expenseCommissionPercent: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                {t('activities.expenseVatPercent')}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.expenseVatPercent}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expenseVatPercent: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                {t('activities.expenseInvoicedVatAmount')}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.expenseInvoicedVatAmount}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expenseInvoicedVatAmount: event.target.value,
+                    }))
+                  }
+                  placeholder={
+                    expenseCalculation
+                      ? formatExpenseAmount(
+                          expenseCalculation.standardVatAmount,
+                          form.expenseOperationCurrency,
+                        )
+                      : undefined
+                  }
+                />
+                <p className="muted">{t('activities.expenseInvoicedVatHint')}</p>
+              </label>
+              {selectedOpportunity?.operationType === 'BUY' ? (
+                <label>
+                  {t('activities.expenseAmountAlreadyPaid')}
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.expenseAmountAlreadyPaid}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        expenseAmountAlreadyPaid: event.target.value,
+                      }))
+                    }
+                  />
+                  <p className="muted">{t('activities.expenseAmountAlreadyPaidHint')}</p>
+                </label>
+              ) : null}
+              <label className="full-span">
+                {t('activities.expenseNotaryExpenses')}
+                <textarea
+                  rows={2}
+                  value={form.expenseNotaryExpenses}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expenseNotaryExpenses: event.target.value,
+                    }))
+                  }
+                  placeholder={t('activities.expenseNotaryExpensesPlaceholder')}
+                />
+              </label>
+              <label className="full-span">
+                {t('activities.expenseObservations')}
+                <textarea
+                  rows={3}
+                  value={form.expenseObservations}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      expenseObservations: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              {expenseCalculation && expenseBreakdownData ? (
+                <section className="expense-breakdown-summary full-span">
+                  <div>
+                    <span>{t('activities.expenseCommissionAmount')}</span>
+                    <strong>
+                      {formatExpenseAmount(
+                        expenseCalculation.commissionAmount,
+                        expenseBreakdownData.operationCurrency,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>{t('activities.expenseVatAmount')}</span>
+                    <strong>
+                      {formatExpenseAmount(
+                        expenseCalculation.vatAmount,
+                        expenseBreakdownData.operationCurrency,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>{t('activities.expenseTotal')}</span>
+                    <strong>
+                      {formatExpenseAmount(
+                        expenseCalculation.total,
+                        expenseBreakdownData.operationCurrency,
+                      )}
+                    </strong>
+                  </div>
+                  {selectedOpportunity?.operationType === 'BUY' &&
+                  expenseBreakdownData.amountAlreadyPaid !== null ? (
+                    <div>
+                      <span>{t('activities.expenseBalance')}</span>
+                      <strong>
+                        {formatExpenseAmount(
+                          expenseCalculation.balance,
+                          expenseBreakdownData.operationCurrency,
+                        )}
+                      </strong>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+              <label className="full-span expense-message-preview">
+                {t('activities.expenseMessagePreview')}
+                <textarea value={expenseWhatsappMessage} rows={16} readOnly />
+              </label>
+              <div className="full-span calendar-related-actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => void handleCopyExpenseMessage()}
+                  disabled={!expenseWhatsappMessage}
+                >
+                  {t('activities.expenseCopyMessage')}
+                </button>
+              </div>
+            </>
           ) : (
             <label className="full-span">
               {t('common.description')}
@@ -948,6 +1388,18 @@ export function ActivitiesCreatePage() {
                   : t('activities.reservationSaveAndSend')}
               </button>
             ) : null}
+            {isExpenseBreakdown ? (
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={!canShareExpense || savingAndSharing}
+                onClick={handleSaveAndShare}
+              >
+                {savingAndSharing
+                  ? t('common.loading')
+                  : t('activities.expenseSaveAndShare')}
+              </button>
+            ) : null}
           </div>
         </form>
       </section>
@@ -959,10 +1411,12 @@ function buildActivityPayload(
   form: ActivityFormState,
   linkProperty: boolean,
   activity: Activity | null,
+  selectedOpportunity: CommercialOpportunity | null,
 ) {
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
   const isReservation = form.activityType === 'RESERVATION';
+  const isExpenseBreakdown = form.activityType === 'EXPENSE_BREAKDOWN';
   const activityDate = isAppraisalRequest
     ? activity?.activityDate ?? new Date().toISOString()
     : form.activityDate;
@@ -971,6 +1425,10 @@ function buildActivityPayload(
     contactId: form.contactId ? Number(form.contactId) : null,
     propertyId:
       !isAppraisalRequest && linkProperty && form.propertyId ? Number(form.propertyId) : null,
+    commercialOpportunityId:
+      isExpenseBreakdown && form.commercialOpportunityId
+        ? Number(form.commercialOpportunityId)
+        : null,
     activityType: form.activityType,
     title: isAppraisalRequest ? 'Prelisting' : form.title.trim() || undefined,
     description: isAppraisalRequest ? null : form.description || null,
@@ -993,8 +1451,40 @@ function buildActivityPayload(
             ? false
             : null,
     reservationData: isReservation ? buildReservationDataPayload(form) : null,
+    expenseBreakdownData: isExpenseBreakdown
+      ? buildExpenseBreakdownDataPayload(
+          form,
+          selectedOpportunity?.operationType ??
+            activity?.commercialOpportunity?.operationType,
+        )
+      : null,
     activityDate,
     nextFollowUpDate: isAppraisalRequest ? null : form.nextFollowUpDate || null,
+  };
+}
+
+function buildExpenseBreakdownDataPayload(
+  form: ActivityFormState,
+  operationType: OperationType | null | undefined,
+): ExpenseBreakdownActivityData | null {
+  if (operationType !== 'SALE' && operationType !== 'BUY') {
+    return null;
+  }
+
+  return {
+    operationType,
+    operationAmount: parseOptionalNumber(form.expenseOperationAmount),
+    operationCurrency: form.expenseOperationCurrency,
+    propertyAddress: form.expensePropertyAddress.trim() || null,
+    commissionPercent: parseOptionalNumber(form.expenseCommissionPercent),
+    vatPercent: parseOptionalNumber(form.expenseVatPercent),
+    invoicedVatAmount: parseOptionalNumber(form.expenseInvoicedVatAmount),
+    amountAlreadyPaid:
+      operationType === 'BUY'
+        ? parseOptionalNumber(form.expenseAmountAlreadyPaid)
+        : null,
+    notaryExpenses: form.expenseNotaryExpenses.trim() || null,
+    observations: form.expenseObservations.trim() || null,
   };
 }
 
@@ -1033,6 +1523,15 @@ function parseOptionalNumber(value: string) {
 
 function toInputNumberValue(value: number | null | undefined) {
   return value === null || value === undefined ? '' : String(value);
+}
+
+function formatExpenseAmount(value: number, currency: CurrencyType) {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 const propertyTypeOptions: PropertyType[] = [

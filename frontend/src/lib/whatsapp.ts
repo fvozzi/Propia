@@ -2,6 +2,7 @@ import type {
   Activity,
   Contact,
   CurrencyType,
+  ExpenseBreakdownActivityData,
   OperationType,
   Property,
   PropertyType,
@@ -202,6 +203,118 @@ export function buildReservationTreasuryWhatsappMessage(
   ].join('\n');
 }
 
+export function calculateExpenseBreakdown(
+  data: ExpenseBreakdownActivityData,
+) {
+  const operationAmount = data.operationAmount ?? 0;
+  const commissionPercent = data.commissionPercent ?? 0;
+  const vatPercent = data.vatPercent ?? 0;
+  const commissionAmount = roundMoney(
+    operationAmount * (commissionPercent / 100),
+  );
+  const standardVatAmount = roundMoney(
+    commissionAmount * (vatPercent / 100),
+  );
+  const vatAmount = roundMoney(
+    data.invoicedVatAmount ?? standardVatAmount,
+  );
+  const total = roundMoney(commissionAmount + vatAmount);
+  const amountAlreadyPaid = roundMoney(data.amountAlreadyPaid ?? 0);
+
+  return {
+    commissionAmount,
+    standardVatAmount,
+    vatAmount,
+    total,
+    amountAlreadyPaid,
+    balance: roundMoney(total - amountAlreadyPaid),
+  };
+}
+
+export function buildExpenseBreakdownWhatsappMessage(
+  activity: Pick<Activity, 'expenseBreakdownData' | 'description'> & {
+    contact?: Pick<Contact, 'firstName' | 'displayName'> | null;
+    property?: Pick<Property, 'address'> | null;
+  },
+) {
+  const data = activity.expenseBreakdownData;
+  if (!data) {
+    return '';
+  }
+
+  const calculation = calculateExpenseBreakdown(data);
+  const isSale = data.operationType === 'SALE';
+  const operationLabel = isSale ? 'Venta' : 'Compra';
+  const contactName =
+    activity.contact?.firstName?.trim() ||
+    activity.contact?.displayName?.trim() ||
+    '';
+  const address =
+    data.propertyAddress?.trim() || activity.property?.address?.trim() || '-';
+  const commissionPercent = formatPercent(data.commissionPercent);
+  const vatPercent = formatPercent(data.vatPercent);
+  const hasReducedVat =
+    data.invoicedVatAmount !== null &&
+    data.invoicedVatAmount < calculation.standardVatAmount;
+  const paidLines = !isSale && data.amountAlreadyPaid !== null
+    ? [
+        `• Reserva y refuerzo entregados: ${formatMoney(
+          calculation.amountAlreadyPaid,
+          data.operationCurrency,
+        )}`,
+        calculation.balance > 0
+          ? `• Saldo de honorarios a abonar: ${formatMoney(
+              calculation.balance,
+              data.operationCurrency,
+            )}`
+          : calculation.balance < 0
+            ? `• Saldo a favor para compensar en la escritura: ${formatMoney(
+                Math.abs(calculation.balance),
+                data.operationCurrency,
+              )}`
+            : '• Honorarios cubiertos con lo ya entregado',
+      ]
+    : [];
+
+  return [
+    `Hola${contactName ? ` ${contactName}` : ''}, te comparto el detalle de gastos previo a la escritura.`,
+    '',
+    `*${operationLabel} - ${address}*`,
+    `• Precio de cierre: ${formatMoney(data.operationAmount, data.operationCurrency)}`,
+    `• Honorarios inmobiliarios (${commissionPercent}): ${formatMoney(
+      calculation.commissionAmount,
+      data.operationCurrency,
+    )}`,
+    `• IVA sobre honorarios (${vatPercent}): ${formatMoney(
+      calculation.vatAmount,
+      data.operationCurrency,
+    )}`,
+    hasReducedVat
+      ? `  _(IVA reducido desde ${formatMoney(
+          calculation.standardVatAmount,
+          data.operationCurrency,
+        )})_`
+      : null,
+    `*• Total de honorarios: ${formatMoney(
+      calculation.total,
+      data.operationCurrency,
+    )}*`,
+    ...paidLines,
+    '',
+    data.notaryExpenses?.trim()
+      ? `Gastos de escribanía: ${data.notaryExpenses.trim()}`
+      : 'Los gastos de escribanía te los informa la escribanía.',
+    isSale
+      ? 'Para la escritura recordá llevar lo solicitado por la escribanía y las llaves de la propiedad.'
+      : 'Para la escritura recordá llevar dólares cara grande, sin manchas ni marcas, DNI y lo solicitado por la escribanía.',
+    data.observations?.trim() || activity.description?.trim()
+      ? `Observaciones: ${data.observations?.trim() || activity.description?.trim()}`
+      : null,
+  ]
+    .filter((line) => line !== null)
+    .join('\n');
+}
+
 export function getContactWhatsappPhone(contact: ShareableContact) {
   return contact.whatsapp || contact.phone || '';
 }
@@ -303,6 +416,10 @@ function formatMoney(
     maximumFractionDigits: 2,
   }).format(amount);
   return `${currency === 'ARS' ? '$' : 'U$S'} ${formattedAmount}`;
+}
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function formatYesNo(value: boolean | null | undefined) {

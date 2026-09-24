@@ -85,6 +85,7 @@ export type ActivityType =
   | 'MARKET_ANALYSIS'
   | 'PHOTO_SESSION'
   | 'RESERVATION'
+  | 'EXPENSE_BREAKDOWN'
   | 'SALE_DEED'
   | 'PURCHASE_DEED';
 export type VisitStatus = 'SCHEDULED' | 'DONE' | 'CANCELLED' | 'RESCHEDULED';
@@ -140,6 +141,19 @@ export interface ReservationActivityData {
   credit: boolean | null;
   relocation: boolean | null;
   estimatedClosingMonth: string | null;
+  observations: string | null;
+}
+
+export interface ExpenseBreakdownActivityData {
+  operationType: 'SALE' | 'BUY';
+  operationAmount: number | null;
+  operationCurrency: CurrencyType;
+  propertyAddress: string | null;
+  commissionPercent: number | null;
+  vatPercent: number | null;
+  invoicedVatAmount: number | null;
+  amountAlreadyPaid: number | null;
+  notaryExpenses: string | null;
   observations: string | null;
 }
 
@@ -506,6 +520,7 @@ export interface Activity {
   whatsappSharedAt: string | null;
   propertySearchLiked: boolean | null;
   reservationData: ReservationActivityData | null;
+  expenseBreakdownData: ExpenseBreakdownActivityData | null;
   activityDate: string;
   nextFollowUpDate: string | null;
   createdAt: string;
@@ -681,6 +696,8 @@ export interface DashboardOpportunityPipelineStep {
     | 'PROPERTY_READY'
     | 'NEGOTIATING'
     | 'RESERVED'
+    | 'EXPENSE_BREAKDOWN_SENT'
+    | 'DEED_COMPLETED'
     | 'CLOSED_WON';
   completed: boolean;
 }

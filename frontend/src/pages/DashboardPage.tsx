@@ -418,6 +418,10 @@ function translateOpportunityStep(
       return t('dashboard.stepNegotiating');
     case 'RESERVED':
       return t('dashboard.stepReserved');
+    case 'EXPENSE_BREAKDOWN_SENT':
+      return t('dashboard.stepExpenseBreakdownSent');
+    case 'DEED_COMPLETED':
+      return t('dashboard.stepDeedCompleted');
     case 'CLOSED_WON':
       return t('dashboard.stepClosedWon');
     default:

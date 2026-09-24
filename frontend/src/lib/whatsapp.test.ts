@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildBirthdayWhatsappMessage,
   buildBuyerSearchAgentMessage,
+  buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
   buildVisitWhatsappMessage,
   buildWhatsAppPickerUrl,
   buildWhatsAppShareUrl,
+  calculateExpenseBreakdown,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
 } from './whatsapp';
@@ -112,6 +114,71 @@ describe('whatsapp helpers', () => {
         '* Observaciones: 75% Lila, 25% Victoria',
       ].join('\n'),
     );
+  });
+
+  it('calculates a reduced VAT expense breakdown', () => {
+    expect(
+      calculateExpenseBreakdown({
+        operationType: 'SALE',
+        operationAmount: 150000,
+        operationCurrency: 'USD',
+        propertyAddress: 'Nicolas Avellaneda 613 3A',
+        commissionPercent: 3,
+        vatPercent: 21,
+        invoicedVatAmount: 100,
+        amountAlreadyPaid: null,
+        notaryExpenses: null,
+        observations: null,
+      }),
+    ).toEqual({
+      commissionAmount: 4500,
+      standardVatAmount: 945,
+      vatAmount: 100,
+      total: 4600,
+      amountAlreadyPaid: 0,
+      balance: 4600,
+    });
+  });
+
+  it('builds the purchase expense checklist message with the paid balance', () => {
+    expect(
+      buildExpenseBreakdownWhatsappMessage({
+        description: null,
+        contact: { firstName: 'Victoria', displayName: 'Victoria Arque' },
+        property: { address: 'Nicolas Avellaneda 613 3A' },
+        expenseBreakdownData: {
+          operationType: 'BUY',
+          operationAmount: 150000,
+          operationCurrency: 'USD',
+          propertyAddress: 'Nicolas Avellaneda 613 3A',
+          commissionPercent: 4,
+          vatPercent: 21,
+          invoicedVatAmount: 150,
+          amountAlreadyPaid: 7450,
+          notaryExpenses: null,
+          observations: null,
+        },
+      }),
+    ).toContain('*Compra - Nicolas Avellaneda 613 3A*');
+    expect(
+      buildExpenseBreakdownWhatsappMessage({
+        description: null,
+        contact: { firstName: 'Victoria', displayName: 'Victoria Arque' },
+        property: { address: 'Nicolas Avellaneda 613 3A' },
+        expenseBreakdownData: {
+          operationType: 'BUY',
+          operationAmount: 150000,
+          operationCurrency: 'USD',
+          propertyAddress: 'Nicolas Avellaneda 613 3A',
+          commissionPercent: 4,
+          vatPercent: 21,
+          invoicedVatAmount: 150,
+          amountAlreadyPaid: 7450,
+          notaryExpenses: null,
+          observations: null,
+        },
+      }),
+    ).toContain('Saldo a favor para compensar en la escritura: U$S 1.300');
   });
 
   it('prefers whatsapp over phone for the contact number', () => {

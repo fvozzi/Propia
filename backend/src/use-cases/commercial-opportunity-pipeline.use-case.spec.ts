@@ -39,6 +39,8 @@ describe('commercial opportunity pipeline use case', () => {
       { key: 'PROPERTY_READY', completed: true },
       { key: 'NEGOTIATING', completed: false },
       { key: 'RESERVED', completed: false },
+      { key: 'EXPENSE_BREAKDOWN_SENT', completed: false },
+      { key: 'DEED_COMPLETED', completed: false },
       { key: 'CLOSED_WON', completed: false },
     ]);
     expect(item.completedStepsCount).toBe(4);
@@ -80,6 +82,44 @@ describe('commercial opportunity pipeline use case', () => {
       { key: 'VISITS_COMPLETED', completed: true },
       { key: 'NEGOTIATING', completed: false },
       { key: 'RESERVED', completed: false },
+      { key: 'EXPENSE_BREAKDOWN_SENT', completed: false },
+      { key: 'DEED_COMPLETED', completed: false },
+      { key: 'CLOSED_WON', completed: false },
+    ]);
+  });
+
+  it('tracks the expense detail before the purchase deed', () => {
+    const item = buildOpportunityPipelineItem(
+      {
+        id: 2,
+        contactId: 20,
+        operationType: OperationType.BUY,
+        title: 'Compra 3 ambientes Caballito',
+        stage: CommercialOpportunityStage.RESERVED,
+        status: CommercialOpportunityStatus.OPEN,
+        searchRequirementId: 81,
+        appraisalRequestId: null,
+        propertyId: 99,
+        contact: { displayName: 'Sofia Lopez' },
+        property: { title: 'Departamento Caballito' },
+      },
+      [
+        {
+          commercialOpportunityId: 2,
+          activityType: ActivityType.EXPENSE_BREAKDOWN,
+          whatsappSharedAt: '2026-09-24T15:00:00.000Z',
+        },
+        {
+          commercialOpportunityId: 2,
+          activityType: ActivityType.PURCHASE_DEED,
+          whatsappSharedAt: null,
+        },
+      ],
+    );
+
+    expect(item.steps.slice(-3)).toEqual([
+      { key: 'EXPENSE_BREAKDOWN_SENT', completed: true },
+      { key: 'DEED_COMPLETED', completed: true },
       { key: 'CLOSED_WON', completed: false },
     ]);
   });

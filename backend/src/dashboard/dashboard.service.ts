@@ -189,6 +189,9 @@ export class DashboardService {
                 ActivityType.PROPERTY_SEARCH,
                 ActivityType.VISIT,
                 ActivityType.RESERVATION,
+                ActivityType.EXPENSE_BREAKDOWN,
+                ActivityType.SALE_DEED,
+                ActivityType.PURCHASE_DEED,
               ]),
             },
           })
