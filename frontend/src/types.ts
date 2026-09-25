@@ -698,6 +698,11 @@ export interface Visit {
   id: number;
   propertyId: number | null;
   contactId: number;
+  colleagueContactId?: number | null;
+  colleagueName?: string | null;
+  colleagueWhatsapp?: string | null;
+  searchRequirementId?: number | null;
+  buyerPropertyCandidateId?: number | null;
   scheduledAt: string;
   status: VisitStatus;
   notes: string | null;
@@ -711,7 +716,10 @@ export interface Visit {
   createdAt: string;
   updatedAt: string;
   contact?: Contact;
+  colleagueContact?: Contact | null;
   property?: Property | null;
+  searchRequirement?: SearchRequirement | null;
+  buyerPropertyCandidate?: BuyerPropertyCandidate | null;
 }
 
 export interface PropertyMapItem {

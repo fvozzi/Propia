@@ -19,8 +19,11 @@ type ShareableVisit = Pick<
   | 'externalUrl'
   | 'externalPropertyTitle'
   | 'externalPropertyAddress'
+  | 'colleagueName'
+  | 'colleagueWhatsapp'
 > & {
   property?: Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> | null;
+  colleagueContact?: Pick<Contact, 'displayName'> | null;
 };
 type ShareableVisitActivity = Pick<
   Activity,
@@ -76,17 +79,65 @@ export function buildVisitWhatsappMessage(
     ('externalPropertyAddress' in visit ? visit.externalPropertyAddress?.trim() : null) ||
     fallbackTitle ||
     '';
+  const colleagueName =
+    'colleagueName' in visit
+      ? visit.colleagueContact?.displayName?.trim() || visit.colleagueName?.trim() || null
+      : null;
+  const calendarUrl =
+    'scheduledAt' in visit
+      ? buildVisitRecipientCalendarUrl({
+          scheduledAt,
+          title: fallbackTitle || visit.property?.title || 'Visita a propiedad',
+          address,
+          propertyUrl: visit.externalUrl,
+          colleagueName,
+          notes,
+        })
+      : null;
 
   return [
     statusLine,
     `Fecha: ${weekday} ${calendarDate}`,
     `Hora: ${time} hs`,
+    colleagueName ? `Colega: ${colleagueName}` : null,
     address ? `Propiedad: ${address}` : null,
     notes?.trim() ? `Notas: ${notes.trim()}` : null,
     visit.externalUrl?.trim() ? `URL: ${visit.externalUrl.trim()}` : null,
+    calendarUrl ? `Agendar en mi calendario: ${calendarUrl}` : null,
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+export function buildVisitRecipientCalendarUrl(input: {
+  scheduledAt: string;
+  title: string;
+  address?: string | null;
+  propertyUrl?: string | null;
+  colleagueName?: string | null;
+  notes?: string | null;
+}) {
+  const start = new Date(input.scheduledAt);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const details = [
+    input.colleagueName?.trim() ? `Colega: ${input.colleagueName.trim()}` : null,
+    input.address?.trim() ? `Direccion: ${input.address.trim()}` : null,
+    input.propertyUrl?.trim()
+      ? `Link de la propiedad: ${input.propertyUrl.trim()}`
+      : null,
+    input.notes?.trim() ? `Notas: ${input.notes.trim()}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Visita a propiedad de colega - ${input.title.trim()}`,
+    dates: `${formatGoogleCalendarDate(start)}/${formatGoogleCalendarDate(end)}`,
+    details,
+    location: input.address?.trim() || '',
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 export function buildBirthdayWhatsappMessage(contactName: string) {
@@ -475,6 +526,10 @@ function formatMoney(
 function formatChecklistDate(value: string) {
   const [year, month, day] = value.split('-');
   return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
+function formatGoogleCalendarDate(value: Date) {
+  return value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 }
 
 function roundMoney(value: number) {

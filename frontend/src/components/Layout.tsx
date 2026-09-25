@@ -45,7 +45,6 @@ export function Layout() {
         { to: '/contacts', label: t('nav.contacts'), icon: '◎' },
         { to: '/opportunities', label: t('nav.commercialOpportunities'), icon: '↗' },
         { to: '/activities', label: t('nav.activities'), icon: '✓' },
-        { to: '/visits', label: t('nav.visits'), icon: '⌖' },
       ],
     },
     {

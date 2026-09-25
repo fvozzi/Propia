@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
 import { GoogleCalendarConnection } from '../auth/google-calendar-connection.entity';
 import { buildActivityCalendarEvent } from '../use-cases/google-calendar-activity.use-case';
+import { buildVisitCalendarEvent } from '../use-cases/google-calendar-visit.use-case';
 import { Visit } from '../visits/visit.entity';
 
 @Injectable()
@@ -229,38 +230,7 @@ export class GoogleCalendarService {
   }
 
   private buildVisitEvent(visit: Visit) {
-    const endDate = new Date(visit.scheduledAt);
-    endDate.setHours(endDate.getHours() + 1);
-
-    const propertyTitle =
-      visit.property?.title ??
-      visit.externalPropertyTitle?.trim() ??
-      (visit.propertyId ? `Property #${visit.propertyId}` : 'External property visit');
-    const propertyAddress = visit.property?.address
-      ? `${visit.property.address}, ${visit.property.city}`
-      : visit.externalPropertyAddress?.trim() || 'Address pending';
-    const contactName = visit.contact?.displayName ?? `Contact #${visit.contactId}`;
-
-    return {
-      summary: `External property visit - ${propertyTitle}`,
-      description: [
-        `Contact: ${contactName}`,
-        `Property: ${propertyTitle}`,
-        `Address: ${propertyAddress}`,
-        `Status: ${visit.status}`,
-        visit.externalUrl?.trim() ? `Listing: ${visit.externalUrl.trim()}` : null,
-        visit.notes ? `Notes: ${visit.notes}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      location: propertyAddress,
-      start: {
-        dateTime: visit.scheduledAt.toISOString(),
-      },
-      end: {
-        dateTime: endDate.toISOString(),
-      },
-    };
+    return buildVisitCalendarEvent(visit);
   }
 
   private buildActivityEvent(activity: Activity) {

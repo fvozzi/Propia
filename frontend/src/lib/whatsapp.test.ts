@@ -39,11 +39,12 @@ describe('whatsapp helpers', () => {
   });
 
   it('builds the visit confirmation message with schedule, address and link', () => {
-    expect(
-      buildVisitWhatsappMessage({
+    const message = buildVisitWhatsappMessage({
         scheduledAt: '2026-05-11T14:30:00.000Z',
         status: 'SCHEDULED',
         notes: null,
+        colleagueName: 'Laura Colega',
+        colleagueWhatsapp: '5491112345678',
         externalUrl: 'https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
         property: {
           title: 'Av Dorrego 1653',
@@ -51,15 +52,20 @@ describe('whatsapp helpers', () => {
           neighborhood: 'Palermo Hollywood',
           city: 'CABA',
         },
-      }),
-    ).toBe(
-      [
-        'VISITA CONFIRMADA',
-        'Fecha: lunes 11/05/2026',
-        'Hora: 11:30 hs',
-        'Propiedad: Av Dorrego 1653 timbre 5, Palermo Hollywood',
-        'URL: https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
-      ].join('\n'),
+      });
+
+    expect(message).toContain('VISITA CONFIRMADA');
+    expect(message).toContain('Fecha: lunes 11/05/2026');
+    expect(message).toContain('Hora: 11:30 hs');
+    expect(message).toContain('Colega: Laura Colega');
+    expect(message).toContain(
+      'Propiedad: Av Dorrego 1653 timbre 5, Palermo Hollywood',
+    );
+    expect(message).toContain(
+      'URL: https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+    );
+    expect(message).toContain(
+      'Agendar en mi calendario: https://calendar.google.com/calendar/render?',
     );
   });
 

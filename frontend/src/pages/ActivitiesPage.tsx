@@ -20,11 +20,18 @@ import {
   buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
+  buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
 } from '../lib/whatsapp';
-import type { Activity, Contact, Paginated } from '../types';
+import type {
+  Activity,
+  Contact,
+  Paginated,
+  SearchRequirement,
+  Visit,
+} from '../types';
 
 type ActivityGroupBy = 'NONE' | 'ACTIVITY_TYPE' | 'CONTACT' | 'ACTIVITY_DATE';
 
@@ -36,6 +43,8 @@ export function ActivitiesPage() {
   const processedSearchStringRef = useRef(searchParams.toString());
   const [response, setResponse] = useState<Paginated<Activity> | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [searchRequirements, setSearchRequirements] = useState<SearchRequirement[]>([]);
+  const [externalVisits, setExternalVisits] = useState<Visit[]>([]);
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(hasAnyActivityFilter(initialFilters));
   const [activityDate, setActivityDate] = useState(initialFilters.activityDate);
@@ -52,6 +61,7 @@ export function ActivitiesPage() {
   );
   const [groupBy, setGroupBy] = useState<ActivityGroupBy>('ACTIVITY_TYPE');
   const [sharingActivityId, setSharingActivityId] = useState<number | null>(null);
+  const [sharingVisitId, setSharingVisitId] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
 
   const groupedActivities = useMemo(
@@ -119,14 +129,20 @@ export function ActivitiesPage() {
   }, [page]);
 
   useEffect(() => {
-    async function loadContacts() {
-      const data = await apiRequest<Paginated<Contact>>(
-        '/contacts?page=1&limit=100',
-      );
-      setContacts(data.items);
+    async function loadRelatedResources() {
+      const [contactsData, requirementsData, visitsData] = await Promise.all([
+        apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100'),
+        apiRequest<Paginated<SearchRequirement>>(
+          '/search-requirements?page=1&limit=100',
+        ),
+        apiRequest<Paginated<Visit>>('/visits?page=1&limit=100'),
+      ]);
+      setContacts(contactsData.items);
+      setSearchRequirements(requirementsData.items);
+      setExternalVisits(visitsData.items);
     }
 
-    void loadContacts();
+    void loadRelatedResources();
   }, []);
 
   useEffect(() => {
@@ -288,6 +304,32 @@ export function ActivitiesPage() {
     );
   }
 
+  async function handleSendVisitWhatsapp(visit: Visit) {
+    if (!visit.contact || !getContactWhatsappPhone(visit.contact)) return;
+    setSharingVisitId(visit.id);
+    setActionError('');
+    try {
+      openWhatsAppShareUrl(
+        buildWhatsAppShareUrl(visit.contact, buildVisitWhatsappMessage(visit)),
+      );
+      window.alert(t('common.whatsappSent'));
+    } catch (sendError) {
+      setActionError(
+        sendError instanceof Error
+          ? sendError.message
+          : t('common.whatsappSendFailed'),
+      );
+    } finally {
+      setSharingVisitId(null);
+    }
+  }
+
+  async function handleDeleteVisit(id: number) {
+    if (!window.confirm(t('common.yesDeleteVisit'))) return;
+    await apiRequest(`/visits/${id}`, { method: 'DELETE' });
+    setExternalVisits((current) => current.filter((visit) => visit.id !== id));
+  }
+
   return (
     <div className="page-stack">
       <ResourcePageHeader
@@ -304,6 +346,15 @@ export function ActivitiesPage() {
             </button>
             <Link to="/activities/new" className="button-link">
               {t('activities.newActivity')}
+            </Link>
+            <Link
+              to="/activities/new?activityType=EXTERNAL_VISIT"
+              className="ghost-button button-link"
+            >
+              {t('calendar.externalVisitType')}
+            </Link>
+            <Link to="/requirements" className="ghost-button button-link">
+              {t('requirements.manageRequirement')}
             </Link>
           </>
         }
@@ -449,6 +500,7 @@ export function ActivitiesPage() {
                 onSendWhatsapp={handleSendWhatsapp}
                 onShareAppraisalEmail={handleShareAppraisalEmail}
                 sharingActivityId={sharingActivityId}
+                searchRequirements={searchRequirements}
                 t={t}
                 translateEnum={translateEnum}
               />
@@ -470,6 +522,7 @@ export function ActivitiesPage() {
                       onSendWhatsapp={handleSendWhatsapp}
                       onShareAppraisalEmail={handleShareAppraisalEmail}
                       sharingActivityId={sharingActivityId}
+                      searchRequirements={searchRequirements}
                       t={t}
                       translateEnum={translateEnum}
                     />
@@ -478,6 +531,100 @@ export function ActivitiesPage() {
               </section>
             ))}
       </PaginatedListCard>
+
+      <section className="card">
+        <div className="candidate-header">
+          <div>
+            <p className="eyebrow">{t('activities.eyebrow')}</p>
+            <h3>{t('visits.title')}</h3>
+            <p className="muted">{t('visits.subtitle')}</p>
+          </div>
+          <Link
+            to="/activities/new?activityType=EXTERNAL_VISIT"
+            className="button-link"
+          >
+            {t('visits.newVisit')}
+          </Link>
+        </div>
+        <div className="list-stack">
+          {externalVisits.length === 0 ? (
+            <p className="muted">{t('common.noData')}</p>
+          ) : (
+            [...externalVisits]
+              .sort(
+                (left, right) =>
+                  new Date(right.scheduledAt).getTime() -
+                  new Date(left.scheduledAt).getTime(),
+              )
+              .map((visit) => (
+                <article key={visit.id} className="list-item list-item-actions">
+                  <div>
+                    <strong>
+                      {visit.property?.title ??
+                        visit.externalPropertyTitle ??
+                        t('dashboard.propertyFallback')}
+                    </strong>
+                    <p className="muted">
+                      {visit.contact?.displayName ?? `${t('common.contact')} #${visit.contactId}`}
+                      {' - '}
+                      {formatDateTime(visit.scheduledAt)}
+                    </p>
+                    {visit.colleagueContact?.displayName || visit.colleagueName ? (
+                      <p className="muted">
+                        Colega: {visit.colleagueContact?.displayName ?? visit.colleagueName}
+                      </p>
+                    ) : null}
+                    {visit.externalPropertyAddress ? (
+                      <p className="muted">{visit.externalPropertyAddress}</p>
+                    ) : null}
+                    <div className="candidate-actions">
+                      <StatusPill value={visit.status} />
+                      {visit.searchRequirementId ? (
+                        <Link
+                          to={`/requirements/${visit.searchRequirementId}/manage`}
+                          className="agenda-link"
+                        >
+                          {t('requirements.manageRequirement')}
+                        </Link>
+                      ) : null}
+                      {visit.externalUrl ? (
+                        <a
+                          href={visit.externalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="agenda-link"
+                        >
+                          {t('visits.openListing')}
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="candidate-actions">
+                    {visit.contact && getContactWhatsappPhone(visit.contact) ? (
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => void handleSendVisitWhatsapp(visit)}
+                        disabled={sharingVisitId === visit.id}
+                      >
+                        {sharingVisitId === visit.id
+                          ? t('common.loading')
+                          : t('visits.shareNow')}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => void handleDeleteVisit(visit.id)}
+                    >
+                      {t('common.delete')}
+                    </button>
+                  </div>
+                </article>
+              ))
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -505,6 +652,7 @@ function ActivityListItem({
   onSendWhatsapp,
   onShareAppraisalEmail,
   sharingActivityId,
+  searchRequirements,
   t,
   translateEnum,
 }: {
@@ -515,6 +663,7 @@ function ActivityListItem({
   onSendWhatsapp: (activity: Activity) => Promise<void>;
   onShareAppraisalEmail: (activity: Activity) => void;
   sharingActivityId: number | null;
+  searchRequirements: SearchRequirement[];
   t: (path: string) => string;
   translateEnum: (group: 'activityType' | 'operationType', value: string) => string;
 }) {
@@ -527,6 +676,11 @@ function ActivityListItem({
     appraisalRequest &&
     isAppraisalRequestAvailable(appraisalRequest) &&
     Boolean(activity.contact);
+  const contactRequirements = activity.contactId
+    ? searchRequirements.filter(
+        (requirement) => requirement.contactId === activity.contactId,
+      )
+    : [];
 
   return (
     <article className="list-item list-item-actions">
@@ -619,6 +773,16 @@ function ActivityListItem({
         ) : null}
         <div className="candidate-actions">
           <StatusPill value={activity.activityType} />
+          {contactRequirements.map((requirement) => (
+            <Link
+              key={requirement.id}
+              to={`/requirements/${requirement.id}/manage`}
+              className="agenda-link"
+            >
+              {t('requirements.manageRequirement')}
+              {contactRequirements.length > 1 ? ` #${requirement.id}` : ''}
+            </Link>
+          ))}
           {activity.externalUrl ? (
             <a
               href={activity.externalUrl}

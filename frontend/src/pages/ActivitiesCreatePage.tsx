@@ -8,6 +8,7 @@ import {
   buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
+  buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   calculateExpenseBreakdown,
   getContactWhatsappPhone,
@@ -17,6 +18,7 @@ import { activityTypeOptions, useI18n } from '../lib/i18n';
 import type {
   Activity,
   ActivityType,
+  BuyerPropertyCandidate,
   CommercialOpportunity,
   Contact,
   CurrencyType,
@@ -28,12 +30,15 @@ import type {
   Property,
   PropertyType,
   ReservationActivityData,
+  SearchRequirement,
+  Visit,
+  VisitStatus,
 } from '../types';
 
 type PropertySearchFeedback = '' | 'LIKED' | 'DISLIKED';
 
 type ActivityFormState = {
-  activityType: ActivityType;
+  activityType: ActivityType | 'EXTERNAL_VISIT';
   contactId: string;
   propertyId: string;
   activityDate: string;
@@ -73,6 +78,14 @@ type ActivityFormState = {
   expenseNotaryExpenses: string;
   expenseObservations: string;
   expenseChecklist: ExpenseBreakdownChecklistData;
+  visitSearchRequirementId: string;
+  visitCandidateId: string;
+  visitColleagueContactId: string;
+  visitColleagueName: string;
+  visitColleagueWhatsapp: string;
+  visitStatus: VisitStatus;
+  visitExternalPropertyTitle: string;
+  visitExternalPropertyAddress: string;
 };
 
 const emptyChecklistParty = (): ExpenseChecklistPartyData => ({
@@ -209,6 +222,14 @@ const initialForm: ActivityFormState = {
   expenseNotaryExpenses: '',
   expenseObservations: '',
   expenseChecklist: createEmptyExpenseChecklist(),
+  visitSearchRequirementId: '',
+  visitCandidateId: '',
+  visitColleagueContactId: '',
+  visitColleagueName: '',
+  visitColleagueWhatsapp: '',
+  visitStatus: 'SCHEDULED',
+  visitExternalPropertyTitle: '',
+  visitExternalPropertyAddress: '',
 };
 
 type ExpenseChecklistScalarKey = Exclude<
@@ -325,10 +346,14 @@ export function ActivitiesCreatePage() {
   const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactSearch, setContactSearch] = useState('');
+  const [visitColleagueSearch, setVisitColleagueSearch] = useState('');
   const [contactMatches, setContactMatches] = useState<Contact[] | null>(null);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [opportunities, setOpportunities] = useState<CommercialOpportunity[]>([]);
+  const [searchRequirements, setSearchRequirements] = useState<SearchRequirement[]>([]);
+  const [visitCandidates, setVisitCandidates] = useState<BuyerPropertyCandidate[]>([]);
+  const [visitCandidatesLoading, setVisitCandidatesLoading] = useState(false);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(Boolean(id));
   const [linkProperty, setLinkProperty] = useState(false);
@@ -343,6 +368,7 @@ export function ActivitiesCreatePage() {
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
   const isReservation = form.activityType === 'RESERVATION';
   const isExpenseBreakdown = form.activityType === 'EXPENSE_BREAKDOWN';
+  const isExternalVisit = form.activityType === 'EXTERNAL_VISIT';
   const contactSearchTerm = contactSearch.trim();
   const activityContact =
     activity?.contact && String(activity.contact.id) === form.contactId ? activity.contact : null;
@@ -364,6 +390,15 @@ export function ActivitiesCreatePage() {
     String(activity.commercialOpportunity.id) === form.commercialOpportunityId
       ? activity.commercialOpportunity
       : null);
+  const visitRequirements = searchRequirements.filter(
+    (requirement) => String(requirement.contactId) === form.contactId,
+  );
+  const visibleVisitCandidates = form.visitSearchRequirementId
+    ? visitCandidates.filter(
+        (candidate) =>
+          String(candidate.searchRequirementId) === form.visitSearchRequirementId,
+      )
+    : visitCandidates;
   const expenseBreakdownData = isExpenseBreakdown
     ? buildExpenseBreakdownDataPayload(form, selectedOpportunity?.operationType)
     : null;
@@ -401,14 +436,43 @@ export function ActivitiesCreatePage() {
       getContactWhatsappPhone(selectedContact) &&
       expenseBreakdownData?.operationAmount,
   );
+  const externalVisitPreview = isExternalVisit
+    ? buildVisitWhatsappMessage({
+        scheduledAt: form.activityDate || new Date().toISOString(),
+        status: form.visitStatus,
+        notes: form.description || null,
+        externalUrl: form.externalUrl || null,
+        externalPropertyTitle: form.visitExternalPropertyTitle || null,
+        externalPropertyAddress: form.visitExternalPropertyAddress || null,
+        colleagueName: form.visitColleagueName || null,
+        colleagueWhatsapp: form.visitColleagueWhatsapp || null,
+        property: selectedProperty,
+      })
+    : '';
+  const canShareExternalVisit = Boolean(
+    isExternalVisit &&
+      selectedContact &&
+      getContactWhatsappPhone(selectedContact) &&
+      form.activityDate &&
+      (form.propertyId || form.visitExternalPropertyTitle.trim()),
+  );
 
   useEffect(() => {
     async function loadDependencies() {
-      const [contactsData, propertiesData, opportunitiesData, activityData] = await Promise.all([
+      const [
+        contactsData,
+        propertiesData,
+        opportunitiesData,
+        requirementsData,
+        activityData,
+      ] = await Promise.all([
         apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC'),
         apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
         apiRequest<Paginated<CommercialOpportunity>>(
           '/commercial-opportunities?page=1&limit=100',
+        ),
+        apiRequest<Paginated<SearchRequirement>>(
+          '/search-requirements?page=1&limit=100',
         ),
         isEditing && activityId
           ? apiRequest<Activity>(`/activities/${activityId}`)
@@ -425,6 +489,7 @@ export function ActivitiesCreatePage() {
         ),
       );
       setProperties(propertiesData.items);
+      setSearchRequirements(requirementsData.items);
       setOpportunities(
         opportunitiesData.items.filter(
           (opportunity) =>
@@ -528,6 +593,14 @@ export function ActivitiesCreatePage() {
             activityData.expenseBreakdownData?.checklist,
             activityData.expenseBreakdownData?.amountAlreadyPaid,
           ),
+          visitSearchRequirementId: '',
+          visitCandidateId: '',
+          visitColleagueContactId: '',
+          visitColleagueName: '',
+          visitColleagueWhatsapp: '',
+          visitStatus: 'SCHEDULED',
+          visitExternalPropertyTitle: '',
+          visitExternalPropertyAddress: '',
         });
       } else if (searchParams.get('activityType') === 'EXPENSE_BREAKDOWN') {
         const opportunityId = searchParams.get('opportunityId') ?? '';
@@ -565,6 +638,14 @@ export function ActivitiesCreatePage() {
                 user?.name ?? null,
               )
             : createEmptyExpenseChecklist(),
+        }));
+      } else if (searchParams.get('activityType') === 'EXTERNAL_VISIT') {
+        const contactId = searchParams.get('contactId') ?? '';
+        setForm((current) => ({
+          ...current,
+          activityType: 'EXTERNAL_VISIT',
+          contactId,
+          activityDate: current.activityDate || toDateTimeLocalValue(new Date().toISOString()),
         }));
       }
 
@@ -618,6 +699,52 @@ export function ActivitiesCreatePage() {
   }, [contactSearchTerm]);
 
   useEffect(() => {
+    if (!isExternalVisit || !form.contactId) {
+      setVisitCandidates([]);
+      setVisitCandidatesLoading(false);
+      return;
+    }
+
+    const matchingRequirements = searchRequirements.filter(
+      (requirement) => String(requirement.contactId) === form.contactId,
+    );
+    if (matchingRequirements.length === 0) {
+      setVisitCandidates([]);
+      return;
+    }
+
+    let cancelled = false;
+    setVisitCandidatesLoading(true);
+    void Promise.all(
+      matchingRequirements.map((requirement) =>
+        apiRequest<SearchRequirement>(`/search-requirements/${requirement.id}`),
+      ),
+    )
+      .then((requirements) => {
+        if (cancelled) return;
+        setVisitCandidates(
+          requirements.flatMap((requirement) =>
+            (requirement.propertyCandidates ?? []).map((candidate) => ({
+              ...candidate,
+              searchRequirementId:
+                candidate.searchRequirementId ?? requirement.id,
+            })),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setVisitCandidates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setVisitCandidatesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.contactId, isExternalVisit, searchRequirements]);
+
+  useEffect(() => {
     if (!isReservation || !selectedProperty) {
       return;
     }
@@ -664,6 +791,94 @@ export function ActivitiesCreatePage() {
       ),
     }));
   }, [isExpenseBreakdown, selectedOpportunity, user?.name]);
+
+  function handleVisitCandidateChange(candidateId: string) {
+    const candidate =
+      visitCandidates.find((item) => String(item.id) === candidateId) ?? null;
+    const colleague = candidate
+      ? findMatchingVisitColleague(
+          contacts,
+          candidate.agentName,
+          candidate.agentWhatsapp,
+        )
+      : null;
+    setForm((current) => ({
+      ...current,
+      visitCandidateId: candidateId,
+      visitSearchRequirementId: candidate?.searchRequirementId
+        ? String(candidate.searchRequirementId)
+        : '',
+      propertyId: candidate?.propertyId ? String(candidate.propertyId) : '',
+      visitExternalPropertyTitle:
+        candidate?.property?.title ?? candidate?.title ?? '',
+      visitExternalPropertyAddress: candidate
+        ? resolveVisitCandidateAddress(candidate)
+        : '',
+      externalUrl: candidate?.url ?? '',
+      visitColleagueContactId: colleague ? String(colleague.id) : '',
+      visitColleagueName: colleague?.displayName ?? candidate?.agentName ?? '',
+      visitColleagueWhatsapp:
+        resolveVisitColleagueWhatsapp(colleague) ??
+        candidate?.agentWhatsapp ??
+        '',
+      activityDate:
+        candidate?.scheduledVisitAt
+          ? toDateTimeLocalValue(candidate.scheduledVisitAt)
+          : current.activityDate,
+    }));
+  }
+
+  function handleVisitColleagueChange(contactId: string) {
+    const colleague =
+      contacts.find((contact) => String(contact.id) === contactId) ?? null;
+    setForm((current) => ({
+      ...current,
+      visitColleagueContactId: contactId,
+      visitColleagueName: colleague?.displayName ?? '',
+      visitColleagueWhatsapp: resolveVisitColleagueWhatsapp(colleague) ?? '',
+    }));
+  }
+
+  async function saveExternalVisit(shareNow: boolean) {
+    const saved = await apiRequest<Visit>('/visits', {
+      method: 'POST',
+      body: JSON.stringify({
+        contactId: Number(form.contactId),
+        propertyId: form.propertyId ? Number(form.propertyId) : null,
+        colleagueContactId: form.visitColleagueContactId
+          ? Number(form.visitColleagueContactId)
+          : null,
+        colleagueName: form.visitColleagueName.trim() || undefined,
+        colleagueWhatsapp: form.visitColleagueWhatsapp.trim() || undefined,
+        searchRequirementId: form.visitSearchRequirementId
+          ? Number(form.visitSearchRequirementId)
+          : null,
+        buyerPropertyCandidateId: form.visitCandidateId
+          ? Number(form.visitCandidateId)
+          : null,
+        scheduledAt: new Date(form.activityDate).toISOString(),
+        status: form.visitStatus,
+        externalPropertyTitle:
+          form.visitExternalPropertyTitle.trim() || undefined,
+        externalPropertyAddress:
+          form.visitExternalPropertyAddress.trim() || undefined,
+        externalUrl: form.externalUrl.trim() || undefined,
+        notes: form.description.trim() || undefined,
+      }),
+    });
+
+    if (shareNow) {
+      if (!saved.contact || !getContactWhatsappPhone(saved.contact)) {
+        throw new Error('El contacto no tiene WhatsApp configurado');
+      }
+      openWhatsAppShareUrl(
+        buildWhatsAppShareUrl(saved.contact, buildVisitWhatsappMessage(saved)),
+      );
+      window.alert(t('common.whatsappSent'));
+    }
+
+    return saved;
+  }
 
   async function saveActivity(shareNow: boolean) {
     const checklistAgency = form.expenseChecklist.counterpartyRealEstateAgency?.trim();
@@ -764,6 +979,11 @@ export function ActivitiesCreatePage() {
     setError('');
 
     try {
+      if (isExternalVisit) {
+        await saveExternalVisit(false);
+        navigate('/activities');
+        return;
+      }
       const saved = await saveActivity(false);
       if (saved.activityType === 'APPRAISAL_REQUEST' && saved.appraisalRequestId) {
         navigate(`/appraisals/${saved.appraisalRequestId}/edit`);
@@ -777,13 +997,23 @@ export function ActivitiesCreatePage() {
   }
 
   async function handleSaveAndShare() {
-    if (!canShareNow && !canShareExpense && !isReservation) return;
+    if (
+      !canShareNow &&
+      !canShareExpense &&
+      !canShareExternalVisit &&
+      !isReservation
+    ) return;
     if (!formRef.current?.reportValidity()) return;
 
     setSavingAndSharing(true);
     setError('');
 
     try {
+      if (isExternalVisit) {
+        await saveExternalVisit(true);
+        navigate('/activities');
+        return;
+      }
       await saveActivity(true);
       navigate('/activities');
     } catch (shareError) {
@@ -800,6 +1030,12 @@ export function ActivitiesCreatePage() {
   async function handleCopyExpenseMessage() {
     if (!expenseWhatsappMessage) return;
     await navigator.clipboard.writeText(expenseWhatsappMessage);
+    window.alert(t('activities.expenseMessageCopied'));
+  }
+
+  async function handleCopyExternalVisitMessage() {
+    if (!externalVisitPreview) return;
+    await navigator.clipboard.writeText(externalVisitPreview);
     window.alert(t('activities.expenseMessageCopied'));
   }
 
@@ -892,7 +1128,7 @@ export function ActivitiesCreatePage() {
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  activityType: event.target.value as ActivityType,
+                  activityType: event.target.value as ActivityFormState['activityType'],
                   propertySearchFeedback:
                     event.target.value === 'PROPERTY_SEARCH'
                       ? current.propertySearchFeedback
@@ -901,7 +1137,8 @@ export function ActivitiesCreatePage() {
                     event.target.value === 'PROPERTY_SEARCH' ? current.markShared : false,
                   externalUrl:
                     event.target.value === 'PROPERTY_SEARCH' ||
-                    event.target.value === 'RESERVATION'
+                    event.target.value === 'RESERVATION' ||
+                    event.target.value === 'EXTERNAL_VISIT'
                       ? current.externalUrl
                       : '',
                   whatsappComment:
@@ -923,6 +1160,9 @@ export function ActivitiesCreatePage() {
                   {translateEnum('activityType', option)}
                 </option>
               ))}
+              <option value="EXTERNAL_VISIT" disabled={isEditing}>
+                {t('calendar.externalVisitType')}
+              </option>
             </select>
           </label>
           {isExpenseBreakdown ? (
@@ -989,13 +1229,29 @@ export function ActivitiesCreatePage() {
               searchValue={contactSearch}
               onSearchValueChange={setContactSearch}
               onChange={(value) =>
-                setForm((current) => ({ ...current, contactId: value }))
+                setForm((current) => ({
+                  ...current,
+                  contactId: value,
+                  ...(isExternalVisit && value !== current.contactId
+                    ? {
+                        visitSearchRequirementId: '',
+                        visitCandidateId: '',
+                        propertyId: '',
+                        visitExternalPropertyTitle: '',
+                        visitExternalPropertyAddress: '',
+                        externalUrl: '',
+                        visitColleagueContactId: '',
+                        visitColleagueName: '',
+                        visitColleagueWhatsapp: '',
+                      }
+                    : {}),
+                }))
               }
               placeholder={t('common.search')}
               emptyLabel={t('activities.withoutContact')}
               loadingLabel={t('common.loading')}
               noResultsLabel={t('common.noData')}
-              required={isPropertySearch || isAppraisalRequest}
+              required={isPropertySearch || isAppraisalRequest || isExternalVisit}
               disabled={isExpenseBreakdown}
               loading={contactsLoading}
             />
@@ -1027,22 +1283,24 @@ export function ActivitiesCreatePage() {
                   required
                 />
               </label>
-              <label>
-                {t('activities.nextFollowUp')}
-                <input
-                  type="datetime-local"
-                  value={form.nextFollowUpDate}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      nextFollowUpDate: event.target.value,
-                    }))
-                  }
-                />
-              </label>
+              {!isExternalVisit ? (
+                <label>
+                  {t('activities.nextFollowUp')}
+                  <input
+                    type="datetime-local"
+                    value={form.nextFollowUpDate}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        nextFollowUpDate: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ) : null}
             </>
           )}
-          {!isAppraisalRequest && !isExpenseBreakdown ? (
+          {!isAppraisalRequest && !isExpenseBreakdown && !isExternalVisit ? (
             <div className="full-span stack-gap">
               <label className="checkbox-item">
                 <input
@@ -1075,7 +1333,233 @@ export function ActivitiesCreatePage() {
           {isAppraisalRequest ? (
             <p className="muted full-span">{t('activities.appraisalRequestHint')}</p>
           ) : null}
-          {isPropertySearch ? (
+          {isExternalVisit ? (
+            <>
+              <div className="full-span stack-gap">
+                <strong>Visita a propiedad de colega</strong>
+                <p className="muted">
+                  Elegí una propiedad de la búsqueda del contacto para completar los datos automáticamente, o cargalos manualmente.
+                </p>
+              </div>
+              <label className="full-span">
+                Búsqueda de propiedad del contacto
+                <select
+                  value={form.visitSearchRequirementId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      visitSearchRequirementId: event.target.value,
+                      visitCandidateId: '',
+                      propertyId: '',
+                      visitExternalPropertyTitle: '',
+                      visitExternalPropertyAddress: '',
+                      externalUrl: '',
+                      visitColleagueContactId: '',
+                      visitColleagueName: '',
+                      visitColleagueWhatsapp: '',
+                    }))
+                  }
+                  disabled={!form.contactId}
+                >
+                  <option value="">Todas / carga manual</option>
+                  {visitRequirements.map((requirement) => (
+                    <option key={requirement.id} value={requirement.id}>
+                      #{requirement.id} — {translateEnum('operationType', requirement.operationType)} —{' '}
+                      {requirement.neighborhoods.join(', ') || requirement.propertyType}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="full-span">
+                Propiedad de la búsqueda
+                <select
+                  value={form.visitCandidateId}
+                  onChange={(event) => handleVisitCandidateChange(event.target.value)}
+                  disabled={!form.contactId || visitCandidatesLoading}
+                >
+                  <option value="">
+                    {visitCandidatesLoading
+                      ? t('common.loading')
+                      : 'Carga manual / sin propiedad guardada'}
+                  </option>
+                  {visibleVisitCandidates.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
+                      {candidate.agentName ? ` — ${candidate.agentName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {form.contactId &&
+                !visitCandidatesLoading &&
+                visibleVisitCandidates.length === 0 ? (
+                  <p className="muted">El contacto no tiene propiedades guardadas en sus búsquedas.</p>
+                ) : null}
+              </label>
+              {form.visitSearchRequirementId ? (
+                <div className="full-span calendar-related-actions">
+                  <Link
+                    to={`/requirements/${form.visitSearchRequirementId}/manage`}
+                    className="ghost-button button-link"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t('requirements.manageRequirement')}
+                  </Link>
+                </div>
+              ) : null}
+              <label>
+                Propiedad del CRM (opcional)
+                <select
+                  value={form.propertyId}
+                  onChange={(event) => {
+                    const property = properties.find(
+                      (item) => String(item.id) === event.target.value,
+                    );
+                    setForm((current) => ({
+                      ...current,
+                      propertyId: event.target.value,
+                      visitExternalPropertyTitle:
+                        property?.title ?? current.visitExternalPropertyTitle,
+                      visitExternalPropertyAddress:
+                        property
+                          ? [property.address, property.city].filter(Boolean).join(', ')
+                          : current.visitExternalPropertyAddress,
+                      externalUrl:
+                        property?.publicationUrl ?? current.externalUrl,
+                    }));
+                  }}
+                >
+                  <option value="">Sin propiedad del CRM</option>
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {formatPropertyOptionLabel(property, translateEnum, t)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t('common.status')}
+                <select
+                  value={form.visitStatus}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      visitStatus: event.target.value as VisitStatus,
+                    }))
+                  }
+                >
+                  <option value="SCHEDULED">Programada</option>
+                  <option value="DONE">Realizada</option>
+                  <option value="CANCELLED">Cancelada</option>
+                  <option value="RESCHEDULED">Reprogramada</option>
+                </select>
+              </label>
+              <label className="full-span">
+                Título de la propiedad
+                <input
+                  value={form.visitExternalPropertyTitle}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      visitExternalPropertyTitle: event.target.value,
+                    }))
+                  }
+                  required={!form.propertyId}
+                />
+              </label>
+              <label className="full-span">
+                Dirección de la propiedad
+                <input
+                  value={form.visitExternalPropertyAddress}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      visitExternalPropertyAddress: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label className="full-span">
+                Link de la propiedad
+                <input
+                  type="url"
+                  value={form.externalUrl}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      externalUrl: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                Colega
+                <SearchableCombobox
+                  value={form.visitColleagueContactId}
+                  options={contacts.map((contact) => ({
+                    value: String(contact.id),
+                    label: contact.displayName,
+                  }))}
+                  searchValue={visitColleagueSearch}
+                  onSearchValueChange={setVisitColleagueSearch}
+                  onChange={handleVisitColleagueChange}
+                  placeholder="Buscar contacto"
+                  emptyLabel={t('common.select')}
+                  loadingLabel={t('common.loading')}
+                  noResultsLabel={t('common.noData')}
+                />
+              </label>
+              <label>
+                WhatsApp del colega
+                <input
+                  value={form.visitColleagueWhatsapp}
+                  readOnly
+                  placeholder="Se completa desde el contacto"
+                />
+              </label>
+              <label className="full-span">
+                Nombre del colega
+                <input
+                  value={form.visitColleagueName}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      visitColleagueName: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="full-span">
+                {t('common.notes')}
+                <textarea
+                  rows={3}
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="full-span expense-message-preview">
+                Mensaje de WhatsApp
+                <textarea value={externalVisitPreview} rows={12} readOnly />
+              </label>
+              <div className="full-span calendar-related-actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => void handleCopyExternalVisitMessage()}
+                  disabled={!externalVisitPreview}
+                >
+                  {t('activities.expenseCopyMessage')}
+                </button>
+              </div>
+            </>
+          ) : isPropertySearch ? (
             <>
               <label className="full-span">
                 {t('activities.listingUrl')}
@@ -1691,6 +2175,20 @@ export function ActivitiesCreatePage() {
           )}
           <div className="full-span calendar-related-actions">
             <button type="submit">{isEditing ? t('common.update') : t('activities.save')}</button>
+            {selectedContact && !isExternalVisit
+              ? visitRequirements.map((requirement) => (
+                  <Link
+                    key={requirement.id}
+                    to={`/requirements/${requirement.id}/manage`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ghost-button button-link"
+                  >
+                    {t('requirements.manageRequirement')}
+                    {visitRequirements.length > 1 ? ` #${requirement.id}` : ''}
+                  </Link>
+                ))
+              : null}
             {form.activityType === 'CALL' && selectedContact ? (
               <Link
                 to={buildRequirementCreateLink(selectedContact.id)}
@@ -1741,6 +2239,18 @@ export function ActivitiesCreatePage() {
                 {savingAndSharing
                   ? t('common.loading')
                   : t('activities.expenseSaveAndShare')}
+              </button>
+            ) : null}
+            {isExternalVisit ? (
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={!canShareExternalVisit || savingAndSharing}
+                onClick={handleSaveAndShare}
+              >
+                {savingAndSharing
+                  ? t('common.loading')
+                  : 'Guardar y enviar por WhatsApp'}
               </button>
             ) : null}
           </div>
@@ -2201,6 +2711,42 @@ function mergeContacts(...groups: Array<Contact[] | null | undefined>) {
   return Array.from(uniqueContacts.values()).sort((left, right) =>
     left.displayName.localeCompare(right.displayName, 'es', { sensitivity: 'base' }),
   );
+}
+
+function resolveVisitColleagueWhatsapp(contact: Contact | null) {
+  return contact?.whatsapp?.trim() || contact?.phone?.trim() || null;
+}
+
+function findMatchingVisitColleague(
+  contacts: Contact[],
+  name: string | null | undefined,
+  whatsapp: string | null | undefined,
+) {
+  const normalizedPhone = whatsapp?.replace(/\D/g, '') ?? '';
+  if (normalizedPhone) {
+    const byPhone = contacts.find((contact) =>
+      [contact.whatsapp, contact.phone]
+        .filter(Boolean)
+        .some((value) => value?.replace(/\D/g, '') === normalizedPhone),
+    );
+    if (byPhone) return byPhone;
+  }
+
+  const normalizedName = name?.trim().toLocaleLowerCase('es') ?? '';
+  return normalizedName
+    ? contacts.find(
+        (contact) =>
+          contact.displayName.trim().toLocaleLowerCase('es') === normalizedName,
+      ) ?? null
+    : null;
+}
+
+function resolveVisitCandidateAddress(candidate: BuyerPropertyCandidate) {
+  return candidate.property?.address
+    ? [candidate.property.address, candidate.property.city]
+        .filter(Boolean)
+        .join(', ')
+    : candidate.title;
 }
 
 function formatPropertyOptionLabel(
