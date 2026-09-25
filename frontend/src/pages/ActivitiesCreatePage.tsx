@@ -1085,9 +1085,24 @@ export function ActivitiesCreatePage() {
   }
 
   async function handleCopyExternalVisitMessage() {
-    if (!externalVisitPreview) return;
-    await navigator.clipboard.writeText(externalVisitPreview);
-    window.alert(t('activities.expenseMessageCopied'));
+    if (!canShareExternalVisit || !formRef.current?.reportValidity()) return;
+    setSavingAndSharing(true);
+    setError('');
+
+    try {
+      const saved = await saveExternalVisit(false);
+      await navigator.clipboard.writeText(buildVisitWhatsappMessage(saved));
+      window.alert(t('activities.expenseMessageCopied'));
+      navigate('/activities');
+    } catch (copyError) {
+      setError(
+        copyError instanceof Error
+          ? copyError.message
+          : 'No se pudo guardar y copiar el mensaje',
+      );
+    } finally {
+      setSavingAndSharing(false);
+    }
   }
 
   function updateExpenseChecklist(
@@ -1611,9 +1626,9 @@ export function ActivitiesCreatePage() {
                   type="button"
                   className="ghost-button"
                   onClick={() => void handleCopyExternalVisitMessage()}
-                  disabled={!externalVisitPreview}
+                  disabled={!canShareExternalVisit || savingAndSharing}
                 >
-                  {t('activities.expenseCopyMessage')}
+                  {savingAndSharing ? t('common.loading') : 'Guardar y copiar mensaje'}
                 </button>
               </div>
             </>

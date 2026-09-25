@@ -11,6 +11,7 @@ import {
   calculateExpenseBreakdown,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
+  sanitizeSharedUrl,
 } from './whatsapp';
 import type { ExpenseBreakdownChecklistData } from '../types';
 
@@ -40,33 +41,43 @@ describe('whatsapp helpers', () => {
 
   it('builds the visit confirmation message with schedule, address and link', () => {
     const message = buildVisitWhatsappMessage({
-        scheduledAt: '2026-05-11T14:30:00.000Z',
-        status: 'SCHEDULED',
-        notes: null,
-        colleagueName: 'Laura Colega',
-        colleagueWhatsapp: '5491112345678',
-        externalUrl: 'https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
-        property: {
-          title: 'Av Dorrego 1653',
-          address: 'Av Dorrego 1653 timbre 5',
-          neighborhood: 'Palermo Hollywood',
-          city: 'CABA',
-        },
-      });
+      publicToken: 'abc123',
+      scheduledAt: '2026-05-11T14:30:00.000Z',
+      status: 'SCHEDULED',
+      notes: null,
+      colleagueName: 'Laura Colega',
+      colleagueWhatsapp: '5491112345678',
+      externalUrl: 'https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+      property: {
+        title: 'Av Dorrego 1653',
+        address: 'Av Dorrego 1653 timbre 5',
+        neighborhood: 'Palermo Hollywood',
+        city: 'CABA',
+      },
+    });
 
-    expect(message).toContain('VISITA CONFIRMADA');
-    expect(message).toContain('Fecha: lunes 11/05/2026');
-    expect(message).toContain('Hora: 11:30 hs');
-    expect(message).toContain('Colega: Laura Colega');
+    expect(message).toContain('📌 *VISITA CONFIRMADA*');
+    expect(message).toContain('📅 *Lunes 11/05/2026*');
+    expect(message).toContain('🕐 *11:30 hs*');
+    expect(message).toContain('🤝 Colega: Laura Colega');
     expect(message).toContain(
-      'Propiedad: Av Dorrego 1653 timbre 5, Palermo Hollywood',
+      '📍 Av Dorrego 1653 timbre 5, Palermo Hollywood',
     );
     expect(message).toContain(
-      'URL: https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+      '🏠 *Ver propiedad*\nhttp://localhost:3030/api/public/visits/abc123/p',
     );
     expect(message).toContain(
-      'Agendar en mi calendario: https://calendar.google.com/calendar/render?',
+      '📆 *Agregar a mi calendario*\nhttp://localhost:3030/api/public/visits/abc123/c',
     );
+    expect(message).not.toContain('calendar.google.com/calendar/render?');
+  });
+
+  it('removes tracking parameters from long property links', () => {
+    expect(
+      sanitizeSharedUrl(
+        'https://www.zonaprop.com.ar/depto?n_src=listado&utm_source=share&dato=util',
+      ),
+    ).toBe('https://www.zonaprop.com.ar/depto?dato=util');
   });
 
   it('builds the full treasury reservation message for manual WhatsApp Web sending', () => {

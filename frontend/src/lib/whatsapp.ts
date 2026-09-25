@@ -9,6 +9,7 @@ import type {
   ReservationActivityData,
   Visit,
 } from '../types';
+import { getApiUrl } from './api';
 
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
 type ShareableVisit = Pick<
@@ -22,6 +23,7 @@ type ShareableVisit = Pick<
   | 'colleagueName'
   | 'colleagueWhatsapp'
 > & {
+  publicToken?: string | null;
   property?: Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> | null;
   colleagueContact?: Pick<Contact, 'displayName'> | null;
 };
@@ -83,30 +85,62 @@ export function buildVisitWhatsappMessage(
     'colleagueName' in visit
       ? visit.colleagueContact?.displayName?.trim() || visit.colleagueName?.trim() || null
       : null;
-  const calendarUrl =
-    'scheduledAt' in visit
-      ? buildVisitRecipientCalendarUrl({
-          scheduledAt,
-          title: fallbackTitle || visit.property?.title || 'Visita a propiedad',
-          address,
-          propertyUrl: visit.externalUrl,
-          colleagueName,
-          notes,
-        })
+  const publicToken = 'publicToken' in visit ? visit.publicToken?.trim() : null;
+  const publicBaseUrl = publicToken
+    ? `${getApiUrl()}/public/visits/${encodeURIComponent(publicToken)}`
+    : null;
+  const propertyUrl = publicBaseUrl
+    ? `${publicBaseUrl}/p`
+    : visit.externalUrl?.trim()
+      ? sanitizeSharedUrl(visit.externalUrl.trim())
       : null;
+  const calendarUrl = publicBaseUrl ? `${publicBaseUrl}/c` : null;
+  const detailLines = [
+    `📅 *${capitalizeFirst(weekday)} ${calendarDate}*`,
+    `🕐 *${time} hs*`,
+    address ? `📍 ${address}` : null,
+    colleagueName ? `🤝 Colega: ${colleagueName}` : null,
+  ].filter((line): line is string => Boolean(line));
+  const linkBlocks = [
+    propertyUrl ? `🏠 *Ver propiedad*\n${propertyUrl}` : null,
+    calendarUrl
+      ? `📆 *Agregar a mi calendario*\n${calendarUrl}`
+      : '📆 _El enlace para agendar se genera al guardar la visita._',
+  ].filter((line): line is string => Boolean(line));
 
   return [
-    statusLine,
-    `Fecha: ${weekday} ${calendarDate}`,
-    `Hora: ${time} hs`,
-    colleagueName ? `Colega: ${colleagueName}` : null,
-    address ? `Propiedad: ${address}` : null,
-    notes?.trim() ? `Notas: ${notes.trim()}` : null,
-    visit.externalUrl?.trim() ? `URL: ${visit.externalUrl.trim()}` : null,
-    calendarUrl ? `Agendar en mi calendario: ${calendarUrl}` : null,
+    `📌 *${statusLine}*`,
+    detailLines.join('\n'),
+    notes?.trim() ? `📝 ${notes.trim()}` : null,
+    linkBlocks.join('\n\n'),
   ]
-    .filter(Boolean)
-    .join('\n');
+    .filter((block): block is string => Boolean(block))
+    .join('\n\n');
+}
+
+export function sanitizeSharedUrl(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    const removableParameters = new Set([
+      'fbclid',
+      'gclid',
+      'n_src',
+      'n_pills',
+      'n_pg',
+      'n_pos',
+      'n_search_id',
+    ]);
+
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (key.toLowerCase().startsWith('utm_') || removableParameters.has(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
 }
 
 export function buildVisitRecipientCalendarUrl(input: {
@@ -530,6 +564,10 @@ function formatChecklistDate(value: string) {
 
 function formatGoogleCalendarDate(value: Date) {
   return value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function capitalizeFirst(value: string) {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }
 
 function roundMoney(value: number) {

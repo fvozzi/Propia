@@ -8,8 +8,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateVisitDto } from './dto/create-visit.dto';
@@ -54,5 +56,24 @@ export class VisitsController {
   @Post(':id/sync-calendar')
   syncCalendar(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.visitsService.syncCalendar(id, user);
+  }
+}
+
+@Controller('public/visits')
+export class PublicVisitsController {
+  constructor(private readonly visitsService: VisitsService) {}
+
+  @Get(':token/p')
+  async openProperty(@Param('token') token: string, @Res() response: Response) {
+    const propertyUrl = await this.visitsService.findPublicPropertyUrl(token);
+    return response.redirect(302, propertyUrl);
+  }
+
+  @Get(':token/c')
+  async downloadCalendar(@Param('token') token: string, @Res() response: Response) {
+    const calendar = await this.visitsService.buildPublicCalendar(token);
+    response.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    response.setHeader('Content-Disposition', 'attachment; filename="visita.ics"');
+    response.send(calendar);
   }
 }

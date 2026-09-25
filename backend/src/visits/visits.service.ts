@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import { requireActiveTeamId, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { GoogleCalendarService } from '../calendar/google-calendar.service';
@@ -9,6 +10,10 @@ import { Contact } from '../contacts/contact.entity';
 import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
+import {
+  buildVisitCalendarIcs,
+  sanitizeSharedPropertyUrl,
+} from '../use-cases/visit-share-links.use-case';
 import { CreateVisitDto } from './dto/create-visit.dto';
 import { QueryVisitsDto } from './dto/query-visits.dto';
 import { UpdateVisitDto } from './dto/update-visit.dto';
@@ -41,6 +46,7 @@ export class VisitsService {
     const visit = this.visitsRepository.create({
       teamId,
       ownerUserId: user.sub,
+      publicToken: createVisitPublicToken(),
       propertyId,
       contactId: dto.contactId,
       colleagueContactId: relations.colleagueContact?.id ?? null,
@@ -129,6 +135,23 @@ export class VisitsService {
     }
 
     return visit;
+  }
+
+  async findPublicPropertyUrl(publicToken: string) {
+    const visit = await this.findPublicVisit(publicToken);
+    const propertyUrl =
+      visit.externalUrl?.trim() || visit.property?.publicationUrl?.trim() || null;
+
+    if (!propertyUrl) {
+      throw new NotFoundException('La visita no tiene un link de propiedad');
+    }
+
+    return sanitizeSharedPropertyUrl(propertyUrl);
+  }
+
+  async buildPublicCalendar(publicToken: string) {
+    const visit = await this.findPublicVisit(publicToken);
+    return buildVisitCalendarIcs(visit);
   }
 
   async update(id: number, dto: UpdateVisitDto, user: AuthenticatedUser) {
@@ -294,6 +317,23 @@ export class VisitsService {
     return this.findOne(visitId, user);
   }
 
+  private async findPublicVisit(publicToken: string) {
+    const visit = await this.visitsRepository.findOne({
+      where: { publicToken },
+      relations: {
+        contact: true,
+        property: true,
+        colleagueContact: true,
+      },
+    });
+
+    if (!visit) {
+      throw new NotFoundException('Visita no encontrada');
+    }
+
+    return visit;
+  }
+
   private async resolveScopedRelations(
     dto: Pick<CreateVisitDto, 'contactId'> & Partial<CreateVisitDto>,
     teamId: number,
@@ -379,4 +419,8 @@ function formatCandidateAddress(candidate: BuyerPropertyCandidate | null) {
   return [candidate.property.address, candidate.property.city]
     .filter(Boolean)
     .join(', ');
+}
+
+function createVisitPublicToken() {
+  return randomBytes(9).toString('base64url');
 }

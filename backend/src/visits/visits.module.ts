@@ -6,7 +6,7 @@ import { Property } from '../properties/property.entity';
 import { SearchRequirement } from '../search-requirements/search-requirement.entity';
 import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
 import { Visit } from './visit.entity';
-import { VisitsController } from './visits.controller';
+import { PublicVisitsController, VisitsController } from './visits.controller';
 import { VisitsService } from './visits.service';
 
 @Module({
@@ -20,7 +20,7 @@ import { VisitsService } from './visits.service';
     ]),
     CalendarModule,
   ],
-  controllers: [VisitsController],
+  controllers: [VisitsController, PublicVisitsController],
   providers: [VisitsService],
   exports: [VisitsService, TypeOrmModule],
 })

@@ -696,6 +696,7 @@ export interface PublicAppraisalRequest extends Omit<AppraisalRequest, 'contactI
 
 export interface Visit {
   id: number;
+  publicToken: string;
   propertyId: number | null;
   contactId: number;
   colleagueContactId?: number | null;

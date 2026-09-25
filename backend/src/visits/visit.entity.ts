@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -14,6 +15,7 @@ import { SearchRequirement } from '../search-requirements/search-requirement.ent
 import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
 
 @Entity('visits')
+@Index(['publicToken'], { unique: true })
 export class Visit {
   @PrimaryGeneratedColumn()
   id: number;
@@ -23,6 +25,9 @@ export class Visit {
 
   @Column()
   ownerUserId: number;
+
+  @Column({ type: 'varchar' })
+  publicToken: string;
 
   @ManyToOne(() => Property, (property) => property.visits, {
     nullable: true,
