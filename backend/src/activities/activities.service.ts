@@ -25,7 +25,10 @@ import { ActivityCalendarSyncService } from './activity-calendar-sync.service';
 import { extractDomain, parseActivityPreviewMetadata } from './activity-preview.utils';
 import {
   Activity,
+  type ChecklistAnswer,
   type ExpenseBreakdownActivityData,
+  type ExpenseBreakdownChecklistData,
+  type ExpenseChecklistPartyData,
   type ReservationActivityData,
 } from './activity.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
@@ -612,7 +615,7 @@ export class ActivitiesService {
 
     const opportunity = await this.opportunitiesRepository.findOne({
       where: { id, teamId },
-      relations: { property: true },
+      relations: { property: true, sourceActivity: true },
     });
 
     if (!opportunity) {
@@ -855,6 +858,7 @@ export class ActivitiesService {
         stage,
         status: CommercialOpportunityStatus.OPEN,
         isExternalBuyerLead: false,
+        counterpartyRealEstateAgency: null,
         sourceActivityId: params.sourceActivityId,
         searchRequirementId: null,
         appraisalRequestId: params.appraisalRequestId,
@@ -944,7 +948,181 @@ function sanitizeExpenseBreakdownData(
     amountAlreadyPaid: readOptionalNumber(value?.amountAlreadyPaid),
     notaryExpenses: readOptionalString(value?.notaryExpenses),
     observations: readOptionalString(value?.observations),
+    checklist: sanitizeExpenseChecklist(
+      value?.checklist,
+      opportunity,
+      operationType,
+    ),
   };
+}
+
+function sanitizeExpenseChecklist(
+  rawValue: unknown,
+  opportunity: CommercialOpportunity,
+  operationType: OperationType.SALE | OperationType.BUY,
+): ExpenseBreakdownChecklistData {
+  const value = isRecord(rawValue) ? rawValue : {};
+  const sourceReservation = opportunity.sourceActivity?.reservationData;
+  const defaultCommission = sourceReservation?.commissionPercent ?? null;
+  const text = (key: string) => readOptionalString(value[key]);
+  const number = (key: string) => readOptionalNumber(value[key]);
+  const answer = (key: string) => readChecklistAnswer(value[key]);
+  const counterpartyAgency =
+    text('counterpartyRealEstateAgency') ??
+    opportunity.counterpartyRealEstateAgency ??
+    null;
+
+  return {
+    reportDate: text('reportDate'),
+    agentName: text('agentName') ?? sourceReservation?.agentName ?? null,
+    listingCommissionPercent:
+      number('listingCommissionPercent') ??
+      (operationType === OperationType.SALE ? defaultCommission : null),
+    purchaseCommissionPercent:
+      number('purchaseCommissionPercent') ??
+      (operationType === OperationType.BUY ? defaultCommission : null),
+    propertyStatus: text('propertyStatus'),
+    creditAnswer:
+      answer('creditAnswer') ?? booleanToChecklistAnswer(sourceReservation?.credit),
+    creditBank: text('creditBank'),
+    sharedOperationAnswer:
+      answer('sharedOperationAnswer') ??
+      booleanToChecklistAnswer(sourceReservation?.sharedWithRealEstate),
+    counterpartyRealEstateAgency: counterpartyAgency,
+    counterpartyAgentName: text('counterpartyAgentName'),
+    propertyReference: text('propertyReference'),
+    listingPrice: number('listingPrice') ?? opportunity.property?.price ?? null,
+    reservationDate: text('reservationDate'),
+    reservationAmount:
+      number('reservationAmount') ?? sourceReservation?.reservationAmount ?? null,
+    reservationHeldBy:
+      text('reservationHeldBy') ??
+      (operationType === OperationType.BUY ? counterpartyAgency : null),
+    reservationConformedAnswer:
+      answer('reservationConformedAnswer') ??
+      booleanToChecklistAnswer(sourceReservation?.conformed),
+    reportsRequestedAnswer: answer('reportsRequestedAnswer'),
+    reportsHandledBy: text('reportsHandledBy'),
+    reportsDate: text('reportsDate'),
+    reinforcementDate: text('reinforcementDate'),
+    reinforcementAmount: number('reinforcementAmount'),
+    totalDeliveredAmount: number('totalDeliveredAmount'),
+    allMoneyHeldBy:
+      text('allMoneyHeldBy') ??
+      (operationType === OperationType.BUY ? counterpartyAgency : null),
+    paymentMethod: text('paymentMethod'),
+    originalReservationInOfficeAnswer: answer(
+      'originalReservationInOfficeAnswer',
+    ),
+    notaryName: text('notaryName'),
+    notaryEmail: text('notaryEmail'),
+    notaryAddress: text('notaryAddress'),
+    notaryPhone: text('notaryPhone'),
+    owners: sanitizeChecklistParties(value.owners),
+    buyers: sanitizeChecklistParties(value.buyers),
+    purchaseAgreementAnswer: answer('purchaseAgreementAnswer'),
+    originalsDeliveredForAgreementAnswer: answer(
+      'originalsDeliveredForAgreementAnswer',
+    ),
+    agreementDate: text('agreementDate'),
+    agreementTime: text('agreementTime'),
+    agreementAddress: text('agreementAddress'),
+    agreementDraftedAnswer: answer('agreementDraftedAnswer'),
+    agreementReviewedByOfficeAnswer: answer(
+      'agreementReviewedByOfficeAnswer',
+    ),
+    agreementReviewedByPartiesAnswer: answer(
+      'agreementReviewedByPartiesAnswer',
+    ),
+    agreementPrintedAnswer: answer('agreementPrintedAnswer'),
+    roomReservedAnswer: answer('roomReservedAnswer'),
+    refundRequiredAtAgreementAnswer: answer(
+      'refundRequiredAtAgreementAnswer',
+    ),
+    refundFormAtAgreementAnswer: answer('refundFormAtAgreementAnswer'),
+    vatInvoicedAtAgreementAnswer: answer('vatInvoicedAtAgreementAnswer'),
+    invoicesRequestedAtAgreementAnswer: answer(
+      'invoicesRequestedAtAgreementAnswer',
+    ),
+    pepUifFormsAtAgreementAnswer: answer('pepUifFormsAtAgreementAnswer'),
+    sharedOperationFormAtAgreementAnswer: answer(
+      'sharedOperationFormAtAgreementAnswer',
+    ),
+    notaryContactedAnswer: answer('notaryContactedAnswer'),
+    originalsDeliveredForDeedAnswer: answer(
+      'originalsDeliveredForDeedAnswer',
+    ),
+    deedValue: number('deedValue'),
+    deedDate: text('deedDate'),
+    deedTime: text('deedTime'),
+    deedAddress: text('deedAddress'),
+    commodatumRequiredAnswer: answer('commodatumRequiredAnswer'),
+    commodatumDraftedAnswer: answer('commodatumDraftedAnswer'),
+    commodatumReviewedAnswer: answer('commodatumReviewedAnswer'),
+    refundRequiredAtDeedAnswer: answer('refundRequiredAtDeedAnswer'),
+    refundFormAtDeedAnswer: answer('refundFormAtDeedAnswer'),
+    vatInvoicedAtDeedAnswer: answer('vatInvoicedAtDeedAnswer'),
+    invoicesRequestedAtDeedAnswer: answer('invoicesRequestedAtDeedAnswer'),
+    pepUifFormsAtDeedAnswer: answer('pepUifFormsAtDeedAnswer'),
+    sharedOperationFormAtDeedAnswer: answer(
+      'sharedOperationFormAtDeedAnswer',
+    ),
+    keysReadyAnswer: answer('keysReadyAnswer'),
+    originalReservationAndAgreementReadyAnswer: answer(
+      'originalReservationAndAgreementReadyAnswer',
+    ),
+    sellerGift: text('sellerGift'),
+    buyerGift: text('buyerGift'),
+    notaryGift: text('notaryGift'),
+    otherAgentGift: text('otherAgentGift'),
+    extra: text('extra'),
+    kitRubberBandsAnswer: answer('kitRubberBandsAnswer'),
+    kitPensAnswer: answer('kitPensAnswer'),
+    kitUsdChangeAnswer: answer('kitUsdChangeAnswer'),
+    kitArsChangeAnswer: answer('kitArsChangeAnswer'),
+    kitAmountLabelsAnswer: answer('kitAmountLabelsAnswer'),
+    kitIdsAnswer: answer('kitIdsAnswer'),
+    kitInvoicesAndFormsAnswer: answer('kitInvoicesAndFormsAnswer'),
+    kitFolderAnswer: answer('kitFolderAnswer'),
+    kitFoodAnswer: answer('kitFoodAnswer'),
+    kitGiftsAnswer: answer('kitGiftsAnswer'),
+    kitPhotosAnswer: answer('kitPhotosAnswer'),
+    kitBusinessCardsAnswer: answer('kitBusinessCardsAnswer'),
+  };
+}
+
+function sanitizeChecklistParties(value: unknown): ExpenseChecklistPartyData[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.slice(0, 2).map((item) => {
+    const party = isRecord(item) ? item : {};
+    return {
+      name: readOptionalString(party.name),
+      document: readOptionalString(party.document),
+      taxId: readOptionalString(party.taxId),
+      birthDate: readOptionalString(party.birthDate),
+      phone: readOptionalString(party.phone),
+      email: readOptionalString(party.email),
+    };
+  });
+}
+
+function readChecklistAnswer(value: unknown): ChecklistAnswer | null {
+  return readEnumValue<ChecklistAnswer>(value, [
+    'YES',
+    'NO',
+    'NOT_APPLICABLE',
+  ]);
+}
+
+function booleanToChecklistAnswer(value: boolean | null | undefined) {
+  return value === true ? 'YES' : value === false ? 'NO' : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function readOptionalString(value: unknown) {

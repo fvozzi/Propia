@@ -1014,6 +1014,58 @@ label {
   font-size: 1.12rem;
 }
 
+.expense-checklist-section {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  overflow: hidden;
+}
+
+.expense-checklist-section > summary {
+  cursor: pointer;
+  padding: 1rem 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  user-select: none;
+}
+
+.expense-checklist-section[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.expense-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.expense-party-list {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.expense-party-card {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.expense-party-card legend {
+  margin-left: 0.8rem;
+  padding: 0 0.4rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 700px) {
+  .expense-checklist-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .expense-message-preview textarea {
   font-family: inherit;
   line-height: 1.5;

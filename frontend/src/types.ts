@@ -144,6 +144,101 @@ export interface ReservationActivityData {
   observations: string | null;
 }
 
+export type ChecklistAnswer = 'YES' | 'NO' | 'NOT_APPLICABLE';
+
+export interface ExpenseChecklistPartyData {
+  name: string | null;
+  document: string | null;
+  taxId: string | null;
+  birthDate: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export interface ExpenseBreakdownChecklistData {
+  reportDate: string | null;
+  agentName: string | null;
+  listingCommissionPercent: number | null;
+  purchaseCommissionPercent: number | null;
+  propertyStatus: string | null;
+  creditAnswer: ChecklistAnswer | null;
+  creditBank: string | null;
+  sharedOperationAnswer: ChecklistAnswer | null;
+  counterpartyRealEstateAgency: string | null;
+  counterpartyAgentName: string | null;
+  propertyReference: string | null;
+  listingPrice: number | null;
+  reservationDate: string | null;
+  reservationAmount: number | null;
+  reservationHeldBy: string | null;
+  reservationConformedAnswer: ChecklistAnswer | null;
+  reportsRequestedAnswer: ChecklistAnswer | null;
+  reportsHandledBy: string | null;
+  reportsDate: string | null;
+  reinforcementDate: string | null;
+  reinforcementAmount: number | null;
+  totalDeliveredAmount: number | null;
+  allMoneyHeldBy: string | null;
+  paymentMethod: string | null;
+  originalReservationInOfficeAnswer: ChecklistAnswer | null;
+  notaryName: string | null;
+  notaryEmail: string | null;
+  notaryAddress: string | null;
+  notaryPhone: string | null;
+  owners: ExpenseChecklistPartyData[];
+  buyers: ExpenseChecklistPartyData[];
+  purchaseAgreementAnswer: ChecklistAnswer | null;
+  originalsDeliveredForAgreementAnswer: ChecklistAnswer | null;
+  agreementDate: string | null;
+  agreementTime: string | null;
+  agreementAddress: string | null;
+  agreementDraftedAnswer: ChecklistAnswer | null;
+  agreementReviewedByOfficeAnswer: ChecklistAnswer | null;
+  agreementReviewedByPartiesAnswer: ChecklistAnswer | null;
+  agreementPrintedAnswer: ChecklistAnswer | null;
+  roomReservedAnswer: ChecklistAnswer | null;
+  refundRequiredAtAgreementAnswer: ChecklistAnswer | null;
+  refundFormAtAgreementAnswer: ChecklistAnswer | null;
+  vatInvoicedAtAgreementAnswer: ChecklistAnswer | null;
+  invoicesRequestedAtAgreementAnswer: ChecklistAnswer | null;
+  pepUifFormsAtAgreementAnswer: ChecklistAnswer | null;
+  sharedOperationFormAtAgreementAnswer: ChecklistAnswer | null;
+  notaryContactedAnswer: ChecklistAnswer | null;
+  originalsDeliveredForDeedAnswer: ChecklistAnswer | null;
+  deedValue: number | null;
+  deedDate: string | null;
+  deedTime: string | null;
+  deedAddress: string | null;
+  commodatumRequiredAnswer: ChecklistAnswer | null;
+  commodatumDraftedAnswer: ChecklistAnswer | null;
+  commodatumReviewedAnswer: ChecklistAnswer | null;
+  refundRequiredAtDeedAnswer: ChecklistAnswer | null;
+  refundFormAtDeedAnswer: ChecklistAnswer | null;
+  vatInvoicedAtDeedAnswer: ChecklistAnswer | null;
+  invoicesRequestedAtDeedAnswer: ChecklistAnswer | null;
+  pepUifFormsAtDeedAnswer: ChecklistAnswer | null;
+  sharedOperationFormAtDeedAnswer: ChecklistAnswer | null;
+  keysReadyAnswer: ChecklistAnswer | null;
+  originalReservationAndAgreementReadyAnswer: ChecklistAnswer | null;
+  sellerGift: string | null;
+  buyerGift: string | null;
+  notaryGift: string | null;
+  otherAgentGift: string | null;
+  extra: string | null;
+  kitRubberBandsAnswer: ChecklistAnswer | null;
+  kitPensAnswer: ChecklistAnswer | null;
+  kitUsdChangeAnswer: ChecklistAnswer | null;
+  kitArsChangeAnswer: ChecklistAnswer | null;
+  kitAmountLabelsAnswer: ChecklistAnswer | null;
+  kitIdsAnswer: ChecklistAnswer | null;
+  kitInvoicesAndFormsAnswer: ChecklistAnswer | null;
+  kitFolderAnswer: ChecklistAnswer | null;
+  kitFoodAnswer: ChecklistAnswer | null;
+  kitGiftsAnswer: ChecklistAnswer | null;
+  kitPhotosAnswer: ChecklistAnswer | null;
+  kitBusinessCardsAnswer: ChecklistAnswer | null;
+}
+
 export interface ExpenseBreakdownActivityData {
   operationType: 'SALE' | 'BUY';
   operationAmount: number | null;
@@ -155,6 +250,7 @@ export interface ExpenseBreakdownActivityData {
   amountAlreadyPaid: number | null;
   notaryExpenses: string | null;
   observations: string | null;
+  checklist?: ExpenseBreakdownChecklistData;
 }
 
 export interface SessionTeam {
@@ -539,6 +635,7 @@ export interface CommercialOpportunity {
   stage: CommercialOpportunityStage;
   status: CommercialOpportunityStatus;
   isExternalBuyerLead: boolean;
+  counterpartyRealEstateAgency: string | null;
   sourceActivityId: number | null;
   searchRequirementId: number | null;
   appraisalRequestId: number | null;

@@ -21,6 +21,8 @@ import type {
   Contact,
   CurrencyType,
   ExpenseBreakdownActivityData,
+  ExpenseBreakdownChecklistData,
+  ExpenseChecklistPartyData,
   OperationType,
   Paginated,
   Property,
@@ -70,7 +72,101 @@ type ActivityFormState = {
   expenseAmountAlreadyPaid: string;
   expenseNotaryExpenses: string;
   expenseObservations: string;
+  expenseChecklist: ExpenseBreakdownChecklistData;
 };
+
+const emptyChecklistParty = (): ExpenseChecklistPartyData => ({
+  name: null,
+  document: null,
+  taxId: null,
+  birthDate: null,
+  phone: null,
+  email: null,
+});
+
+const createEmptyExpenseChecklist = (): ExpenseBreakdownChecklistData => ({
+  reportDate: null,
+  agentName: null,
+  listingCommissionPercent: null,
+  purchaseCommissionPercent: null,
+  propertyStatus: null,
+  creditAnswer: null,
+  creditBank: null,
+  sharedOperationAnswer: null,
+  counterpartyRealEstateAgency: null,
+  counterpartyAgentName: null,
+  propertyReference: null,
+  listingPrice: null,
+  reservationDate: null,
+  reservationAmount: null,
+  reservationHeldBy: null,
+  reservationConformedAnswer: null,
+  reportsRequestedAnswer: null,
+  reportsHandledBy: null,
+  reportsDate: null,
+  reinforcementDate: null,
+  reinforcementAmount: null,
+  totalDeliveredAmount: null,
+  allMoneyHeldBy: null,
+  paymentMethod: null,
+  originalReservationInOfficeAnswer: null,
+  notaryName: null,
+  notaryEmail: null,
+  notaryAddress: null,
+  notaryPhone: null,
+  owners: [emptyChecklistParty(), emptyChecklistParty()],
+  buyers: [emptyChecklistParty(), emptyChecklistParty()],
+  purchaseAgreementAnswer: null,
+  originalsDeliveredForAgreementAnswer: null,
+  agreementDate: null,
+  agreementTime: null,
+  agreementAddress: null,
+  agreementDraftedAnswer: null,
+  agreementReviewedByOfficeAnswer: null,
+  agreementReviewedByPartiesAnswer: null,
+  agreementPrintedAnswer: null,
+  roomReservedAnswer: null,
+  refundRequiredAtAgreementAnswer: null,
+  refundFormAtAgreementAnswer: null,
+  vatInvoicedAtAgreementAnswer: null,
+  invoicesRequestedAtAgreementAnswer: null,
+  pepUifFormsAtAgreementAnswer: null,
+  sharedOperationFormAtAgreementAnswer: null,
+  notaryContactedAnswer: null,
+  originalsDeliveredForDeedAnswer: null,
+  deedValue: null,
+  deedDate: null,
+  deedTime: null,
+  deedAddress: null,
+  commodatumRequiredAnswer: null,
+  commodatumDraftedAnswer: null,
+  commodatumReviewedAnswer: null,
+  refundRequiredAtDeedAnswer: null,
+  refundFormAtDeedAnswer: null,
+  vatInvoicedAtDeedAnswer: null,
+  invoicesRequestedAtDeedAnswer: null,
+  pepUifFormsAtDeedAnswer: null,
+  sharedOperationFormAtDeedAnswer: null,
+  keysReadyAnswer: null,
+  originalReservationAndAgreementReadyAnswer: null,
+  sellerGift: null,
+  buyerGift: null,
+  notaryGift: null,
+  otherAgentGift: null,
+  extra: null,
+  kitRubberBandsAnswer: null,
+  kitPensAnswer: null,
+  kitUsdChangeAnswer: null,
+  kitArsChangeAnswer: null,
+  kitAmountLabelsAnswer: null,
+  kitIdsAnswer: null,
+  kitInvoicesAndFormsAnswer: null,
+  kitFolderAnswer: null,
+  kitFoodAnswer: null,
+  kitGiftsAnswer: null,
+  kitPhotosAnswer: null,
+  kitBusinessCardsAnswer: null,
+});
 
 const initialForm: ActivityFormState = {
   activityType: 'CALL',
@@ -112,7 +208,114 @@ const initialForm: ActivityFormState = {
   expenseAmountAlreadyPaid: '',
   expenseNotaryExpenses: '',
   expenseObservations: '',
+  expenseChecklist: createEmptyExpenseChecklist(),
 };
+
+type ExpenseChecklistScalarKey = Exclude<
+  keyof ExpenseBreakdownChecklistData,
+  'owners' | 'buyers'
+>;
+
+type ExpenseChecklistFieldDefinition = {
+  key: ExpenseChecklistScalarKey;
+  label: string;
+  type?: 'text' | 'number' | 'date' | 'time' | 'email' | 'tel' | 'answer';
+  fullSpan?: boolean;
+};
+
+const expenseGeneralFields: ExpenseChecklistFieldDefinition[] = [
+  { key: 'reportDate', label: 'Fecha del reporte', type: 'date' },
+  { key: 'agentName', label: 'Agente' },
+  { key: 'listingCommissionPercent', label: 'Comisión de captación (%)', type: 'number' },
+  { key: 'purchaseCommissionPercent', label: 'Comisión de compra (%)', type: 'number' },
+  { key: 'propertyStatus', label: 'Estado Century' },
+  { key: 'creditAnswer', label: '¿La reserva es con crédito?', type: 'answer' },
+  { key: 'creditBank', label: '¿De qué banco?' },
+  { key: 'sharedOperationAnswer', label: '¿Es una operación compartida?', type: 'answer' },
+  { key: 'counterpartyRealEstateAgency', label: 'Inmobiliaria contraparte' },
+  { key: 'counterpartyAgentName', label: 'Agente de la otra inmobiliaria' },
+  { key: 'propertyReference', label: 'ID / link de la propiedad', fullSpan: true },
+  { key: 'listingPrice', label: 'Precio de publicación', type: 'number' },
+];
+
+const expenseMoneyFields: ExpenseChecklistFieldDefinition[] = [
+  { key: 'reservationDate', label: 'Fecha de reserva', type: 'date' },
+  { key: 'reservationAmount', label: 'Monto de reserva', type: 'number' },
+  { key: 'reservationHeldBy', label: '¿Dónde está la reserva?' },
+  { key: 'reservationConformedAnswer', label: '¿La reserva fue conformada?', type: 'answer' },
+  { key: 'reportsRequestedAnswer', label: '¿Se pidieron informes de dominio e inhibición?', type: 'answer' },
+  { key: 'reportsHandledBy', label: 'Registro / gestor de informes' },
+  { key: 'reportsDate', label: 'Fecha de pedido / recepción de informes', type: 'date' },
+  { key: 'reinforcementDate', label: 'Fecha de refuerzo', type: 'date' },
+  { key: 'reinforcementAmount', label: 'Monto de refuerzo', type: 'number' },
+  { key: 'totalDeliveredAmount', label: 'Total de dinero entregado por el cliente', type: 'number' },
+  { key: 'allMoneyHeldBy', label: '¿Dónde está todo el dinero?' },
+  { key: 'paymentMethod', label: 'Forma de pago', fullSpan: true },
+  { key: 'originalReservationInOfficeAnswer', label: '¿Está la reserva original en la oficina?', type: 'answer' },
+  { key: 'notaryName', label: 'Escribanía interviniente' },
+  { key: 'notaryEmail', label: 'Email de escribanía', type: 'email' },
+  { key: 'notaryAddress', label: 'Dirección de escribanía' },
+  { key: 'notaryPhone', label: 'Teléfono de escribanía', type: 'tel' },
+];
+
+const expenseAgreementFields: ExpenseChecklistFieldDefinition[] = [
+  { key: 'purchaseAgreementAnswer', label: '¿Se realiza boleto de compraventa?', type: 'answer' },
+  { key: 'originalsDeliveredForAgreementAnswer', label: '¿Se entregó documentación original a escribanía?', type: 'answer' },
+  { key: 'agreementDate', label: 'Fecha de firma del boleto', type: 'date' },
+  { key: 'agreementTime', label: 'Horario', type: 'time' },
+  { key: 'agreementAddress', label: 'Dirección de firma', fullSpan: true },
+  { key: 'agreementDraftedAnswer', label: '¿Se redactó el boleto?', type: 'answer' },
+  { key: 'agreementReviewedByOfficeAnswer', label: '¿El boleto fue revisado por la oficina?', type: 'answer' },
+  { key: 'agreementReviewedByPartiesAnswer', label: '¿Fue revisado por vendedor y comprador?', type: 'answer' },
+  { key: 'agreementPrintedAnswer', label: '¿Se imprimió el boleto revisado?', type: 'answer' },
+  { key: 'roomReservedAnswer', label: '¿Se reservó sala?', type: 'answer' },
+  { key: 'refundRequiredAtAgreementAnswer', label: '¿Hay que hacer reintegro?', type: 'answer' },
+  { key: 'refundFormAtAgreementAnswer', label: '¿Se imprimió formulario de reintegro?', type: 'answer' },
+  { key: 'vatInvoicedAtAgreementAnswer', label: '¿Se facturó IVA?', type: 'answer' },
+  { key: 'invoicesRequestedAtAgreementAnswer', label: '¿Se solicitaron facturas?', type: 'answer' },
+  { key: 'pepUifFormsAtAgreementAnswer', label: '¿Están formularios PEP / UIF?', type: 'answer' },
+  { key: 'sharedOperationFormAtAgreementAnswer', label: '¿Está el formulario de operación compartida?', type: 'answer' },
+];
+
+const expenseDeedFields: ExpenseChecklistFieldDefinition[] = [
+  { key: 'notaryContactedAnswer', label: '¿Se contactó a la escribanía?', type: 'answer' },
+  { key: 'originalsDeliveredForDeedAnswer', label: '¿Se entregó documentación original?', type: 'answer' },
+  { key: 'deedValue', label: 'Valor de escritura', type: 'number' },
+  { key: 'deedDate', label: 'Fecha de escritura', type: 'date' },
+  { key: 'deedTime', label: 'Horario de escritura', type: 'time' },
+  { key: 'deedAddress', label: 'Dirección de escritura', fullSpan: true },
+  { key: 'commodatumRequiredAnswer', label: '¿Se requiere comodato?', type: 'answer' },
+  { key: 'commodatumDraftedAnswer', label: '¿Se redactó el comodato?', type: 'answer' },
+  { key: 'commodatumReviewedAnswer', label: '¿Se revisó el comodato?', type: 'answer' },
+  { key: 'refundRequiredAtDeedAnswer', label: '¿Hay que hacer reintegro?', type: 'answer' },
+  { key: 'refundFormAtDeedAnswer', label: '¿Se imprimió formulario de reintegro?', type: 'answer' },
+  { key: 'vatInvoicedAtDeedAnswer', label: '¿Se facturó IVA?', type: 'answer' },
+  { key: 'invoicesRequestedAtDeedAnswer', label: '¿Se solicitaron facturas?', type: 'answer' },
+  { key: 'pepUifFormsAtDeedAnswer', label: '¿Están formularios PEP / UIF?', type: 'answer' },
+  { key: 'sharedOperationFormAtDeedAnswer', label: '¿Está el formulario de operación compartida?', type: 'answer' },
+  { key: 'keysReadyAnswer', label: '¿Están las llaves?', type: 'answer' },
+  { key: 'originalReservationAndAgreementReadyAnswer', label: '¿Están los originales de reserva y boleto?', type: 'answer' },
+  { key: 'sellerGift', label: 'Regalo vendedor' },
+  { key: 'buyerGift', label: 'Regalo comprador' },
+  { key: 'notaryGift', label: 'Regalo escribanía' },
+  { key: 'otherAgentGift', label: 'Regalo otro agente' },
+  { key: 'extra', label: 'Extra', fullSpan: true },
+];
+
+const expenseKitFields: ExpenseChecklistFieldDefinition[] = [
+  { key: 'kitRubberBandsAnswer', label: 'Banditas elásticas', type: 'answer' },
+  { key: 'kitPensAnswer', label: 'Lapiceras', type: 'answer' },
+  { key: 'kitUsdChangeAnswer', label: 'Cambio USD', type: 'answer' },
+  { key: 'kitArsChangeAnswer', label: 'Cambio ARS', type: 'answer' },
+  { key: 'kitAmountLabelsAnswer', label: 'Carteles con montos', type: 'answer' },
+  { key: 'kitIdsAnswer', label: 'DNI de las partes', type: 'answer' },
+  { key: 'kitInvoicesAndFormsAnswer', label: 'Facturas, recibos y formularios', type: 'answer' },
+  { key: 'kitFolderAnswer', label: 'Carpeta', type: 'answer' },
+  { key: 'kitFoodAnswer', label: 'Comida / bebida', type: 'answer' },
+  { key: 'kitGiftsAnswer', label: 'Regalos y tarjeta', type: 'answer' },
+  { key: 'kitPhotosAnswer', label: 'Fotos', type: 'answer' },
+  { key: 'kitBusinessCardsAnswer', label: 'Tarjetas personales', type: 'answer' },
+];
 
 export function ActivitiesCreatePage() {
   const { id } = useParams();
@@ -321,6 +524,10 @@ export function ActivitiesCreatePage() {
             activityData.expenseBreakdownData?.notaryExpenses ?? '',
           expenseObservations:
             activityData.expenseBreakdownData?.observations ?? '',
+          expenseChecklist: normalizeExpenseChecklist(
+            activityData.expenseBreakdownData?.checklist,
+            activityData.expenseBreakdownData?.amountAlreadyPaid,
+          ),
         });
       } else if (searchParams.get('activityType') === 'EXPENSE_BREAKDOWN') {
         const opportunityId = searchParams.get('opportunityId') ?? '';
@@ -351,6 +558,13 @@ export function ActivitiesCreatePage() {
               : requestedOpportunity?.operationType === 'BUY'
                 ? '4'
                 : '',
+          expenseChecklist: requestedOpportunity
+            ? prefillExpenseChecklist(
+                createEmptyExpenseChecklist(),
+                requestedOpportunity,
+                user?.name ?? null,
+              )
+            : createEmptyExpenseChecklist(),
         }));
       }
 
@@ -443,10 +657,37 @@ export function ActivitiesCreatePage() {
       expenseCommissionPercent:
         current.expenseCommissionPercent ||
         (selectedOpportunity.operationType === 'SALE' ? '3' : '4'),
+      expenseChecklist: prefillExpenseChecklist(
+        current.expenseChecklist,
+        selectedOpportunity,
+        user?.name ?? null,
+      ),
     }));
-  }, [isExpenseBreakdown, selectedOpportunity]);
+  }, [isExpenseBreakdown, selectedOpportunity, user?.name]);
 
   async function saveActivity(shareNow: boolean) {
+    const checklistAgency = form.expenseChecklist.counterpartyRealEstateAgency?.trim();
+    if (
+      isExpenseBreakdown &&
+      selectedOpportunity &&
+      checklistAgency !== (selectedOpportunity.counterpartyRealEstateAgency ?? '')
+    ) {
+      const updatedOpportunity = await apiRequest<CommercialOpportunity>(
+        `/commercial-opportunities/${selectedOpportunity.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            counterpartyRealEstateAgency: checklistAgency || '',
+          }),
+        },
+      );
+      setOpportunities((current) =>
+        current.map((opportunity) =>
+          opportunity.id === updatedOpportunity.id ? updatedOpportunity : opportunity,
+        ),
+      );
+    }
+
     const saved = await apiRequest<Activity>(
       isEditing && activityId ? `/activities/${activityId}` : '/activities',
       {
@@ -562,6 +803,61 @@ export function ActivitiesCreatePage() {
     window.alert(t('activities.expenseMessageCopied'));
   }
 
+  function updateExpenseChecklist(
+    key: ExpenseChecklistScalarKey,
+    value: string | number | null,
+  ) {
+    setForm((current) => ({
+      ...current,
+      expenseCommissionPercent:
+        (selectedOpportunity?.operationType === 'SALE' &&
+          key === 'listingCommissionPercent') ||
+        (selectedOpportunity?.operationType === 'BUY' &&
+          key === 'purchaseCommissionPercent')
+          ? value === null
+            ? ''
+            : String(value)
+          : current.expenseCommissionPercent,
+      expenseChecklist: {
+        ...current.expenseChecklist,
+        [key]: value,
+        ...(key === 'counterpartyRealEstateAgency' &&
+        selectedOpportunity?.operationType === 'BUY'
+          ? {
+              reservationHeldBy:
+                current.expenseChecklist.reservationHeldBy ??
+                (typeof value === 'string' ? value : null),
+              allMoneyHeldBy:
+                current.expenseChecklist.allMoneyHeldBy ??
+                (typeof value === 'string' ? value : null),
+            }
+          : {}),
+      },
+    }));
+  }
+
+  function updateExpenseParty(
+    group: 'owners' | 'buyers',
+    index: number,
+    key: keyof ExpenseChecklistPartyData,
+    value: string | null,
+  ) {
+    setForm((current) => {
+      const parties = [...current.expenseChecklist[group]];
+      parties[index] = {
+        ...(parties[index] ?? emptyChecklistParty()),
+        [key]: value,
+      };
+      return {
+        ...current,
+        expenseChecklist: {
+          ...current.expenseChecklist,
+          [group]: parties,
+        },
+      };
+    });
+  }
+
   if (loading) {
     return (
       <div className="page-stack">
@@ -658,6 +954,13 @@ export function ActivitiesCreatePage() {
                         : nextOpportunity?.operationType === 'BUY'
                           ? '4'
                           : '',
+                    expenseChecklist: nextOpportunity
+                      ? prefillExpenseChecklist(
+                          createEmptyExpenseChecklist(),
+                          nextOpportunity,
+                          user?.name ?? null,
+                        )
+                      : createEmptyExpenseChecklist(),
                   }));
                 }}
                 required
@@ -1186,6 +1489,20 @@ export function ActivitiesCreatePage() {
                     setForm((current) => ({
                       ...current,
                       expenseCommissionPercent: event.target.value,
+                      expenseChecklist: {
+                        ...current.expenseChecklist,
+                        ...(selectedOpportunity?.operationType === 'SALE'
+                          ? {
+                              listingCommissionPercent: event.target.value
+                                ? Number(event.target.value)
+                                : null,
+                            }
+                          : {
+                              purchaseCommissionPercent: event.target.value
+                                ? Number(event.target.value)
+                                : null,
+                            }),
+                      },
                     }))
                   }
                   required
@@ -1231,24 +1548,50 @@ export function ActivitiesCreatePage() {
                 />
                 <p className="muted">{t('activities.expenseInvoicedVatHint')}</p>
               </label>
-              {selectedOpportunity?.operationType === 'BUY' ? (
-                <label>
-                  {t('activities.expenseAmountAlreadyPaid')}
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.expenseAmountAlreadyPaid}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        expenseAmountAlreadyPaid: event.target.value,
-                      }))
-                    }
-                  />
-                  <p className="muted">{t('activities.expenseAmountAlreadyPaidHint')}</p>
-                </label>
-              ) : null}
+              <ExpenseChecklistSection
+                title="Datos generales de la operación"
+                fields={expenseGeneralFields}
+                values={form.expenseChecklist}
+                onChange={updateExpenseChecklist}
+                open
+              />
+              <ExpenseChecklistSection
+                title="Reserva, refuerzo y dinero entregado"
+                fields={expenseMoneyFields}
+                values={form.expenseChecklist}
+                onChange={updateExpenseChecklist}
+                open
+              />
+              <ExpensePartiesSection
+                title="Datos de propietarios / vendedores"
+                group="owners"
+                parties={form.expenseChecklist.owners}
+                onChange={updateExpenseParty}
+              />
+              <ExpensePartiesSection
+                title="Datos de compradores"
+                group="buyers"
+                parties={form.expenseChecklist.buyers}
+                onChange={updateExpenseParty}
+              />
+              <ExpenseChecklistSection
+                title="Boleto de compraventa"
+                fields={expenseAgreementFields}
+                values={form.expenseChecklist}
+                onChange={updateExpenseChecklist}
+              />
+              <ExpenseChecklistSection
+                title="Escritura"
+                fields={expenseDeedFields}
+                values={form.expenseChecklist}
+                onChange={updateExpenseChecklist}
+              />
+              <ExpenseChecklistSection
+                title="Kit para la firma"
+                fields={expenseKitFields}
+                values={form.expenseChecklist}
+                onChange={updateExpenseChecklist}
+              />
               <label className="full-span">
                 {t('activities.expenseNotaryExpenses')}
                 <textarea
@@ -1407,6 +1750,301 @@ export function ActivitiesCreatePage() {
   );
 }
 
+function ExpenseChecklistSection({
+  title,
+  fields,
+  values,
+  onChange,
+  open = false,
+}: {
+  title: string;
+  fields: ExpenseChecklistFieldDefinition[];
+  values: ExpenseBreakdownChecklistData;
+  onChange: (
+    key: ExpenseChecklistScalarKey,
+    value: string | number | null,
+  ) => void;
+  open?: boolean;
+}) {
+  return (
+    <details className="expense-checklist-section full-span" open={open}>
+      <summary>{title}</summary>
+      <div className="expense-checklist-grid">
+        {fields.map((field) => {
+          const value = values[field.key];
+          return (
+            <label key={field.key} className={field.fullSpan ? 'full-span' : undefined}>
+              {field.label}
+              {field.type === 'answer' ? (
+                <select
+                  value={typeof value === 'string' ? value : ''}
+                  onChange={(event) => onChange(field.key, event.target.value || null)}
+                >
+                  <option value="">Sin completar</option>
+                  <option value="YES">Sí</option>
+                  <option value="NO">No</option>
+                  <option value="NOT_APPLICABLE">No aplica</option>
+                </select>
+              ) : (
+                <input
+                  type={field.type ?? 'text'}
+                  min={field.type === 'number' ? '0' : undefined}
+                  step={field.type === 'number' ? '0.01' : undefined}
+                  value={value ?? ''}
+                  onChange={(event) =>
+                    onChange(
+                      field.key,
+                      field.type === 'number'
+                        ? event.target.value
+                          ? Number(event.target.value)
+                          : null
+                        : event.target.value || null,
+                    )
+                  }
+                />
+              )}
+            </label>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+function ExpensePartiesSection({
+  title,
+  group,
+  parties,
+  onChange,
+}: {
+  title: string;
+  group: 'owners' | 'buyers';
+  parties: ExpenseChecklistPartyData[];
+  onChange: (
+    group: 'owners' | 'buyers',
+    index: number,
+    key: keyof ExpenseChecklistPartyData,
+    value: string | null,
+  ) => void;
+}) {
+  const normalizedParties = [0, 1].map(
+    (index) => parties[index] ?? emptyChecklistParty(),
+  );
+
+  return (
+    <details className="expense-checklist-section full-span">
+      <summary>{title}</summary>
+      <div className="expense-party-list">
+        {normalizedParties.map((party, index) => (
+          <fieldset key={index} className="expense-party-card">
+            <legend>{index === 0 ? 'Persona 1' : 'Persona 2 (opcional)'}</legend>
+            <div className="expense-checklist-grid">
+              <label>
+                Nombre y apellido
+                <input
+                  value={party.name ?? ''}
+                  onChange={(event) =>
+                    onChange(group, index, 'name', event.target.value || null)
+                  }
+                />
+              </label>
+              <label>
+                DNI
+                <input
+                  value={party.document ?? ''}
+                  onChange={(event) =>
+                    onChange(group, index, 'document', event.target.value || null)
+                  }
+                />
+              </label>
+              <label>
+                CUIT / CUIL
+                <input
+                  value={party.taxId ?? ''}
+                  onChange={(event) =>
+                    onChange(group, index, 'taxId', event.target.value || null)
+                  }
+                />
+              </label>
+              <label>
+                Fecha de nacimiento
+                <input
+                  type="date"
+                  value={party.birthDate ?? ''}
+                  onChange={(event) =>
+                    onChange(group, index, 'birthDate', event.target.value || null)
+                  }
+                />
+              </label>
+              <label>
+                Teléfono
+                <input
+                  type="tel"
+                  value={party.phone ?? ''}
+                  onChange={(event) =>
+                    onChange(group, index, 'phone', event.target.value || null)
+                  }
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={party.email ?? ''}
+                  onChange={(event) =>
+                    onChange(group, index, 'email', event.target.value || null)
+                  }
+                />
+              </label>
+            </div>
+          </fieldset>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function normalizeExpenseChecklist(
+  value: ExpenseBreakdownChecklistData | null | undefined,
+  legacyTotalDeliveredAmount: number | null = null,
+) {
+  const empty = createEmptyExpenseChecklist();
+  if (!value) {
+    return empty;
+  }
+
+  return {
+    ...empty,
+    ...value,
+    totalDeliveredAmount:
+      value.totalDeliveredAmount ?? legacyTotalDeliveredAmount,
+    owners: [0, 1].map((index) => ({
+      ...emptyChecklistParty(),
+      ...(value.owners?.[index] ?? {}),
+    })),
+    buyers: [0, 1].map((index) => ({
+      ...emptyChecklistParty(),
+      ...(value.buyers?.[index] ?? {}),
+    })),
+  };
+}
+
+function prefillExpenseChecklist(
+  current: ExpenseBreakdownChecklistData,
+  opportunity: CommercialOpportunity,
+  fallbackAgentName: string | null,
+) {
+  const reservation = opportunity.sourceActivity?.reservationData;
+  const contact = opportunity.contact;
+  const property = opportunity.property;
+  const normalized = normalizeExpenseChecklist(current);
+  const isSale = opportunity.operationType === 'SALE';
+  const primaryParty: ExpenseChecklistPartyData = {
+    name: contact?.displayName ?? null,
+    document: contact?.documentNumber ?? null,
+    taxId: null,
+    birthDate: contact?.birthday
+      ? toDateInputValue(new Date(contact.birthday))
+      : null,
+    phone: contact?.phone ?? contact?.whatsapp ?? null,
+    email: contact?.email ?? null,
+  };
+  const reservationAmount =
+    normalized.reservationAmount ?? reservation?.reservationAmount ?? null;
+  const counterpartyAgency =
+    normalized.counterpartyRealEstateAgency ??
+    opportunity.counterpartyRealEstateAgency;
+
+  return {
+    ...normalized,
+    reportDate: normalized.reportDate ?? toDateInputValue(new Date()),
+    agentName:
+      normalized.agentName ?? reservation?.agentName ?? fallbackAgentName,
+    listingCommissionPercent:
+      normalized.listingCommissionPercent ??
+      (isSale ? reservation?.commissionPercent ?? 3 : null),
+    purchaseCommissionPercent:
+      normalized.purchaseCommissionPercent ??
+      (!isSale ? reservation?.commissionPercent ?? 4 : null),
+    propertyStatus:
+      normalized.propertyStatus ?? formatOpportunityStageForChecklist(opportunity.stage),
+    creditAnswer:
+      normalized.creditAnswer ?? booleanToChecklistAnswer(reservation?.credit),
+    sharedOperationAnswer:
+      normalized.sharedOperationAnswer ??
+      booleanToChecklistAnswer(reservation?.sharedWithRealEstate),
+    counterpartyRealEstateAgency:
+      counterpartyAgency,
+    propertyReference:
+      normalized.propertyReference ??
+      (property ? String(property.id) : null),
+    listingPrice: normalized.listingPrice ?? property?.price ?? null,
+    reservationDate:
+      normalized.reservationDate ??
+      (opportunity.sourceActivity?.activityType === 'RESERVATION' &&
+      opportunity.sourceActivity.activityDate
+        ? toDateInputValue(new Date(opportunity.sourceActivity.activityDate))
+        : null),
+    reservationAmount,
+    reservationHeldBy:
+      normalized.reservationHeldBy ?? (!isSale ? counterpartyAgency : null),
+    totalDeliveredAmount:
+      normalized.totalDeliveredAmount ?? reservationAmount,
+    allMoneyHeldBy:
+      normalized.allMoneyHeldBy ?? (!isSale ? counterpartyAgency : null),
+    owners: isSale
+      ? mergePrimaryChecklistParty(normalized.owners, primaryParty)
+      : normalized.owners,
+    buyers: isSale
+      ? normalized.buyers
+      : mergePrimaryChecklistParty(normalized.buyers, primaryParty),
+  };
+}
+
+function mergePrimaryChecklistParty(
+  parties: ExpenseChecklistPartyData[],
+  primary: ExpenseChecklistPartyData,
+) {
+  const first = parties[0] ?? emptyChecklistParty();
+  return [
+    {
+      ...first,
+      name: first.name ?? primary.name,
+      document: first.document ?? primary.document,
+      birthDate: first.birthDate ?? primary.birthDate,
+      phone: first.phone ?? primary.phone,
+      email: first.email ?? primary.email,
+    },
+    parties[1] ?? emptyChecklistParty(),
+  ];
+}
+
+function booleanToChecklistAnswer(value: boolean | null | undefined) {
+  return value === true ? ('YES' as const) : value === false ? ('NO' as const) : null;
+}
+
+function formatOpportunityStageForChecklist(stage: CommercialOpportunity['stage']) {
+  const labels: Record<CommercialOpportunity['stage'], string> = {
+    NEW: 'Nueva',
+    QUALIFYING: 'En calificación',
+    SEARCHING: 'En búsqueda',
+    PRELISTING_SENT: 'Prelisting enviado',
+    PRELISTING_COMPLETED: 'Prelisting completo',
+    PROPERTY_READY: 'Propiedad lista',
+    VISITING: 'En visitas',
+    NEGOTIATING: 'En negociación',
+    RESERVED: 'Reservado',
+    CLOSED_WON: 'Cerrada ganada',
+    CLOSED_LOST: 'Cerrada perdida',
+  };
+  return labels[stage];
+}
+
+function toDateInputValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
 function buildActivityPayload(
   form: ActivityFormState,
   linkProperty: boolean,
@@ -1481,10 +2119,12 @@ function buildExpenseBreakdownDataPayload(
     invoicedVatAmount: parseOptionalNumber(form.expenseInvoicedVatAmount),
     amountAlreadyPaid:
       operationType === 'BUY'
-        ? parseOptionalNumber(form.expenseAmountAlreadyPaid)
+        ? form.expenseChecklist.totalDeliveredAmount ??
+          parseOptionalNumber(form.expenseAmountAlreadyPaid)
         : null,
     notaryExpenses: form.expenseNotaryExpenses.trim() || null,
     observations: form.expenseObservations.trim() || null,
+    checklist: form.expenseChecklist,
   };
 }
 

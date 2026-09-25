@@ -66,6 +66,8 @@ export class CommercialOpportunitiesService {
       stage: dto.stage ?? defaultStageForOperation(dto.operationType),
       status: dto.status ?? CommercialOpportunityStatus.OPEN,
       isExternalBuyerLead: dto.isExternalBuyerLead ?? false,
+      counterpartyRealEstateAgency:
+        dto.counterpartyRealEstateAgency?.trim() || null,
       sourceActivityId: relations.activity?.id ?? null,
       searchRequirementId: relations.requirement?.id ?? null,
       appraisalRequestId: relations.appraisalRequest?.id ?? null,
@@ -186,6 +188,10 @@ export class CommercialOpportunitiesService {
         dto.isExternalBuyerLead === undefined
           ? opportunity.isExternalBuyerLead
           : dto.isExternalBuyerLead,
+      counterpartyRealEstateAgency:
+        dto.counterpartyRealEstateAgency === undefined
+          ? opportunity.counterpartyRealEstateAgency
+          : dto.counterpartyRealEstateAgency?.trim() || null,
       sourceActivityId:
         dto.sourceActivityId === undefined
           ? opportunity.sourceActivityId

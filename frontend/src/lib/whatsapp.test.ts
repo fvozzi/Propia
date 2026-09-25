@@ -12,6 +12,7 @@ import {
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
 } from './whatsapp';
+import type { ExpenseBreakdownChecklistData } from '../types';
 
 describe('whatsapp helpers', () => {
   beforeEach(() => {
@@ -179,6 +180,42 @@ describe('whatsapp helpers', () => {
         },
       }),
     ).toContain('Saldo a favor para compensar en la escritura: U$S 1.300');
+  });
+
+  it('keeps reservation, reinforcement, total delivered and money location separate', () => {
+    const message = buildExpenseBreakdownWhatsappMessage({
+      description: null,
+      contact: { firstName: 'Victoria', displayName: 'Victoria Arque' },
+      property: { address: 'Nicolas Avellaneda 613 3A' },
+      expenseBreakdownData: {
+        operationType: 'BUY',
+        operationAmount: 129000,
+        operationCurrency: 'USD',
+        propertyAddress: 'Nicolas Avellaneda 613 3A',
+        commissionPercent: 4,
+        vatPercent: 21,
+        invoicedVatAmount: null,
+        amountAlreadyPaid: null,
+        notaryExpenses: null,
+        observations: null,
+        checklist: {
+          counterpartyRealEstateAgency: 'Remax Urbana',
+          reservationDate: '2025-04-25',
+          reservationAmount: 1000,
+          reservationHeldBy: 'Remax Urbana',
+          reinforcementDate: '2025-05-10',
+          reinforcementAmount: 6450,
+          totalDeliveredAmount: 7450,
+          allMoneyHeldBy: 'Remax Urbana',
+        } as ExpenseBreakdownChecklistData,
+      },
+    });
+
+    expect(message).toContain('Inmobiliaria contraparte: Remax Urbana');
+    expect(message).toContain('Reserva (25/04/2025): U$S 1.000');
+    expect(message).toContain('Refuerzo (10/05/2025): U$S 6.450');
+    expect(message).toContain('Total de dinero entregado: U$S 7.450');
+    expect(message).toContain('Todo el dinero está en: Remax Urbana');
   });
 
   it('prefers whatsapp over phone for the contact number', () => {

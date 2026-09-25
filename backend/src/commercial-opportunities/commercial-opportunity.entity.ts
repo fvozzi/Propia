@@ -60,6 +60,9 @@ export class CommercialOpportunity {
   @Column({ type: 'boolean', default: false })
   isExternalBuyerLead: boolean;
 
+  @Column({ type: 'varchar', nullable: true })
+  counterpartyRealEstateAgency: string | null;
+
   @ManyToOne(() => Activity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'sourceActivityId' })
   sourceActivity: Activity | null;

@@ -34,6 +34,10 @@ export class CreateCommercialOpportunityDto {
   isExternalBuyerLead?: boolean;
 
   @IsOptional()
+  @IsString()
+  counterpartyRealEstateAgency?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   sourceActivityId?: number;

@@ -29,6 +29,7 @@ type OpportunityFormState = {
   stage: CommercialOpportunityStage;
   status: CommercialOpportunityStatus;
   isExternalBuyerLead: boolean;
+  counterpartyRealEstateAgency: string;
   propertyId: string;
   searchRequirementId: string;
   appraisalRequestId: string;
@@ -45,6 +46,7 @@ const initialFormState: OpportunityFormState = {
   stage: 'SEARCHING',
   status: 'OPEN',
   isExternalBuyerLead: false,
+  counterpartyRealEstateAgency: '',
   propertyId: '',
   searchRequirementId: '',
   appraisalRequestId: '',
@@ -173,6 +175,8 @@ export function CommercialOpportunitiesPage() {
       stage: opportunity.stage,
       status: opportunity.status,
       isExternalBuyerLead: opportunity.isExternalBuyerLead,
+      counterpartyRealEstateAgency:
+        opportunity.counterpartyRealEstateAgency ?? '',
       propertyId: opportunity.propertyId ? String(opportunity.propertyId) : '',
       searchRequirementId: opportunity.searchRequirementId
         ? String(opportunity.searchRequirementId)
@@ -205,6 +209,7 @@ export function CommercialOpportunitiesPage() {
         stage: form.stage,
         status: form.status,
         isExternalBuyerLead: form.isExternalBuyerLead,
+        counterpartyRealEstateAgency: form.counterpartyRealEstateAgency,
         propertyId: form.propertyId ? Number(form.propertyId) : undefined,
         searchRequirementId: form.searchRequirementId
           ? Number(form.searchRequirementId)
@@ -387,6 +392,24 @@ export function CommercialOpportunitiesPage() {
                 ))}
               </select>
             </label>
+
+            {form.operationType === 'BUY' || form.operationType === 'SALE' ? (
+              <label>
+                {form.operationType === 'BUY'
+                  ? t('commercialOpportunities.sellingAgency')
+                  : t('commercialOpportunities.sharedAgency')}
+                <input
+                  value={form.counterpartyRealEstateAgency}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      counterpartyRealEstateAgency: event.target.value,
+                    }))
+                  }
+                  placeholder={t('commercialOpportunities.agencyPlaceholder')}
+                />
+              </label>
+            ) : null}
 
             <label>
               {t('commercialOpportunities.status')}
@@ -627,7 +650,19 @@ export function CommercialOpportunitiesPage() {
                         `#${opportunity.contactId}`
                       )}
                     </td>
-                    <td>{translateEnum('operationType', opportunity.operationType)}</td>
+                    <td>
+                      <div className="table-cell-stack">
+                        <span>{translateEnum('operationType', opportunity.operationType)}</span>
+                        {opportunity.counterpartyRealEstateAgency ? (
+                          <span className="muted">
+                            {opportunity.operationType === 'BUY'
+                              ? t('commercialOpportunities.sellingAgency')
+                              : t('commercialOpportunities.sharedAgency')}
+                            : {opportunity.counterpartyRealEstateAgency}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
                     <td>
                       {translateEnum('commercialOpportunityStage', opportunity.stage)}
                     </td>

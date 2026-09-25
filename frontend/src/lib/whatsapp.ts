@@ -219,7 +219,9 @@ export function calculateExpenseBreakdown(
     data.invoicedVatAmount ?? standardVatAmount,
   );
   const total = roundMoney(commissionAmount + vatAmount);
-  const amountAlreadyPaid = roundMoney(data.amountAlreadyPaid ?? 0);
+  const amountAlreadyPaid = roundMoney(
+    data.checklist?.totalDeliveredAmount ?? data.amountAlreadyPaid ?? 0,
+  );
 
   return {
     commissionAmount,
@@ -256,30 +258,76 @@ export function buildExpenseBreakdownWhatsappMessage(
   const hasReducedVat =
     data.invoicedVatAmount !== null &&
     data.invoicedVatAmount < calculation.standardVatAmount;
-  const paidLines = !isSale && data.amountAlreadyPaid !== null
-    ? [
-        `• Reserva y refuerzo entregados: ${formatMoney(
-          calculation.amountAlreadyPaid,
+  const checklist = data.checklist;
+  const totalDelivered =
+    checklist?.totalDeliveredAmount ?? data.amountAlreadyPaid;
+  const moneyLines = [
+    checklist?.reservationAmount !== null && checklist?.reservationAmount !== undefined
+      ? `• Reserva${checklist.reservationDate ? ` (${formatChecklistDate(checklist.reservationDate)})` : ''}: ${formatMoney(
+          checklist.reservationAmount,
           data.operationCurrency,
-        )}`,
-        calculation.balance > 0
-          ? `• Saldo de honorarios a abonar: ${formatMoney(
-              calculation.balance,
-              data.operationCurrency,
-            )}`
-          : calculation.balance < 0
-            ? `• Saldo a favor para compensar en la escritura: ${formatMoney(
-                Math.abs(calculation.balance),
+        )}`
+      : null,
+    checklist?.reservationHeldBy?.trim()
+      ? `• La reserva está en: ${checklist.reservationHeldBy.trim()}`
+      : null,
+    checklist?.reinforcementAmount !== null && checklist?.reinforcementAmount !== undefined
+      ? `• Refuerzo${checklist.reinforcementDate ? ` (${formatChecklistDate(checklist.reinforcementDate)})` : ''}: ${formatMoney(
+          checklist.reinforcementAmount,
+          data.operationCurrency,
+        )}`
+      : null,
+    totalDelivered !== null && totalDelivered !== undefined
+      ? `*• Total de dinero entregado: ${formatMoney(
+          totalDelivered,
+          data.operationCurrency,
+        )}*`
+      : null,
+    checklist?.allMoneyHeldBy?.trim()
+      ? `• Todo el dinero está en: ${checklist.allMoneyHeldBy.trim()}`
+      : null,
+  ].filter((line): line is string => Boolean(line));
+  const balanceLines =
+    !isSale && totalDelivered !== null && totalDelivered !== undefined
+      ? [
+          calculation.balance > 0
+            ? `• Saldo de honorarios a abonar: ${formatMoney(
+                calculation.balance,
                 data.operationCurrency,
               )}`
-            : '• Honorarios cubiertos con lo ya entregado',
-      ]
-    : [];
+            : calculation.balance < 0
+              ? `• Saldo a favor para compensar en la escritura: ${formatMoney(
+                  Math.abs(calculation.balance),
+                  data.operationCurrency,
+                )}`
+              : '• Honorarios cubiertos con lo ya entregado',
+        ]
+      : [];
+  const closingLines = [
+    checklist?.paymentMethod?.trim()
+      ? `• Forma de pago: ${checklist.paymentMethod.trim()}`
+      : null,
+    checklist?.notaryName?.trim()
+      ? `• Escribanía interviniente: ${checklist.notaryName.trim()}`
+      : null,
+    checklist?.deedDate
+      ? `• Fecha de escritura: ${formatChecklistDate(checklist.deedDate)}`
+      : null,
+    checklist?.deedTime?.trim()
+      ? `• Horario: ${checklist.deedTime.trim()}`
+      : null,
+    checklist?.deedAddress?.trim()
+      ? `• Lugar: ${checklist.deedAddress.trim()}`
+      : null,
+  ].filter((line): line is string => Boolean(line));
 
   return [
     `Hola${contactName ? ` ${contactName}` : ''}, te comparto el detalle de gastos previo a la escritura.`,
     '',
     `*${operationLabel} - ${address}*`,
+    checklist?.counterpartyRealEstateAgency?.trim()
+      ? `• Inmobiliaria contraparte: ${checklist.counterpartyRealEstateAgency.trim()}`
+      : null,
     `• Precio de cierre: ${formatMoney(data.operationAmount, data.operationCurrency)}`,
     `• Honorarios inmobiliarios (${commissionPercent}): ${formatMoney(
       calculation.commissionAmount,
@@ -299,7 +347,13 @@ export function buildExpenseBreakdownWhatsappMessage(
       calculation.total,
       data.operationCurrency,
     )}*`,
-    ...paidLines,
+    moneyLines.length ? '' : null,
+    moneyLines.length ? '*Dinero entregado*' : null,
+    ...moneyLines,
+    ...balanceLines,
+    closingLines.length ? '' : null,
+    closingLines.length ? '*Datos de la escritura*' : null,
+    ...closingLines,
     '',
     data.notaryExpenses?.trim()
       ? `Gastos de escribanía: ${data.notaryExpenses.trim()}`
@@ -416,6 +470,11 @@ function formatMoney(
     maximumFractionDigits: 2,
   }).format(amount);
   return `${currency === 'ARS' ? '$' : 'U$S'} ${formattedAmount}`;
+}
+
+function formatChecklistDate(value: string) {
+  const [year, month, day] = value.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
 function roundMoney(value: number) {
