@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { BuyerSearchWorkflow } from '../components/BuyerSearchWorkflow';
+import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { SearchableCombobox } from '../components/SearchableCombobox';
 import { apiRequest } from '../lib/api';
@@ -347,11 +348,8 @@ export function ActivitiesCreatePage() {
   const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactSearch, setContactSearch] = useState('');
-  const [visitColleagueSearch, setVisitColleagueSearch] = useState('');
   const [contactMatches, setContactMatches] = useState<Contact[] | null>(null);
-  const [visitColleagueMatches, setVisitColleagueMatches] = useState<Contact[] | null>(null);
   const [contactsLoading, setContactsLoading] = useState(false);
-  const [visitColleaguesLoading, setVisitColleaguesLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [opportunities, setOpportunities] = useState<CommercialOpportunity[]>([]);
   const [searchRequirements, setSearchRequirements] = useState<SearchRequirement[]>([]);
@@ -373,7 +371,6 @@ export function ActivitiesCreatePage() {
   const isExpenseBreakdown = form.activityType === 'EXPENSE_BREAKDOWN';
   const isExternalVisit = form.activityType === 'EXTERNAL_VISIT';
   const contactSearchTerm = contactSearch.trim();
-  const visitColleagueSearchTerm = visitColleagueSearch.trim();
   const activityContact =
     activity?.contact && String(activity.contact.id) === form.contactId ? activity.contact : null;
   const selectedContact =
@@ -384,12 +381,6 @@ export function ActivitiesCreatePage() {
   const visibleContacts = mergeContacts(
     contactSearchTerm ? contactMatches ?? [] : contacts,
     selectedContact ? [selectedContact] : [],
-  );
-  const selectedVisitColleague =
-    contacts.find((contact) => String(contact.id) === form.visitColleagueContactId) ?? null;
-  const visibleVisitColleagues = mergeContacts(
-    visitColleagueSearchTerm ? visitColleagueMatches ?? [] : contacts,
-    selectedVisitColleague ? [selectedVisitColleague] : [],
   );
   const selectedProperty = properties.find((property) => String(property.id) === form.propertyId) ?? null;
   const selectedOpportunity =
@@ -485,7 +476,11 @@ export function ActivitiesCreatePage() {
         requirementsData,
         activityData,
       ] = await Promise.all([
-        apiRequest<Paginated<Contact>>('/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC'),
+        searchParams.get('activityType') === 'EXTERNAL_VISIT'
+          ? loadAllContactOptions()
+          : apiRequest<Paginated<Contact>>(
+              '/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC',
+            ),
         apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
         apiRequest<Paginated<CommercialOpportunity>>(
           '/commercial-opportunities?page=1&limit=100',
@@ -718,38 +713,6 @@ export function ActivitiesCreatePage() {
   }, [contactSearchTerm]);
 
   useEffect(() => {
-    if (!isExternalVisit || !visitColleagueSearchTerm) {
-      setVisitColleagueMatches(null);
-      setVisitColleaguesLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const timeoutId = window.setTimeout(() => {
-      setVisitColleaguesLoading(true);
-      void apiRequest<Paginated<Contact>>(
-        `/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC&search=${encodeURIComponent(visitColleagueSearchTerm)}`,
-      )
-        .then((contactsData) => {
-          if (cancelled) return;
-          setVisitColleagueMatches(contactsData.items);
-          setContacts((current) => mergeContacts(current, contactsData.items));
-        })
-        .catch(() => {
-          if (!cancelled) setVisitColleagueMatches([]);
-        })
-        .finally(() => {
-          if (!cancelled) setVisitColleaguesLoading(false);
-        });
-    }, 250);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, [isExternalVisit, visitColleagueSearchTerm]);
-
-  useEffect(() => {
     if (!isExternalVisit || !form.contactId) {
       setVisitCandidates([]);
       setVisitCandidatesLoading(false);
@@ -879,12 +842,10 @@ export function ActivitiesCreatePage() {
     }));
   }
 
-  function handleVisitColleagueChange(contactId: string) {
-    const colleague =
-      contacts.find((contact) => String(contact.id) === contactId) ?? null;
+  function handleVisitColleagueChange(colleague: Contact | null) {
     setForm((current) => ({
       ...current,
-      visitColleagueContactId: contactId,
+      visitColleagueContactId: colleague ? String(colleague.id) : '',
       visitColleagueName: colleague?.displayName ?? '',
       visitColleagueWhatsapp: resolveVisitColleagueWhatsapp(colleague) ?? '',
     }));
@@ -1568,20 +1529,21 @@ export function ActivitiesCreatePage() {
               </label>
               <label>
                 Colega
-                <SearchableCombobox
+                <ContactCombobox
+                  contacts={contacts}
                   value={form.visitColleagueContactId}
-                  options={visibleVisitColleagues.map((contact) => ({
-                    value: String(contact.id),
-                    label: contact.displayName,
-                  }))}
-                  searchValue={visitColleagueSearch}
-                  onSearchValueChange={setVisitColleagueSearch}
-                  onChange={handleVisitColleagueChange}
+                  onChange={(contactId) =>
+                    setForm((current) => ({
+                      ...current,
+                      visitColleagueContactId: contactId,
+                    }))
+                  }
+                  onContactChange={handleVisitColleagueChange}
                   placeholder="Buscar contacto"
                   emptyLabel={t('common.select')}
                   loadingLabel={t('common.loading')}
                   noResultsLabel={t('common.noData')}
-                  loading={visitColleaguesLoading}
+                  remoteSearch
                 />
               </label>
               <label>
@@ -2770,6 +2732,29 @@ const propertyTypeOptions: PropertyType[] = [
 function toDateTimeLocalValue(value: string | null) {
   if (!value) return '';
   return new Date(value).toISOString().slice(0, 16);
+}
+
+async function loadAllContactOptions() {
+  const query = 'limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC';
+  const firstPage = await apiRequest<Paginated<Contact>>(`/contacts?page=1&${query}`);
+
+  if (firstPage.meta.totalPages <= 1) {
+    return firstPage;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.meta.totalPages - 1 }, (_, index) =>
+      apiRequest<Paginated<Contact>>(`/contacts?page=${index + 2}&${query}`),
+    ),
+  );
+
+  return {
+    ...firstPage,
+    items: mergeContacts(
+      firstPage.items,
+      ...remainingPages.map((response) => response.items),
+    ),
+  };
 }
 
 function mergeContacts(...groups: Array<Contact[] | null | undefined>) {

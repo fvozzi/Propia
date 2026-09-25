@@ -8,6 +8,7 @@ type ContactComboboxProps = {
   contacts: Contact[];
   value: string;
   onChange: (value: string) => void;
+  onContactChange?: (contact: Contact | null) => void;
   placeholder: string;
   emptyLabel: string;
   loadingLabel: string;
@@ -23,6 +24,7 @@ export function ContactCombobox({
   contacts,
   value,
   onChange,
+  onContactChange,
   placeholder,
   emptyLabel,
   loadingLabel,
@@ -120,7 +122,14 @@ export function ContactCombobox({
         }))}
         searchValue={searchValue}
         onSearchValueChange={setSearchValue}
-        onChange={onChange}
+        onChange={(nextValue) => {
+          const nextContact =
+            knownContacts.find((contact) => String(contact.id) === nextValue) ??
+            remoteMatches?.find((contact) => String(contact.id) === nextValue) ??
+            null;
+          onChange(nextValue);
+          onContactChange?.(nextContact);
+        }}
         placeholder={placeholder}
         emptyLabel={emptyLabel}
         loadingLabel={loadingLabel}
