@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { BuyerSearchWorkflow } from '../components/BuyerSearchWorkflow';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { SearchableCombobox } from '../components/SearchableCombobox';
 import { apiRequest } from '../lib/api';
@@ -348,7 +349,9 @@ export function ActivitiesCreatePage() {
   const [contactSearch, setContactSearch] = useState('');
   const [visitColleagueSearch, setVisitColleagueSearch] = useState('');
   const [contactMatches, setContactMatches] = useState<Contact[] | null>(null);
+  const [visitColleagueMatches, setVisitColleagueMatches] = useState<Contact[] | null>(null);
   const [contactsLoading, setContactsLoading] = useState(false);
+  const [visitColleaguesLoading, setVisitColleaguesLoading] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [opportunities, setOpportunities] = useState<CommercialOpportunity[]>([]);
   const [searchRequirements, setSearchRequirements] = useState<SearchRequirement[]>([]);
@@ -370,6 +373,7 @@ export function ActivitiesCreatePage() {
   const isExpenseBreakdown = form.activityType === 'EXPENSE_BREAKDOWN';
   const isExternalVisit = form.activityType === 'EXTERNAL_VISIT';
   const contactSearchTerm = contactSearch.trim();
+  const visitColleagueSearchTerm = visitColleagueSearch.trim();
   const activityContact =
     activity?.contact && String(activity.contact.id) === form.contactId ? activity.contact : null;
   const selectedContact =
@@ -380,6 +384,12 @@ export function ActivitiesCreatePage() {
   const visibleContacts = mergeContacts(
     contactSearchTerm ? contactMatches ?? [] : contacts,
     selectedContact ? [selectedContact] : [],
+  );
+  const selectedVisitColleague =
+    contacts.find((contact) => String(contact.id) === form.visitColleagueContactId) ?? null;
+  const visibleVisitColleagues = mergeContacts(
+    visitColleagueSearchTerm ? visitColleagueMatches ?? [] : contacts,
+    selectedVisitColleague ? [selectedVisitColleague] : [],
   );
   const selectedProperty = properties.find((property) => String(property.id) === form.propertyId) ?? null;
   const selectedOpportunity =
@@ -396,9 +406,18 @@ export function ActivitiesCreatePage() {
   const visibleVisitCandidates = form.visitSearchRequirementId
     ? visitCandidates.filter(
         (candidate) =>
-          String(candidate.searchRequirementId) === form.visitSearchRequirementId,
+          String(candidate.searchRequirementId) === form.visitSearchRequirementId &&
+          candidate.workflowStatus !== 'DISCARDED',
       )
-    : visitCandidates;
+    : visitCandidates.filter((candidate) => candidate.workflowStatus !== 'DISCARDED');
+  const selectedVisitCandidate =
+    visitCandidates.find((candidate) => String(candidate.id) === form.visitCandidateId) ?? null;
+  const selectedVisitCandidateIsReady = Boolean(
+    selectedVisitCandidate &&
+      (selectedVisitCandidate.workflowStatus === 'PROPOSED_SCHEDULES' ||
+        selectedVisitCandidate.workflowStatus === 'VISIT_SCHEDULED' ||
+        selectedVisitCandidate.scheduledVisitAt),
+  );
   const expenseBreakdownData = isExpenseBreakdown
     ? buildExpenseBreakdownDataPayload(form, selectedOpportunity?.operationType)
     : null;
@@ -697,6 +716,38 @@ export function ActivitiesCreatePage() {
       window.clearTimeout(timeoutId);
     };
   }, [contactSearchTerm]);
+
+  useEffect(() => {
+    if (!isExternalVisit || !visitColleagueSearchTerm) {
+      setVisitColleagueMatches(null);
+      setVisitColleaguesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setVisitColleaguesLoading(true);
+      void apiRequest<Paginated<Contact>>(
+        `/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC&search=${encodeURIComponent(visitColleagueSearchTerm)}`,
+      )
+        .then((contactsData) => {
+          if (cancelled) return;
+          setVisitColleagueMatches(contactsData.items);
+          setContacts((current) => mergeContacts(current, contactsData.items));
+        })
+        .catch(() => {
+          if (!cancelled) setVisitColleagueMatches([]);
+        })
+        .finally(() => {
+          if (!cancelled) setVisitColleaguesLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [isExternalVisit, visitColleagueSearchTerm]);
 
   useEffect(() => {
     if (!isExternalVisit || !form.contactId) {
@@ -1336,9 +1387,11 @@ export function ActivitiesCreatePage() {
           {isExternalVisit ? (
             <>
               <div className="full-span stack-gap">
-                <strong>Visita a propiedad de colega</strong>
+                <BuyerSearchWorkflow currentStep={3} completedThrough={2} compact />
+                <strong>{t('requirements.workflowVisitTitle')}</strong>
                 <p className="muted">
-                  Elegí una propiedad de la búsqueda del contacto para completar los datos automáticamente, o cargalos manualmente.
+                  Este es el paso final. Elegí la propiedad ya gestionada para completar los datos
+                  automáticamente, o cargalos manualmente si todavía no está guardada.
                 </p>
               </div>
               <label className="full-span">
@@ -1386,6 +1439,7 @@ export function ActivitiesCreatePage() {
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.title}
                       {candidate.agentName ? ` — ${candidate.agentName}` : ''}
+                      {` — ${translateEnum('buyerPropertyCandidateWorkflowStatus', candidate.workflowStatus)}`}
                     </option>
                   ))}
                 </select>
@@ -1393,6 +1447,9 @@ export function ActivitiesCreatePage() {
                 !visitCandidatesLoading &&
                 visibleVisitCandidates.length === 0 ? (
                   <p className="muted">El contacto no tiene propiedades guardadas en sus búsquedas.</p>
+                ) : null}
+                {selectedVisitCandidate && !selectedVisitCandidateIsReady ? (
+                  <p className="alert">{t('requirements.workflowVisitNotReady')}</p>
                 ) : null}
               </label>
               {form.visitSearchRequirementId ? (
@@ -1498,7 +1555,7 @@ export function ActivitiesCreatePage() {
                 Colega
                 <SearchableCombobox
                   value={form.visitColleagueContactId}
-                  options={contacts.map((contact) => ({
+                  options={visibleVisitColleagues.map((contact) => ({
                     value: String(contact.id),
                     label: contact.displayName,
                   }))}
@@ -1509,6 +1566,7 @@ export function ActivitiesCreatePage() {
                   emptyLabel={t('common.select')}
                   loadingLabel={t('common.loading')}
                   noResultsLabel={t('common.noData')}
+                  loading={visitColleaguesLoading}
                 />
               </label>
               <label>

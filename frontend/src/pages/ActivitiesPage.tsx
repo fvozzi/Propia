@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { BuyerSearchWorkflow } from '../components/BuyerSearchWorkflow';
 import { ContactCombobox } from '../components/ContactCombobox';
 import { PaginatedListCard } from '../components/PaginatedListCard';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
@@ -347,18 +348,30 @@ export function ActivitiesPage() {
             <Link to="/activities/new" className="button-link">
               {t('activities.newActivity')}
             </Link>
-            <Link
-              to="/activities/new?activityType=EXTERNAL_VISIT"
-              className="ghost-button button-link"
-            >
-              {t('calendar.externalVisitType')}
-            </Link>
-            <Link to="/requirements" className="ghost-button button-link">
-              {t('requirements.manageRequirement')}
-            </Link>
           </>
         }
       />
+
+      <section className="card">
+        <BuyerSearchWorkflow />
+        <div className="candidate-actions">
+          <Link
+            to="/activities/new?activityType=PROPERTY_SEARCH"
+            className="ghost-button button-link"
+          >
+            1. {t('requirements.workflowSearchTitle')}
+          </Link>
+          <Link to="/requirements" className="ghost-button button-link">
+            2. {t('requirements.workflowManageTitle')}
+          </Link>
+          <Link
+            to="/activities/new?activityType=EXTERNAL_VISIT"
+            className="ghost-button button-link"
+          >
+            3. {t('requirements.workflowVisitTitle')}
+          </Link>
+        </div>
+      </section>
 
       {filtersOpen ? (
         <section className="card filters-panel">
@@ -758,6 +771,12 @@ function ActivityListItem({
               : t('activities.pendingShare')}
           </p>
         ) : null}
+        {activity.activityType === 'PROPERTY_SEARCH' && activity.propertySearchLiked === true ? (
+          <p className="muted">
+            <strong>{t('requirements.workflowStateNext')}:</strong>{' '}
+            {t('requirements.workflowManageTitle')}
+          </p>
+        ) : null}
         {activity.activityType === 'RESERVATION' && activity.whatsappSharedAt ? (
           <p className="muted">
             {t('activities.reservationSentAt')}:{' '}
@@ -773,13 +792,18 @@ function ActivityListItem({
         ) : null}
         <div className="candidate-actions">
           <StatusPill value={activity.activityType} />
-          {contactRequirements.map((requirement) => (
+          {(activity.activityType !== 'PROPERTY_SEARCH' || activity.propertySearchLiked === true
+            ? contactRequirements
+            : []
+          ).map((requirement) => (
             <Link
               key={requirement.id}
               to={`/requirements/${requirement.id}/manage`}
               className="agenda-link"
             >
-              {t('requirements.manageRequirement')}
+              {activity.activityType === 'PROPERTY_SEARCH'
+                ? t('requirements.workflowManageTitle')
+                : t('requirements.manageRequirement')}
               {contactRequirements.length > 1 ? ` #${requirement.id}` : ''}
             </Link>
           ))}

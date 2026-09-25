@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { BuyerSearchWorkflow } from '../components/BuyerSearchWorkflow';
 import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { StatusPill } from '../components/StatusPill';
@@ -24,6 +25,7 @@ import type {
   Paginated,
   Property,
   SearchRequirement,
+  Visit,
 } from '../types';
 
 type CandidateCreateForm = {
@@ -165,6 +167,29 @@ function resolveCandidateVisitAddress(candidate: BuyerPropertyCandidate) {
   return candidate.title;
 }
 
+function getCandidateWorkflowProgress(
+  draft: CandidateWorkflowDraft,
+  hasVisit: boolean,
+) {
+  if (
+    hasVisit ||
+    draft.workflowStatus === 'VISIT_SCHEDULED' ||
+    draft.workflowStatus === 'VISITED'
+  ) {
+    return { currentStep: null, completedThrough: 3 as const, stopped: false };
+  }
+
+  if (draft.workflowStatus === 'DISCARDED') {
+    return { currentStep: null, completedThrough: 1 as const, stopped: true };
+  }
+
+  if (draft.workflowStatus === 'PROPOSED_SCHEDULES' || draft.scheduledVisitAt) {
+    return { currentStep: 3 as const, completedThrough: 2 as const, stopped: false };
+  }
+
+  return { currentStep: 2 as const, completedThrough: 1 as const, stopped: false };
+}
+
 export function SearchRequirementManagePage() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -173,6 +198,7 @@ export function SearchRequirementManagePage() {
   const [requirement, setRequirement] = useState<SearchRequirement | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [visits, setVisits] = useState<Visit[]>([]);
   const [createForm, setCreateForm] = useState<CandidateCreateForm>(initialCreateForm);
   const [drafts, setDrafts] = useState<Record<number, CandidateWorkflowDraft>>({});
   const [loading, setLoading] = useState(true);
@@ -186,17 +212,19 @@ export function SearchRequirementManagePage() {
     setError('');
 
     try {
-      const [requirementResponse, propertiesResponse, contactsResponse] = await Promise.all([
+      const [requirementResponse, propertiesResponse, contactsResponse, visitsResponse] = await Promise.all([
         apiRequest<SearchRequirement>(`/search-requirements/${requirementId}`),
         apiRequest<Paginated<Property>>('/properties?page=1&limit=100'),
         apiRequest<Paginated<Contact>>(
           '/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC',
         ),
+        apiRequest<Paginated<Visit>>('/visits?page=1&limit=100'),
       ]);
 
       setRequirement(requirementResponse);
       setProperties(propertiesResponse.items);
       setContacts(contactsResponse.items);
+      setVisits(visitsResponse.items);
       setDrafts(
         Object.fromEntries(
           (requirementResponse.propertyCandidates ?? []).map((candidate) => [
@@ -362,70 +390,72 @@ export function SearchRequirementManagePage() {
   }
 
   function findExistingVisit(candidate: BuyerPropertyCandidate) {
-    const visits =
+    const linkedVisit = visits.find(
+      (visit) =>
+        visit.buyerPropertyCandidateId === candidate.id ||
+        (sameScheduledInstant(visit.scheduledAt, candidate.scheduledVisitAt) &&
+          ((candidate.propertyId && visit.propertyId === candidate.propertyId) ||
+            (!candidate.propertyId && visit.externalUrl === candidate.url))),
+    );
+    if (linkedVisit) {
+      return { scheduledAt: linkedVisit.scheduledAt };
+    }
+
+    const legacyVisits =
       requirement?.contact?.activities?.filter(
         (activity) => activity.activityType === 'VISIT',
       ) ?? [];
-    return findMatchingVisit(visits, candidate);
+    const legacyVisit = findMatchingVisit(legacyVisits, candidate);
+    return legacyVisit ? { scheduledAt: legacyVisit.activityDate } : null;
   }
 
   async function saveCandidate(candidate: BuyerPropertyCandidate, createVisit = false) {
     const draft = drafts[candidate.id];
     if (!draft || !requirement) return;
-    const nextWorkflowStatus =
-      createVisit && draft.scheduledVisitAt ? 'VISIT_SCHEDULED' : draft.workflowStatus;
 
     setBusyCandidateId(candidate.id);
     setError('');
     setNotice('');
 
-      try {
-        await apiRequest(`/buyer-property-candidates/${candidate.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-          workflowStatus: nextWorkflowStatus,
-            proposedScheduleOptions: draft.proposedScheduleOptions || null,
-            scheduledVisitAt: toIsoOrNull(draft.scheduledVisitAt),
-            workflowNotes: draft.workflowNotes || null,
-            agentName: draft.agentName || null,
-            agentWhatsapp: draft.agentWhatsapp || null,
+    try {
+      await apiRequest(`/buyer-property-candidates/${candidate.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          workflowStatus: draft.workflowStatus,
+          proposedScheduleOptions: draft.proposedScheduleOptions || null,
+          scheduledVisitAt: toIsoOrNull(draft.scheduledVisitAt),
+          workflowNotes: draft.workflowNotes || null,
+          agentName: draft.agentName || null,
+          agentWhatsapp: draft.agentWhatsapp || null,
           lastContactedAt: toIsoOrNull(draft.lastContactedAt),
         }),
       });
 
       if (createVisit && draft.scheduledVisitAt) {
-        const refreshedRequirement = await apiRequest<SearchRequirement>(
-          `/search-requirements/${requirement.id}`,
-        );
-        const refreshedCandidate =
-          refreshedRequirement.propertyCandidates?.find((item) => item.id === candidate.id) ??
-          null;
-        const existingVisit = refreshedCandidate
-          ? findMatchingVisit(
-              (refreshedRequirement.contact?.activities ?? []).filter(
-                (activity) => activity.activityType === 'VISIT',
-              ),
-              refreshedCandidate,
-            )
-          : null;
+        const existingVisit = findExistingVisit(candidate);
 
         if (existingVisit) {
           setNotice(t('requirements.candidateVisitExists'));
-          setRequirement(refreshedRequirement);
-        } else if (refreshedCandidate) {
-          await apiRequest('/activities', {
+        } else {
+          await apiRequest('/visits', {
             method: 'POST',
             body: JSON.stringify({
-              contactId: refreshedRequirement.contactId,
-              propertyId: refreshedCandidate.propertyId ?? undefined,
-              activityType: 'VISIT',
-              title: resolveCandidateVisitTitle(refreshedCandidate),
-              description:
-                refreshedCandidate.workflowNotes ||
-                refreshedCandidate.proposedScheduleOptions ||
-                undefined,
-              activityDate: refreshedCandidate.scheduledVisitAt,
-              externalUrl: refreshedCandidate.url,
+              contactId: requirement.contactId,
+              propertyId: candidate.propertyId ?? null,
+              colleagueContactId: draft.agentContactId
+                ? Number(draft.agentContactId)
+                : null,
+              colleagueName: draft.agentName || undefined,
+              colleagueWhatsapp: draft.agentWhatsapp || undefined,
+              searchRequirementId: requirement.id,
+              buyerPropertyCandidateId: candidate.id,
+              scheduledAt: new Date(draft.scheduledVisitAt).toISOString(),
+              status: 'SCHEDULED',
+              notes:
+                draft.workflowNotes || draft.proposedScheduleOptions || undefined,
+              externalUrl: candidate.url,
+              externalPropertyTitle: resolveCandidateVisitTitle(candidate),
+              externalPropertyAddress: resolveCandidateVisitAddress(candidate),
             }),
           });
           setNotice(t('requirements.candidateVisitCreated'));
@@ -741,6 +771,10 @@ export function SearchRequirementManagePage() {
           {(requirement?.propertyCandidates ?? []).map((candidate) => {
             const draft = drafts[candidate.id] ?? buildCandidateDraft(candidate, contacts);
             const existingVisit = findExistingVisit(candidate);
+            const workflowProgress = getCandidateWorkflowProgress(
+              draft,
+              Boolean(existingVisit),
+            );
             const isBusy = busyCandidateId === candidate.id;
 
             return (
@@ -758,7 +792,16 @@ export function SearchRequirementManagePage() {
                   <StatusPill value={draft.workflowStatus} />
                 </div>
 
+                <BuyerSearchWorkflow {...workflowProgress} compact />
+
                 <div className="candidate-actions">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => applyQuickStatus(candidate, 'INTERESTED')}
+                  >
+                    {t('requirements.candidateQuickInterested')}
+                  </button>
                   <button
                     type="button"
                     className="ghost-button"
@@ -786,13 +829,6 @@ export function SearchRequirementManagePage() {
                     onClick={() => applyQuickStatus(candidate, 'PROPOSED_SCHEDULES')}
                   >
                     {t('requirements.candidateQuickSchedules')}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => applyQuickStatus(candidate, 'VISIT_SCHEDULED')}
-                  >
-                    {t('requirements.candidateQuickConfirmed')}
                   </button>
                 </div>
 
@@ -942,7 +978,7 @@ export function SearchRequirementManagePage() {
                 {existingVisit ? (
                   <p className="muted">
                     {t('requirements.candidateVisitExists')}{' '}
-                    {formatDateTime(existingVisit.activityDate)}
+                    {formatDateTime(existingVisit.scheduledAt)}
                   </p>
                 ) : null}
               </article>
