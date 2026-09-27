@@ -2602,7 +2602,7 @@ function buildActivityPayload(
   const isExpenseBreakdown = form.activityType === 'EXPENSE_BREAKDOWN';
   const activityDate = isAppraisalRequest
     ? activity?.activityDate ?? new Date().toISOString()
-    : form.activityDate;
+    : toIsoDateTime(form.activityDate);
 
   return {
     contactId: form.contactId ? Number(form.contactId) : null,
@@ -2642,7 +2642,10 @@ function buildActivityPayload(
         )
       : null,
     activityDate,
-    nextFollowUpDate: isAppraisalRequest ? null : form.nextFollowUpDate || null,
+    nextFollowUpDate:
+      isAppraisalRequest || !form.nextFollowUpDate
+        ? null
+        : toIsoDateTime(form.nextFollowUpDate),
   };
 }
 
@@ -2731,7 +2734,13 @@ const propertyTypeOptions: PropertyType[] = [
 
 function toDateTimeLocalValue(value: string | null) {
   if (!value) return '';
-  return new Date(value).toISOString().slice(0, 16);
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toIsoDateTime(value: string) {
+  return new Date(value).toISOString();
 }
 
 async function loadAllContactOptions() {

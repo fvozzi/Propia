@@ -324,6 +324,8 @@ export interface CalendarGoogleEventAgendaItem {
 }
 
 export interface CalendarAgendaResponse {
+  activities: Activity[];
+  visits: Visit[];
   birthdays: CalendarBirthdayAgendaItem[];
   googleEvents: CalendarGoogleEventAgendaItem[];
   googleCalendarConnected: boolean;

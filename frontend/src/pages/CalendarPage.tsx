@@ -111,20 +111,12 @@ export function CalendarPage() {
     const range = getCalendarRange(visibleMonth);
 
     try {
-      const [activitiesData, visitsData, calendarAgenda] = await Promise.all([
-        apiRequest<Paginated<Activity>>(
-          `/activities?page=1&limit=100&fromDate=${range.fromDate}&toDate=${range.toDate}`,
-        ),
-        apiRequest<Paginated<Visit>>(
-          `/visits?page=1&limit=100&fromDate=${range.fromDate}&toDate=${range.toDate}`,
-        ),
-        apiRequest<CalendarAgendaResponse>(
-          `/calendar/agenda?fromDate=${range.fromDate}&toDate=${range.toDate}`,
-        ),
-      ]);
+      const calendarAgenda = await apiRequest<CalendarAgendaResponse>(
+        `/calendar/agenda?fromDate=${range.fromDate}&toDate=${range.toDate}`,
+      );
 
-      setActivities(activitiesData.items);
-      setVisits(visitsData.items);
+      setActivities(calendarAgenda.activities);
+      setVisits(calendarAgenda.visits);
       setBirthdayItems(calendarAgenda.birthdays);
       setGoogleEvents(calendarAgenda.googleEvents);
       setGoogleCalendarConnected(calendarAgenda.googleCalendarConnected);
@@ -386,13 +378,10 @@ export function CalendarPage() {
   }).format(visibleMonth);
   const weekdayLabels = buildWeekdayLabels(locale);
   const calendarDays = buildCalendarDays(visibleMonth);
-  const schedulableActivities = activities.filter((activity) =>
-    isCalendarActivityType(activity.activityType),
-  );
   const visibleBirthdays = showBirthdays ? birthdayItems.map(mapBirthdayToAgendaItem) : [];
   const visibleGoogleEvents = showGoogleCalendar ? googleEvents.map(mapGoogleEventToAgendaItem) : [];
   const agendaItems = [
-    ...schedulableActivities.map(mapActivityToAgendaItem),
+    ...activities.map(mapActivityToAgendaItem),
     ...visits.map(mapVisitToAgendaItem),
     ...visibleBirthdays,
     ...visibleGoogleEvents,
@@ -419,7 +408,7 @@ export function CalendarPage() {
           </article>
           <article className="calendar-summary-card">
             <span className="calendar-summary-label">{t('calendar.monthTasks')}</span>
-            <strong className="calendar-summary-value">{schedulableActivities.length + visits.length}</strong>
+            <strong className="calendar-summary-value">{activities.length + visits.length}</strong>
           </article>
           <article className="calendar-summary-card">
             <span className="calendar-summary-label">{t('calendar.monthVisits')}</span>
@@ -954,12 +943,6 @@ function mapGoogleEventToAgendaItem(event: CalendarGoogleEventAgendaItem): Agend
     notes: event.description,
     externalUrl: event.externalUrl,
   };
-}
-
-function isCalendarActivityType(activityType: ActivityType) {
-  return calendarActivityTypeOptions.includes(
-    activityType as (typeof calendarActivityTypeOptions)[number],
-  );
 }
 
 function groupAgendaByDay(items: AgendaItem[]) {

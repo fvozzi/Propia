@@ -64,7 +64,6 @@ describe('calendar activity editing', () => {
         visit = { ...visit, ...JSON.parse(options.body as string) };
         return visit;
       }
-      if (path.startsWith('/visits?')) return { items: visitDeleted ? [] : [visit] };
       if (path.startsWith('/contacts?')) return { items: [visit.contact] };
       if (path === '/activities/42/sync-calendar') {
         if (failSave) throw new Error('No se pudo reintentar');
@@ -76,9 +75,15 @@ describe('calendar activity editing', () => {
         activity = { ...activity, ...JSON.parse(options.body as string) };
         return activity;
       }
-      if (path.startsWith('/activities?')) return { items: activityDeleted ? [] : [activity] };
       if (path.startsWith('/calendar/agenda?')) {
-        return { birthdays: [], googleEvents: [], googleCalendarConnected: false, googleCalendarPermissionGranted: false };
+        return {
+          activities: activityDeleted ? [] : [activity],
+          visits: visitDeleted ? [] : [visit],
+          birthdays: [],
+          googleEvents: [],
+          googleCalendarConnected: false,
+          googleCalendarPermissionGranted: false,
+        };
       }
       return { items: [] };
     });

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Activity } from '../activities/activity.entity';
+import { SCHEDULABLE_ACTIVITY_TYPES } from '../activities/schedulable-activity-types';
 import {
   requireActiveTeamId,
   type AuthenticatedUser,
@@ -50,17 +51,53 @@ export class CalendarAgendaService {
   async findAgenda(query: QueryCalendarAgendaDto, user: AuthenticatedUser) {
     const teamId = requireActiveTeamId(user);
     const range = normalizeDateRange(query.fromDate, query.toDate);
-    const [birthdays, googleEvents] = await Promise.all([
+    const [activities, visits, birthdays, googleEvents] = await Promise.all([
+      this.findActivities(teamId, range.from, range.to),
+      this.findVisits(teamId, range.from, range.to),
       this.findBirthdays(teamId, range.from, range.to),
       this.findGoogleCalendarEvents(teamId, user.sub, range.from, range.to),
     ]);
 
     return {
+      activities,
+      visits,
       birthdays,
       googleEvents: googleEvents.items,
       googleCalendarConnected: googleEvents.connected,
       googleCalendarPermissionGranted: googleEvents.permissionGranted,
     };
+  }
+
+  private findActivities(teamId: number, from: Date, to: Date) {
+    return this.activitiesRepository
+      .createQueryBuilder('activity')
+      .leftJoinAndSelect('activity.contact', 'contact')
+      .leftJoinAndSelect('activity.property', 'property')
+      .leftJoinAndSelect('activity.appraisalRequest', 'appraisalRequest')
+      .leftJoinAndSelect('activity.commercialOpportunity', 'commercialOpportunity')
+      .where('activity.teamId = :teamId', { teamId })
+      .andWhere('activity.activityType IN (:...activityTypes)', {
+        activityTypes: [...SCHEDULABLE_ACTIVITY_TYPES],
+      })
+      .andWhere('activity.activityDate >= :from', { from: from.toISOString() })
+      .andWhere('activity.activityDate <= :to', { to: to.toISOString() })
+      .orderBy('activity.activityDate', 'ASC')
+      .getMany();
+  }
+
+  private findVisits(teamId: number, from: Date, to: Date) {
+    return this.visitsRepository
+      .createQueryBuilder('visit')
+      .leftJoinAndSelect('visit.contact', 'contact')
+      .leftJoinAndSelect('visit.property', 'property')
+      .leftJoinAndSelect('visit.colleagueContact', 'colleagueContact')
+      .leftJoinAndSelect('visit.searchRequirement', 'searchRequirement')
+      .leftJoinAndSelect('visit.buyerPropertyCandidate', 'buyerPropertyCandidate')
+      .where('visit.teamId = :teamId', { teamId })
+      .andWhere('visit.scheduledAt >= :from', { from: from.toISOString() })
+      .andWhere('visit.scheduledAt <= :to', { to: to.toISOString() })
+      .orderBy('visit.scheduledAt', 'ASC')
+      .getMany();
   }
 
   private async findBirthdays(teamId: number, from: Date, to: Date) {
@@ -195,8 +232,8 @@ export class CalendarAgendaService {
 }
 
 function normalizeDateRange(fromDate: string, toDate: string) {
-  const from = new Date(`${fromDate}T00:00:00.000Z`);
-  const to = new Date(`${toDate}T23:59:59.999Z`);
+  const from = new Date(`${fromDate}T00:00:00.000-03:00`);
+  const to = new Date(`${toDate}T23:59:59.999-03:00`);
   return { from, to };
 }
 
