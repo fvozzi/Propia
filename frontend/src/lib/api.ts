@@ -16,6 +16,14 @@ export function getApiUrl() {
   return API_URL;
 }
 
+export function getAbsoluteApiUrl() {
+  if (typeof window === 'undefined') {
+    return API_URL.replace(/\/$/, '');
+  }
+
+  return new URL(API_URL, window.location.origin).toString().replace(/\/$/, '');
+}
+
 export function isGoogleAuthEnabled() {
   return GOOGLE_AUTH_ENABLED;
 }

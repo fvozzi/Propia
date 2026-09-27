@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { ContactCombobox } from '../components/ContactCombobox';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { buildAppraisalWhatsappMessage } from '../lib/appraisals';
 import { calendarActivityTypeOptions, useI18n, visitStatusOptions } from '../lib/i18n';
 import {
   buildBirthdayWhatsappMessage,
@@ -57,6 +59,7 @@ type ActivityFormState = {
 
 export function CalendarPage() {
   const { locale, t, translateEnum } = useI18n();
+  const { user } = useAuth();
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(new Date()));
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -278,6 +281,20 @@ export function CalendarPage() {
       );
     } finally {
       setSharingBirthdayId(null);
+    }
+  }
+
+  async function handleCopyWhatsapp(item: AgendaItem) {
+    const message = buildAgendaWhatsappMessage(item, user?.name ?? null, t);
+    if (!message) return;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      window.alert(t('activities.expenseMessageCopied'));
+    } catch (copyError) {
+      setLoadError(
+        copyError instanceof Error ? copyError.message : t('common.whatsappSendFailed'),
+      );
     }
   }
 
@@ -556,7 +573,14 @@ export function CalendarPage() {
                       </div>
                     ) : null}
                     <div className="agenda-links">
-                      {record ? (
+                      {item.visit ? (
+                        <Link
+                          to={`/activities/visits/${item.visit.id}/edit`}
+                          className="ghost-button button-link"
+                        >
+                          {t('activities.editActivity')}
+                        </Link>
+                      ) : record ? (
                         <button
                           type="button"
                           className="ghost-button"
@@ -564,6 +588,15 @@ export function CalendarPage() {
                           onClick={() => openAgendaEditor(item)}
                         >
                           {t('activities.editActivity')}
+                        </button>
+                      ) : null}
+                      {buildAgendaWhatsappMessage(item, user?.name ?? null, t) ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void handleCopyWhatsapp(item)}
+                        >
+                          {t('activities.expenseCopyMessage')}
                         </button>
                       ) : null}
                       {record ? (
@@ -662,7 +695,14 @@ export function CalendarPage() {
                   </span>
                   <strong>{item.title}</strong>
                   <p className="muted">{item.detail}</p>
-                  {item.activity || item.visit ? (
+                  {item.visit ? (
+                    <Link
+                      to={`/activities/visits/${item.visit.id}/edit`}
+                      className="ghost-button button-link"
+                    >
+                      {t('activities.editActivity')}
+                    </Link>
+                  ) : item.activity ? (
                     <button
                       type="button"
                       className="ghost-button"

@@ -69,6 +69,7 @@ export default function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/activities" element={<ActivitiesPage />} />
                 <Route path="/activities/new" element={<ActivitiesCreatePage />} />
+                <Route path="/activities/visits/:visitId/edit" element={<ActivitiesCreatePage />} />
                 <Route path="/activities/:id/edit" element={<ActivitiesCreatePage />} />
                 <Route path="/visits" element={<VisitsPage />} />
                 <Route path="/use-cases" element={<UseCasesPage />} />

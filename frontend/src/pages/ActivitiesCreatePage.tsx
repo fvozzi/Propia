@@ -341,7 +341,7 @@ const expenseKitFields: ExpenseChecklistFieldDefinition[] = [
 ];
 
 export function ActivitiesCreatePage() {
-  const { id } = useParams();
+  const { id, visitId: visitIdParam } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, translateEnum } = useI18n();
@@ -356,7 +356,8 @@ export function ActivitiesCreatePage() {
   const [visitCandidates, setVisitCandidates] = useState<BuyerPropertyCandidate[]>([]);
   const [visitCandidatesLoading, setVisitCandidatesLoading] = useState(false);
   const [activity, setActivity] = useState<Activity | null>(null);
-  const [loading, setLoading] = useState(Boolean(id));
+  const [visit, setVisit] = useState<Visit | null>(null);
+  const [loading, setLoading] = useState(Boolean(id || visitIdParam));
   const [linkProperty, setLinkProperty] = useState(false);
   const [savingAndSharing, setSavingAndSharing] = useState(false);
   const [error, setError] = useState('');
@@ -364,7 +365,10 @@ export function ActivitiesCreatePage() {
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const activityId = id ? Number(id) : null;
-  const isEditing = Boolean(activityId);
+  const visitId = visitIdParam ? Number(visitIdParam) : null;
+  const isEditingActivity = Boolean(activityId);
+  const isEditingVisit = Boolean(visitId);
+  const isEditing = isEditingActivity || isEditingVisit;
   const isPropertySearch = form.activityType === 'PROPERTY_SEARCH';
   const isAppraisalRequest = form.activityType === 'APPRAISAL_REQUEST';
   const isReservation = form.activityType === 'RESERVATION';
@@ -448,6 +452,7 @@ export function ActivitiesCreatePage() {
   );
   const externalVisitPreview = isExternalVisit
     ? buildVisitWhatsappMessage({
+        publicToken: visit?.publicToken ?? null,
         scheduledAt: form.activityDate || new Date().toISOString(),
         status: form.visitStatus,
         notes: form.description || null,
@@ -457,6 +462,10 @@ export function ActivitiesCreatePage() {
         colleagueName: form.visitColleagueName || null,
         colleagueWhatsapp: form.visitColleagueWhatsapp || null,
         property: selectedProperty,
+        colleagueContact:
+          contacts.find(
+            (contact) => String(contact.id) === form.visitColleagueContactId,
+          ) ?? null,
       })
     : '';
   const canShareExternalVisit = Boolean(
@@ -475,8 +484,9 @@ export function ActivitiesCreatePage() {
         opportunitiesData,
         requirementsData,
         activityData,
+        visitData,
       ] = await Promise.all([
-        searchParams.get('activityType') === 'EXTERNAL_VISIT'
+        searchParams.get('activityType') === 'EXTERNAL_VISIT' || isEditingVisit
           ? loadAllContactOptions()
           : apiRequest<Paginated<Contact>>(
               '/contacts?page=1&limit=100&sortBy=DISPLAY_NAME&sortDirection=ASC',
@@ -488,8 +498,11 @@ export function ActivitiesCreatePage() {
         apiRequest<Paginated<SearchRequirement>>(
           '/search-requirements?page=1&limit=100',
         ),
-        isEditing && activityId
+        isEditingActivity && activityId
           ? apiRequest<Activity>(`/activities/${activityId}`)
+          : Promise.resolve(null),
+        isEditingVisit && visitId
+          ? apiRequest<Visit>(`/visits/${visitId}`)
           : Promise.resolve(null),
       ]);
 
@@ -497,6 +510,8 @@ export function ActivitiesCreatePage() {
         mergeContacts(
           contactsData.items,
           activityData?.contact ? [activityData.contact] : [],
+          visitData?.contact ? [visitData.contact] : [],
+          visitData?.colleagueContact ? [visitData.colleagueContact] : [],
           opportunitiesData.items
             .map((opportunity) => opportunity.contact)
             .filter((contact): contact is Contact => Boolean(contact)),
@@ -616,6 +631,33 @@ export function ActivitiesCreatePage() {
           visitExternalPropertyTitle: '',
           visitExternalPropertyAddress: '',
         });
+      } else if (visitData) {
+        setVisit(visitData);
+        setLinkProperty(Boolean(visitData.propertyId));
+        setForm({
+          ...initialForm,
+          activityType: 'EXTERNAL_VISIT',
+          contactId: String(visitData.contactId),
+          propertyId: visitData.propertyId ? String(visitData.propertyId) : '',
+          activityDate: toDateTimeLocalValue(visitData.scheduledAt),
+          description: visitData.notes ?? '',
+          externalUrl: visitData.externalUrl ?? '',
+          visitSearchRequirementId: visitData.searchRequirementId
+            ? String(visitData.searchRequirementId)
+            : '',
+          visitCandidateId: visitData.buyerPropertyCandidateId
+            ? String(visitData.buyerPropertyCandidateId)
+            : '',
+          visitColleagueContactId: visitData.colleagueContactId
+            ? String(visitData.colleagueContactId)
+            : '',
+          visitColleagueName:
+            visitData.colleagueContact?.displayName ?? visitData.colleagueName ?? '',
+          visitColleagueWhatsapp: visitData.colleagueWhatsapp ?? '',
+          visitStatus: visitData.status,
+          visitExternalPropertyTitle: visitData.externalPropertyTitle ?? '',
+          visitExternalPropertyAddress: visitData.externalPropertyAddress ?? '',
+        });
       } else if (searchParams.get('activityType') === 'EXPENSE_BREAKDOWN') {
         const opportunityId = searchParams.get('opportunityId') ?? '';
         const requestedOpportunity = opportunitiesData.items.find(
@@ -667,7 +709,7 @@ export function ActivitiesCreatePage() {
     }
 
     void loadDependencies();
-  }, [activityId, isEditing, searchParams, user?.name]);
+  }, [activityId, isEditingActivity, isEditingVisit, searchParams, user?.name, visitId]);
 
   useEffect(() => {
     if (!contactSearchTerm) {
@@ -852,8 +894,8 @@ export function ActivitiesCreatePage() {
   }
 
   async function saveExternalVisit(shareNow: boolean) {
-    const saved = await apiRequest<Visit>('/visits', {
-      method: 'POST',
+    const saved = await apiRequest<Visit>(isEditingVisit ? `/visits/${visitId}` : '/visits', {
+      method: isEditingVisit ? 'PATCH' : 'POST',
       body: JSON.stringify({
         contactId: Number(form.contactId),
         propertyId: form.propertyId ? Number(form.propertyId) : null,
@@ -878,6 +920,8 @@ export function ActivitiesCreatePage() {
         notes: form.description.trim() || undefined,
       }),
     });
+
+    setVisit(saved);
 
     if (shareNow) {
       if (!saved.contact || !getContactWhatsappPhone(saved.contact)) {
@@ -916,9 +960,9 @@ export function ActivitiesCreatePage() {
     }
 
     const saved = await apiRequest<Activity>(
-      isEditing && activityId ? `/activities/${activityId}` : '/activities',
+      isEditingActivity && activityId ? `/activities/${activityId}` : '/activities',
       {
-        method: isEditing ? 'PATCH' : 'POST',
+        method: isEditingActivity ? 'PATCH' : 'POST',
         body: JSON.stringify(
           buildActivityPayload(form, linkProperty, activity, selectedOpportunity),
         ),
@@ -1180,14 +1224,14 @@ export function ActivitiesCreatePage() {
                       : '',
                 }))
               }
-              disabled={isEditing && activity?.activityType === 'APPRAISAL_REQUEST'}
+              disabled={isEditingVisit || (isEditingActivity && activity?.activityType === 'APPRAISAL_REQUEST')}
             >
               {activityTypeOptions.map((option) => (
                 <option key={option} value={option}>
                   {translateEnum('activityType', option)}
                 </option>
               ))}
-              <option value="EXTERNAL_VISIT" disabled={isEditing}>
+              <option value="EXTERNAL_VISIT" disabled={isEditingActivity}>
                 {t('calendar.externalVisitType')}
               </option>
             </select>

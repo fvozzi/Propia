@@ -283,6 +283,18 @@ export function ActivitiesPage() {
     window.alert(t('appraisals.copySuccess'));
   }
 
+  async function handleCopyActivityWhatsapp(activity: Activity) {
+    const message = buildActivityWhatsappMessage(activity, user?.name ?? null, t);
+    if (!message) return;
+    await navigator.clipboard.writeText(message);
+    window.alert(t('activities.expenseMessageCopied'));
+  }
+
+  async function handleCopyVisitWhatsapp(visit: Visit) {
+    await navigator.clipboard.writeText(buildVisitWhatsappMessage(visit));
+    window.alert(t('activities.expenseMessageCopied'));
+  }
+
   function buildAppraisalShareMessage(contact: Contact) {
     const name = contact.firstName || contact.displayName;
     return t('appraisals.shareMessage').replace('{name}', name ? ` ${name}` : '');
@@ -509,6 +521,7 @@ export function ActivitiesPage() {
                 activity={activity}
                 formatDateTime={formatDateTime}
                 onCopyAppraisalLink={handleCopyAppraisalLink}
+                onCopyWhatsapp={handleCopyActivityWhatsapp}
                 onDelete={handleDelete}
                 onSendWhatsapp={handleSendWhatsapp}
                 onShareAppraisalEmail={handleShareAppraisalEmail}
@@ -531,6 +544,7 @@ export function ActivitiesPage() {
                       activity={activity}
                       formatDateTime={formatDateTime}
                       onCopyAppraisalLink={handleCopyAppraisalLink}
+                      onCopyWhatsapp={handleCopyActivityWhatsapp}
                       onDelete={handleDelete}
                       onSendWhatsapp={handleSendWhatsapp}
                       onShareAppraisalEmail={handleShareAppraisalEmail}
@@ -613,6 +627,19 @@ export function ActivitiesPage() {
                     </div>
                   </div>
                   <div className="candidate-actions">
+                    <Link
+                      to={`/activities/visits/${visit.id}/edit`}
+                      className="ghost-button button-link"
+                    >
+                      {t('activities.editActivity')}
+                    </Link>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => void handleCopyVisitWhatsapp(visit)}
+                    >
+                      {t('activities.expenseCopyMessage')}
+                    </button>
                     {visit.contact && getContactWhatsappPhone(visit.contact) ? (
                       <button
                         type="button"
@@ -661,6 +688,7 @@ function ActivityListItem({
   activity,
   formatDateTime,
   onCopyAppraisalLink,
+  onCopyWhatsapp,
   onDelete,
   onSendWhatsapp,
   onShareAppraisalEmail,
@@ -672,6 +700,7 @@ function ActivityListItem({
   activity: Activity;
   formatDateTime: (value: string) => string;
   onCopyAppraisalLink: (activity: Activity) => Promise<void>;
+  onCopyWhatsapp: (activity: Activity) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onSendWhatsapp: (activity: Activity) => Promise<void>;
   onShareAppraisalEmail: (activity: Activity) => void;
@@ -833,6 +862,15 @@ function ActivityListItem({
         <Link to={`/activities/${activity.id}/edit`} className="ghost-button button-link">
           {t('activities.editActivity')}
         </Link>
+        {canBuildActivityWhatsappMessage(activity) ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void onCopyWhatsapp(activity)}
+          >
+            {t('activities.expenseCopyMessage')}
+          </button>
+        ) : null}
         {activity.activityType === 'PROPERTY_SEARCH' &&
         activity.externalUrl &&
         !activity.whatsappSharedAt &&
@@ -924,6 +962,49 @@ function ActivityListItem({
       </div>
     </article>
   );
+}
+
+function canBuildActivityWhatsappMessage(activity: Activity) {
+  return (
+    (activity.activityType === 'PROPERTY_SEARCH' && Boolean(activity.externalUrl)) ||
+    (activity.activityType === 'APPRAISAL_REQUEST' &&
+      Boolean(activity.contact && activity.appraisalRequest)) ||
+    (activity.activityType === 'RESERVATION' && Boolean(activity.reservationData)) ||
+    (activity.activityType === 'EXPENSE_BREAKDOWN' &&
+      Boolean(activity.expenseBreakdownData))
+  );
+}
+
+function buildActivityWhatsappMessage(
+  activity: Activity,
+  agentName: string | null,
+  t: (path: string) => string,
+) {
+  if (activity.activityType === 'PROPERTY_SEARCH' && activity.externalUrl) {
+    return buildPropertySearchMessage(activity);
+  }
+
+  if (
+    activity.activityType === 'APPRAISAL_REQUEST' &&
+    activity.contact &&
+    activity.appraisalRequest
+  ) {
+    const name = activity.contact.firstName || activity.contact.displayName;
+    return buildAppraisalWhatsappMessage(
+      activity.appraisalRequest.publicToken,
+      t('appraisals.shareMessage').replace('{name}', name ? ` ${name}` : ''),
+    );
+  }
+
+  if (activity.activityType === 'RESERVATION' && activity.reservationData) {
+    return buildReservationTreasuryWhatsappMessage(activity, agentName);
+  }
+
+  if (activity.activityType === 'EXPENSE_BREAKDOWN' && activity.expenseBreakdownData) {
+    return buildExpenseBreakdownWhatsappMessage(activity);
+  }
+
+  return null;
 }
 
 function buildActivityGroups(

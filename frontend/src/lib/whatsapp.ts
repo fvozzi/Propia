@@ -9,7 +9,7 @@ import type {
   ReservationActivityData,
   Visit,
 } from '../types';
-import { getApiUrl } from './api';
+import { getAbsoluteApiUrl } from './api';
 
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
 type ShareableVisit = Pick<
@@ -87,7 +87,7 @@ export function buildVisitWhatsappMessage(
       : null;
   const publicToken = 'publicToken' in visit ? visit.publicToken?.trim() : null;
   const publicBaseUrl = publicToken
-    ? `${getApiUrl()}/public/visits/${encodeURIComponent(publicToken)}`
+    ? `${getAbsoluteApiUrl()}/public/visits/${encodeURIComponent(publicToken)}`
     : null;
   const propertyUrl = publicBaseUrl
     ? `${publicBaseUrl}/p`
