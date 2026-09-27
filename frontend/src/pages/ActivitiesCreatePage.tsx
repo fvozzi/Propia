@@ -5,6 +5,7 @@ import { ContactCombobox } from '../components/ContactCombobox';
 import { ResourcePageHeader } from '../components/ResourcePageHeader';
 import { SearchableCombobox } from '../components/SearchableCombobox';
 import { apiRequest } from '../lib/api';
+import { buildAppraisalWhatsappMessage } from '../lib/appraisals';
 import { useAuth } from '../lib/auth';
 import {
   buildExpenseBreakdownWhatsappMessage,
@@ -427,6 +428,35 @@ export function ActivitiesCreatePage() {
         property: selectedProperty,
       })
     : '';
+  const propertySearchWhatsappMessage = isPropertySearch
+    ? buildPropertySearchMessage({
+        externalUrl: form.externalUrl || null,
+        whatsappComment: form.whatsappComment || null,
+      })
+    : '';
+  const reservationWhatsappMessage = isReservation
+    ? buildReservationTreasuryWhatsappMessage(
+        {
+          externalUrl: form.externalUrl || null,
+          description: form.description || null,
+          reservationData: buildReservationDataPayload(form),
+          property: selectedProperty,
+        },
+        user?.name ?? null,
+      )
+    : '';
+  const appraisalWhatsappMessage =
+    isAppraisalRequest && activity?.appraisalRequest && selectedContact
+      ? buildAppraisalWhatsappMessage(
+          activity.appraisalRequest.publicToken,
+          t('appraisals.shareMessage').replace(
+            '{name}',
+            selectedContact.firstName || selectedContact.displayName
+              ? ` ${selectedContact.firstName || selectedContact.displayName}`
+              : '',
+          ),
+        )
+      : '';
   const showSavedPreview =
     isPropertySearch &&
     activity &&
@@ -1086,6 +1116,12 @@ export function ActivitiesCreatePage() {
   async function handleCopyExpenseMessage() {
     if (!expenseWhatsappMessage) return;
     await navigator.clipboard.writeText(expenseWhatsappMessage);
+    window.alert(t('activities.expenseMessageCopied'));
+  }
+
+  async function handleCopyEditableMessage(message: string) {
+    if (!message) return;
+    await navigator.clipboard.writeText(message);
     window.alert(t('activities.expenseMessageCopied'));
   }
 
@@ -2287,26 +2323,55 @@ export function ActivitiesCreatePage() {
               </Link>
             ) : null}
             {isPropertySearch ? (
+              <>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={!propertySearchWhatsappMessage}
+                  onClick={() => void handleCopyEditableMessage(propertySearchWhatsappMessage)}
+                >
+                  {t('activities.expenseCopyMessage')}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={!canShareNow || savingAndSharing}
+                  onClick={handleSaveAndShare}
+                >
+                  {savingAndSharing ? t('common.loading') : t('activities.saveAndShare')}
+                </button>
+              </>
+            ) : null}
+            {isAppraisalRequest && appraisalWhatsappMessage ? (
               <button
                 type="button"
                 className="ghost-button"
-                disabled={!canShareNow || savingAndSharing}
-                onClick={handleSaveAndShare}
+                onClick={() => void handleCopyEditableMessage(appraisalWhatsappMessage)}
               >
-                {savingAndSharing ? t('common.loading') : t('activities.saveAndShare')}
+                {t('activities.expenseCopyMessage')}
               </button>
             ) : null}
             {isReservation ? (
-              <button
-                type="button"
-                className="ghost-button"
-                disabled={savingAndSharing}
-                onClick={handleSaveAndShare}
-              >
-                {savingAndSharing
-                  ? t('common.loading')
-                  : t('activities.reservationSaveAndSend')}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={!reservationWhatsappMessage}
+                  onClick={() => void handleCopyEditableMessage(reservationWhatsappMessage)}
+                >
+                  {t('activities.expenseCopyMessage')}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={savingAndSharing}
+                  onClick={handleSaveAndShare}
+                >
+                  {savingAndSharing
+                    ? t('common.loading')
+                    : t('activities.reservationSaveAndSend')}
+                </button>
+              </>
             ) : null}
             {isExpenseBreakdown ? (
               <button

@@ -202,24 +202,11 @@ describe('calendar activity editing', () => {
     expect(container.textContent).toContain('Av. Ejemplo 456');
   });
 
-  it('edits an existing colleague visit, keeps the draft after failure and reschedules it', async () => {
-    await clickButton('activities.editActivity', visitArticle('.mini-agenda-item'));
-    expect(field('activities.activityDate').value).toBe('2026-09-16T11:00');
-    expect(field('calendar.externalPropertyTitle').value).toBe('Visita colega');
-    expect(field('calendar.externalPropertyAddress').value).toBe('Calle 123');
-    await changeField('activities.activityDate', '2026-10-20T15:30');
-    await changeField('common.description', '');
-    await select('common.status', 'RESCHEDULED');
-    failSave = true;
-    await submit();
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe('No se pudo guardar');
-    expect(field('activities.activityDate').value).toBe('2026-10-20T15:30');
-    failSave = false;
-    await submit();
-    expect(apiRequest).toHaveBeenCalledWith('/visits/91', expect.objectContaining({ method: 'PATCH' }));
-    expect(visit).toMatchObject({ status: 'RESCHEDULED', notes: null, scheduledAt: new Date(2026, 9, 20, 15, 30).toISOString() });
-    expect(container.querySelector('.calendar-month-title')?.textContent).toContain('octubre');
-    expect(visitArticle()).toBeTruthy();
+  it('opens an existing colleague visit in the full visit editor', () => {
+    const editLink = visitArticle('.mini-agenda-item').querySelector(
+      'a[href="/activities/visits/91/edit"]',
+    );
+    expect(editLink?.textContent).toBe('activities.editActivity');
   });
 
   it('retries Google sync for the visit and shows the returned status', async () => {

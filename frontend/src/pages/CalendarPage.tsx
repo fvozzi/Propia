@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { ContactCombobox } from '../components/ContactCombobox';
 import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
-import { useAuth } from '../lib/auth';
 import { buildAppraisalWhatsappMessage } from '../lib/appraisals';
 import { calendarActivityTypeOptions, useI18n, visitStatusOptions } from '../lib/i18n';
 import {
   buildBirthdayWhatsappMessage,
+  buildExpenseBreakdownWhatsappMessage,
+  buildPropertySearchMessage,
+  buildReservationTreasuryWhatsappMessage,
   buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
@@ -59,7 +61,6 @@ type ActivityFormState = {
 
 export function CalendarPage() {
   const { locale, t, translateEnum } = useI18n();
-  const { user } = useAuth();
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(new Date()));
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -285,7 +286,7 @@ export function CalendarPage() {
   }
 
   async function handleCopyWhatsapp(item: AgendaItem) {
-    const message = buildAgendaWhatsappMessage(item, user?.name ?? null, t);
+    const message = buildAgendaWhatsappMessage(item, t);
     if (!message) return;
 
     try {
@@ -590,7 +591,7 @@ export function CalendarPage() {
                           {t('activities.editActivity')}
                         </button>
                       ) : null}
-                      {buildAgendaWhatsappMessage(item, user?.name ?? null, t) ? (
+                      {buildAgendaWhatsappMessage(item, t) ? (
                         <button
                           type="button"
                           className="ghost-button"
@@ -710,6 +711,15 @@ export function CalendarPage() {
                       onClick={() => openAgendaEditor(item)}
                     >
                       {t('activities.editActivity')}
+                    </button>
+                  ) : null}
+                  {buildAgendaWhatsappMessage(item, t) ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => void handleCopyWhatsapp(item)}
+                    >
+                      {t('activities.expenseCopyMessage')}
                     </button>
                   ) : null}
                   {item.activity || item.visit ? (
@@ -983,6 +993,44 @@ function mapGoogleEventToAgendaItem(event: CalendarGoogleEventAgendaItem): Agend
     notes: event.description,
     externalUrl: event.externalUrl,
   };
+}
+
+function buildAgendaWhatsappMessage(
+  item: AgendaItem,
+  t: (path: string) => string,
+) {
+  if (item.visit) {
+    return buildVisitWhatsappMessage(item.visit);
+  }
+
+  const activity = item.activity;
+  if (!activity) return null;
+
+  if (activity.activityType === 'PROPERTY_SEARCH' && activity.externalUrl) {
+    return buildPropertySearchMessage(activity);
+  }
+
+  if (
+    activity.activityType === 'APPRAISAL_REQUEST' &&
+    activity.contact &&
+    activity.appraisalRequest
+  ) {
+    const name = activity.contact.firstName || activity.contact.displayName;
+    return buildAppraisalWhatsappMessage(
+      activity.appraisalRequest.publicToken,
+      t('appraisals.shareMessage').replace('{name}', name ? ` ${name}` : ''),
+    );
+  }
+
+  if (activity.activityType === 'RESERVATION' && activity.reservationData) {
+    return buildReservationTreasuryWhatsappMessage(activity, null);
+  }
+
+  if (activity.activityType === 'EXPENSE_BREAKDOWN' && activity.expenseBreakdownData) {
+    return buildExpenseBreakdownWhatsappMessage(activity);
+  }
+
+  return null;
 }
 
 function groupAgendaByDay(items: AgendaItem[]) {

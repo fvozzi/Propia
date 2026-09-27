@@ -64,9 +64,10 @@ describe('whatsapp helpers', () => {
       '📍 Av Dorrego 1653 timbre 5, Palermo Hollywood',
     );
     expect(message).toContain('🏠 *Ver propiedad*\n');
-    expect(message).toContain('/api/public/visits/abc123/p');
+    expect(message).toMatch(/https?:\/\/[^\s]+\/api\/public\/visits\/abc123\/p/);
     expect(message).toContain('📆 *Agregar a mi calendario*\n');
-    expect(message).toContain('/api/public/visits/abc123/c');
+    expect(message).toMatch(/https?:\/\/[^\s]+\/api\/public\/visits\/abc123\/c/);
+    expect(message).not.toContain('\n/api/');
     expect(message).not.toContain('calendar.google.com/calendar/render?');
   });
 
