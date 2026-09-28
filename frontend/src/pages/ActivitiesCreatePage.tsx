@@ -11,6 +11,7 @@ import {
   buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
+  buildShortVisitWhatsappMessage,
   buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   calculateExpenseBreakdown,
@@ -958,7 +959,10 @@ export function ActivitiesCreatePage() {
         throw new Error('El contacto no tiene WhatsApp configurado');
       }
       openWhatsAppShareUrl(
-        buildWhatsAppShareUrl(saved.contact, buildVisitWhatsappMessage(saved)),
+        buildWhatsAppShareUrl(
+          saved.contact,
+          await buildShortVisitWhatsappMessage(saved),
+        ),
       );
       window.alert(t('common.whatsappSent'));
     }
@@ -1132,7 +1136,7 @@ export function ActivitiesCreatePage() {
 
     try {
       const saved = await saveExternalVisit(false);
-      await navigator.clipboard.writeText(buildVisitWhatsappMessage(saved));
+      await navigator.clipboard.writeText(await buildShortVisitWhatsappMessage(saved));
       window.alert(t('activities.expenseMessageCopied'));
       navigate('/activities');
     } catch (copyError) {

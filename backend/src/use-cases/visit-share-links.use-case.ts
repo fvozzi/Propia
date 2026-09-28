@@ -68,7 +68,48 @@ export function buildVisitCalendarIcs(visit: ShareableVisit) {
   return `${lines.join('\r\n')}\r\n`;
 }
 
+export function buildVisitGoogleCalendarUrl(visit: CalendarVisitLike) {
+  const start = new Date(visit.scheduledAt);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const propertyTitle =
+    visit.property?.title?.trim() ||
+    visit.externalPropertyTitle?.trim() ||
+    'Propiedad';
+  const propertyAddress =
+    (visit.property?.address
+      ? [visit.property.address, visit.property.city].filter(Boolean).join(', ')
+      : visit.externalPropertyAddress?.trim()) || '';
+  const colleagueName =
+    visit.colleagueContact?.displayName?.trim() || visit.colleagueName?.trim() || null;
+  const rawPropertyUrl =
+    visit.externalUrl?.trim() || visit.property?.publicationUrl?.trim() || null;
+  const propertyUrl = rawPropertyUrl
+    ? sanitizeSharedPropertyUrl(rawPropertyUrl)
+    : null;
+  const details = [
+    colleagueName ? `Colega: ${colleagueName}` : null,
+    propertyAddress ? `Direccion: ${propertyAddress}` : null,
+    propertyUrl ? `Link de la propiedad: ${propertyUrl}` : null,
+    visit.notes?.trim() ? `Notas: ${visit.notes.trim()}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Visita a propiedad de colega - ${propertyTitle}`,
+    dates: `${formatGoogleCalendarDate(start)}/${formatGoogleCalendarDate(end)}`,
+    details,
+    location: propertyAddress,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 function formatIcsDate(value: Date) {
+  return value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function formatGoogleCalendarDate(value: Date) {
   return value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 }
 

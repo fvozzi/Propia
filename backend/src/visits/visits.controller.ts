@@ -39,6 +39,14 @@ export class VisitsController {
     return this.visitsService.findOne(id, user);
   }
 
+  @Get(':id/share-links')
+  findShareLinks(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.visitsService.findShareLinks(id, user);
+  }
+
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,

@@ -14,6 +14,7 @@ export type CalendarVisitLike = {
     title?: string | null;
     address?: string | null;
     city?: string | null;
+    publicationUrl?: string | null;
   } | null;
 };
 
@@ -41,8 +42,8 @@ export function buildVisitCalendarEvent(visit: CalendarVisitLike) {
       `Propiedad: ${propertyTitle}`,
       `Direccion: ${propertyAddress}`,
       `Estado: ${visit.status}`,
-      visit.externalUrl?.trim()
-        ? `Link de la propiedad: ${visit.externalUrl.trim()}`
+      visit.externalUrl?.trim() || visit.property?.publicationUrl?.trim()
+        ? `Link de la propiedad: ${visit.externalUrl?.trim() || visit.property?.publicationUrl?.trim()}`
         : null,
       visit.notes ? `Notas: ${visit.notes}` : null,
     ]

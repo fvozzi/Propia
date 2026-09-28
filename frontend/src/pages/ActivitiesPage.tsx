@@ -21,7 +21,7 @@ import {
   buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
-  buildVisitWhatsappMessage,
+  buildShortVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
@@ -291,7 +291,7 @@ export function ActivitiesPage() {
   }
 
   async function handleCopyVisitWhatsapp(visit: Visit) {
-    await navigator.clipboard.writeText(buildVisitWhatsappMessage(visit));
+    await navigator.clipboard.writeText(await buildShortVisitWhatsappMessage(visit));
     window.alert(t('activities.expenseMessageCopied'));
   }
 
@@ -323,7 +323,10 @@ export function ActivitiesPage() {
     setActionError('');
     try {
       openWhatsAppShareUrl(
-        buildWhatsAppShareUrl(visit.contact, buildVisitWhatsappMessage(visit)),
+        buildWhatsAppShareUrl(
+          visit.contact,
+          await buildShortVisitWhatsappMessage(visit),
+        ),
       );
       window.alert(t('common.whatsappSent'));
     } catch (sendError) {

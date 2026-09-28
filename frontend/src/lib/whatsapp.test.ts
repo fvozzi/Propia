@@ -40,21 +40,27 @@ describe('whatsapp helpers', () => {
   });
 
   it('builds the visit confirmation message with schedule, address and link', () => {
-    const message = buildVisitWhatsappMessage({
-      publicToken: 'abc123',
-      scheduledAt: '2026-05-11T14:30:00.000Z',
-      status: 'SCHEDULED',
-      notes: null,
-      colleagueName: 'Laura Colega',
-      colleagueWhatsapp: '5491112345678',
-      externalUrl: 'https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
-      property: {
-        title: 'Av Dorrego 1653',
-        address: 'Av Dorrego 1653 timbre 5',
-        neighborhood: 'Palermo Hollywood',
-        city: 'CABA',
+    const message = buildVisitWhatsappMessage(
+      {
+        publicToken: 'abc123',
+        scheduledAt: '2026-05-11T14:30:00.000Z',
+        status: 'SCHEDULED',
+        notes: null,
+        colleagueName: 'Laura Colega',
+        colleagueWhatsapp: '5491112345678',
+        externalUrl: 'https://www.zonaprop.com.ar/propiedades/clasificado/ejemplo.html',
+        property: {
+          title: 'Av Dorrego 1653',
+          address: 'Av Dorrego 1653 timbre 5',
+          neighborhood: 'Palermo Hollywood',
+          city: 'CABA',
+        },
       },
-    });
+      {
+        propertyUrl: 'https://is.gd/property',
+        calendarUrl: 'https://is.gd/calendar',
+      },
+    );
 
     expect(message).toContain('📌 *VISITA CONFIRMADA*');
     expect(message).toContain('📅 *Lunes 11/05/2026*');
@@ -64,10 +70,10 @@ describe('whatsapp helpers', () => {
       '📍 Av Dorrego 1653 timbre 5, Palermo Hollywood',
     );
     expect(message).toContain('🏠 *Ver propiedad*\n');
-    expect(message).toMatch(/https?:\/\/[^\s]+\/api\/public\/visits\/abc123\/p/);
+    expect(message).toContain('https://is.gd/property');
     expect(message).toContain('📆 *Agregar a mi calendario*\n');
-    expect(message).toMatch(/https?:\/\/[^\s]+\/api\/public\/visits\/abc123\/c/);
-    expect(message).not.toContain('\n/api/');
+    expect(message).toContain('https://is.gd/calendar');
+    expect(message).not.toContain('/api/public/visits/');
     expect(message).not.toContain('calendar.google.com/calendar/render?');
   });
 

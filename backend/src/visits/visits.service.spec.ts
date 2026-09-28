@@ -10,6 +10,7 @@ import type { SearchRequirement } from '../search-requirements/search-requiremen
 import type { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
 import type { Visit } from './visit.entity';
 import { VisitsService } from './visits.service';
+import type { UrlShortenerService } from './url-shortener.service';
 
 vi.mock('./visit.entity', () => ({ Visit: class Visit {} }));
 vi.mock('../contacts/contact.entity', () => ({ Contact: class Contact {} }));
@@ -36,11 +37,13 @@ function setup() {
     syncVisitUpdate: vi.fn().mockResolvedValue({ googleSyncStatus: 'SYNCED', googleSyncError: null }),
     syncVisitDelete: vi.fn().mockResolvedValue(undefined),
   };
+  const shortener = { shortenOrOriginal: vi.fn(async (url: string) => `https://is.gd/${url.includes('calendar.google.com') ? 'calendar' : 'property'}`) };
   const service = new VisitsService(repository as unknown as Repository<Visit>, contacts as unknown as Repository<Contact>,
     properties as unknown as Repository<Property>, requirements as unknown as Repository<SearchRequirement>,
-    candidates as unknown as Repository<BuyerPropertyCandidate>, google as unknown as GoogleCalendarService);
+    candidates as unknown as Repository<BuyerPropertyCandidate>, google as unknown as GoogleCalendarService,
+    shortener as unknown as UrlShortenerService);
   const user: AuthenticatedUser = { sub: 7, email: 'test@example.com', appRole: 'USER', activeTeamId: 3 };
-  return { visit, repository, properties, requirements, candidates, google, service, user };
+  return { visit, repository, properties, requirements, candidates, google, shortener, service, user };
 }
 
 describe('VisitsService unified calendar flow', () => {
@@ -124,5 +127,28 @@ describe('VisitsService unified calendar flow', () => {
     repository.findOne.mockResolvedValueOnce(null);
     await expect(service.syncCalendar(91, user)).rejects.toBeInstanceOf(NotFoundException);
     expect(google.syncVisitUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns shortened direct links to the publication and Google Calendar', async () => {
+    const { service, user, visit, shortener } = setup();
+    Object.assign(visit, {
+      scheduledAt: new Date('2026-09-28T14:00:00.000Z'),
+      externalPropertyTitle: 'Departamento en Caballito',
+      externalPropertyAddress: 'Del Barco Centenera 350',
+      externalUrl: 'https://www.zonaprop.com.ar/depto?utm_source=share',
+      colleagueName: 'Laura Colega',
+      notes: 'Tocar timbre 4',
+    });
+
+    await expect(service.findShareLinks(91, user)).resolves.toEqual({
+      propertyUrl: 'https://is.gd/property',
+      calendarUrl: 'https://is.gd/calendar',
+    });
+    expect(shortener.shortenOrOriginal).toHaveBeenCalledWith(
+      'https://www.zonaprop.com.ar/depto',
+    );
+    expect(shortener.shortenOrOriginal).toHaveBeenCalledWith(
+      expect.stringContaining('https://calendar.google.com/calendar/render?'),
+    );
   });
 });

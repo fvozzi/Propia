@@ -9,7 +9,7 @@ import type {
   ReservationActivityData,
   Visit,
 } from '../types';
-import { getAbsoluteApiUrl } from './api';
+import { apiRequest } from './api';
 
 type ShareableContact = Pick<Contact, 'phone' | 'whatsapp'>;
 type ShareableVisit = Pick<
@@ -24,14 +24,20 @@ type ShareableVisit = Pick<
   | 'colleagueWhatsapp'
 > & {
   publicToken?: string | null;
-  property?: Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> | null;
+  property?: (Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> &
+    Partial<Pick<Property, 'publicationUrl'>>) | null;
   colleagueContact?: Pick<Contact, 'displayName'> | null;
 };
 type ShareableVisitActivity = Pick<
   Activity,
   'activityDate' | 'description' | 'externalUrl' | 'title'
 > & {
-  property?: Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> | null;
+  property?: (Pick<Property, 'address' | 'city' | 'neighborhood' | 'title'> &
+    Partial<Pick<Property, 'publicationUrl'>>) | null;
+};
+export type VisitWhatsappLinks = {
+  propertyUrl: string | null;
+  calendarUrl: string;
 };
 type ShareableCandidateProperty = Pick<
   Property,
@@ -46,6 +52,7 @@ export function buildPropertySearchMessage(
 
 export function buildVisitWhatsappMessage(
   visit: ShareableVisit | ShareableVisitActivity,
+  shareLinks?: VisitWhatsappLinks | null,
 ) {
   const scheduledAt = 'scheduledAt' in visit ? visit.scheduledAt : visit.activityDate;
   const statusLine =
@@ -85,16 +92,19 @@ export function buildVisitWhatsappMessage(
     'colleagueName' in visit
       ? visit.colleagueContact?.displayName?.trim() || visit.colleagueName?.trim() || null
       : null;
-  const publicToken = 'publicToken' in visit ? visit.publicToken?.trim() : null;
-  const publicBaseUrl = publicToken
-    ? `${getAbsoluteApiUrl()}/public/visits/${encodeURIComponent(publicToken)}`
+  const rawPropertyUrl = visit.externalUrl?.trim() || visit.property?.publicationUrl?.trim();
+  const directPropertyUrl = rawPropertyUrl
+    ? sanitizeSharedUrl(rawPropertyUrl)
     : null;
-  const propertyUrl = publicBaseUrl
-    ? `${publicBaseUrl}/p`
-    : visit.externalUrl?.trim()
-      ? sanitizeSharedUrl(visit.externalUrl.trim())
-      : null;
-  const calendarUrl = publicBaseUrl ? `${publicBaseUrl}/c` : null;
+  const propertyUrl = shareLinks?.propertyUrl || directPropertyUrl;
+  const calendarUrl = shareLinks?.calendarUrl || buildVisitRecipientCalendarUrl({
+    scheduledAt: new Date(scheduledAt).toISOString(),
+    title: fallbackTitle || visit.property?.title || address || 'Propiedad',
+    address,
+    propertyUrl: directPropertyUrl,
+    colleagueName,
+    notes,
+  });
   const detailLines = [
     `📅 *${capitalizeFirst(weekday)} ${calendarDate}*`,
     `🕐 *${time} hs*`,
@@ -103,9 +113,7 @@ export function buildVisitWhatsappMessage(
   ].filter((line): line is string => Boolean(line));
   const linkBlocks = [
     propertyUrl ? `🏠 *Ver propiedad*\n${propertyUrl}` : null,
-    calendarUrl
-      ? `📆 *Agregar a mi calendario*\n${calendarUrl}`
-      : '📆 _El enlace para agendar se genera al guardar la visita._',
+    `📆 *Agregar a mi calendario*\n${calendarUrl}`,
   ].filter((line): line is string => Boolean(line));
 
   return [
@@ -116,6 +124,19 @@ export function buildVisitWhatsappMessage(
   ]
     .filter((block): block is string => Boolean(block))
     .join('\n\n');
+}
+
+export async function buildShortVisitWhatsappMessage(
+  visit: ShareableVisit & { id: number },
+) {
+  try {
+    const shareLinks = await apiRequest<VisitWhatsappLinks>(
+      `/visits/${visit.id}/share-links`,
+    );
+    return buildVisitWhatsappMessage(visit, shareLinks);
+  } catch {
+    return buildVisitWhatsappMessage(visit);
+  }
 }
 
 export function sanitizeSharedUrl(rawUrl: string) {

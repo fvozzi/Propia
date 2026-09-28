@@ -12,12 +12,14 @@ import { SearchRequirement } from '../search-requirements/search-requirement.ent
 import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-property-candidate.entity';
 import {
   buildVisitCalendarIcs,
+  buildVisitGoogleCalendarUrl,
   sanitizeSharedPropertyUrl,
 } from '../use-cases/visit-share-links.use-case';
 import { CreateVisitDto } from './dto/create-visit.dto';
 import { QueryVisitsDto } from './dto/query-visits.dto';
 import { UpdateVisitDto } from './dto/update-visit.dto';
 import { Visit } from './visit.entity';
+import { UrlShortenerService } from './url-shortener.service';
 
 @Injectable()
 export class VisitsService {
@@ -33,6 +35,7 @@ export class VisitsService {
     @InjectRepository(BuyerPropertyCandidate)
     private readonly candidatesRepository: Repository<BuyerPropertyCandidate>,
     private readonly googleCalendarService: GoogleCalendarService,
+    private readonly urlShortenerService: UrlShortenerService,
   ) {}
 
   async create(dto: CreateVisitDto, user: AuthenticatedUser) {
@@ -152,6 +155,27 @@ export class VisitsService {
   async buildPublicCalendar(publicToken: string) {
     const visit = await this.findPublicVisit(publicToken);
     return buildVisitCalendarIcs(visit);
+  }
+
+  async findShareLinks(id: number, user: AuthenticatedUser) {
+    const visit = await this.findOne(id, user);
+    const rawPropertyUrl =
+      visit.externalUrl?.trim() || visit.property?.publicationUrl?.trim() || null;
+    const propertyUrl = rawPropertyUrl
+      ? sanitizeSharedPropertyUrl(rawPropertyUrl)
+      : null;
+    const calendarUrl = buildVisitGoogleCalendarUrl(visit);
+    const [shortPropertyUrl, shortCalendarUrl] = await Promise.all([
+      propertyUrl
+        ? this.urlShortenerService.shortenOrOriginal(propertyUrl)
+        : Promise.resolve(null),
+      this.urlShortenerService.shortenOrOriginal(calendarUrl),
+    ]);
+
+    return {
+      propertyUrl: shortPropertyUrl,
+      calendarUrl: shortCalendarUrl,
+    };
   }
 
   async update(id: number, dto: UpdateVisitDto, user: AuthenticatedUser) {

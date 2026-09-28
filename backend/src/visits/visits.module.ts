@@ -8,6 +8,7 @@ import { BuyerPropertyCandidate } from '../buyer-property-candidates/buyer-prope
 import { Visit } from './visit.entity';
 import { PublicVisitsController, VisitsController } from './visits.controller';
 import { VisitsService } from './visits.service';
+import { UrlShortenerService } from './url-shortener.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { VisitsService } from './visits.service';
     CalendarModule,
   ],
   controllers: [VisitsController, PublicVisitsController],
-  providers: [VisitsService],
+  providers: [VisitsService, UrlShortenerService],
   exports: [VisitsService, TypeOrmModule],
 })
 export class VisitsModule {}

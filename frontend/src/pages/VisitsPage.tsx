@@ -5,7 +5,7 @@ import { StatusPill } from '../components/StatusPill';
 import { apiRequest } from '../lib/api';
 import { useI18n, visitStatusOptions } from '../lib/i18n';
 import {
-  buildVisitWhatsappMessage,
+  buildShortVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
   openWhatsAppShareUrl,
@@ -71,7 +71,7 @@ export function VisitsPage() {
     setActionError('');
 
     try {
-      const message = buildVisitWhatsappMessage(visit);
+      const message = await buildShortVisitWhatsappMessage(visit);
       openWhatsAppShareUrl(buildWhatsAppShareUrl(visit.contact, message));
       window.alert(t('common.whatsappSent'));
     } catch (shareError) {

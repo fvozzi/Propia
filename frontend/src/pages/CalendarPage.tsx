@@ -10,6 +10,7 @@ import {
   buildExpenseBreakdownWhatsappMessage,
   buildPropertySearchMessage,
   buildReservationTreasuryWhatsappMessage,
+  buildShortVisitWhatsappMessage,
   buildVisitWhatsappMessage,
   buildWhatsAppShareUrl,
   getContactWhatsappPhone,
@@ -254,7 +255,7 @@ export function CalendarPage() {
     setLoadError('');
 
     try {
-      const message = buildVisitWhatsappMessage(visit);
+      const message = await buildShortVisitWhatsappMessage(visit);
       openWhatsAppShareUrl(buildWhatsAppShareUrl(visit.contact, message));
       window.alert(t('common.whatsappSent'));
     } catch (shareError) {
@@ -286,7 +287,9 @@ export function CalendarPage() {
   }
 
   async function handleCopyWhatsapp(item: AgendaItem) {
-    const message = buildAgendaWhatsappMessage(item, t);
+    const message = item.visit
+      ? await buildShortVisitWhatsappMessage(item.visit)
+      : buildAgendaWhatsappMessage(item, t);
     if (!message) return;
 
     try {

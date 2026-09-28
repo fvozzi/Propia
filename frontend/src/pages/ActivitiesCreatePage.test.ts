@@ -61,6 +61,12 @@ describe('colleague visit editor', () => {
     vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     vi.mocked(apiRequest).mockReset();
     vi.mocked(apiRequest).mockImplementation(async (path, options) => {
+      if (path === '/visits/91/share-links') {
+        return {
+          propertyUrl: 'https://is.gd/property',
+          calendarUrl: 'https://is.gd/calendar',
+        };
+      }
       if (path === '/visits/91' && options?.method === 'PATCH') {
         visit = { ...visit, ...JSON.parse(options.body as string) };
         return visit;
@@ -140,8 +146,13 @@ describe('colleague visit editor', () => {
       expect.objectContaining({ method: 'PATCH' }),
     );
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringMatching(/https?:\/\/[^\s]+\/api\/public\/visits\/public-91\/p/),
+      expect.stringContaining('https://is.gd/property'),
     );
-    expect(vi.mocked(navigator.clipboard.writeText).mock.calls[0][0]).not.toContain('\n/api/');
+    expect(vi.mocked(navigator.clipboard.writeText).mock.calls[0][0]).toContain(
+      'https://is.gd/calendar',
+    );
+    expect(vi.mocked(navigator.clipboard.writeText).mock.calls[0][0]).not.toContain(
+      '/api/public/visits/',
+    );
   });
 });
