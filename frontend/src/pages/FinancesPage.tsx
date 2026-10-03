@@ -211,27 +211,25 @@ export function FinancesPage() {
     setError('');
 
     try {
-      const [configResponse, entriesResponse, activitiesResponse, opportunitiesResponse] =
+      const [configResponse, entriesResponse, allActivities, allOpportunities] =
         await Promise.all([
           apiRequest<FinanceConfig>('/finance-config'),
           apiRequest<FinancialEntry[]>('/financial-entries'),
-          apiRequest<Paginated<Activity>>('/activities?page=1&limit=100'),
-          apiRequest<Paginated<CommercialOpportunity>>(
-            '/commercial-opportunities?page=1&limit=100',
-          ),
+          loadAllPaginated<Activity>('/activities'),
+          loadAllPaginated<CommercialOpportunity>('/commercial-opportunities'),
         ]);
 
       setFinanceConfig(configResponse);
       setEntries(entriesResponse);
       setActivities(
         mergeById(
-          activitiesResponse.items,
+          allActivities,
           entriesResponse.flatMap((entry) => (entry.activity ? [entry.activity] : [])),
         ),
       );
       setOpportunities(
         mergeById(
-          opportunitiesResponse.items,
+          allOpportunities,
           entriesResponse.flatMap((entry) =>
             entry.commercialOpportunity ? [entry.commercialOpportunity] : [],
           ),
@@ -948,4 +946,27 @@ function mergeById<T extends { id: number }>(primary: T[], related: T[]) {
     if (!merged.has(item.id)) merged.set(item.id, item);
   }
   return Array.from(merged.values());
+}
+
+async function loadAllPaginated<T>(resourcePath: string) {
+  const firstPage = await apiRequest<Paginated<T>>(
+    `${resourcePath}?page=1&limit=100`,
+  );
+
+  if (firstPage.meta.totalPages <= 1) {
+    return firstPage.items;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.meta.totalPages - 1 }, (_, index) =>
+      apiRequest<Paginated<T>>(
+        `${resourcePath}?page=${index + 2}&limit=100`,
+      ),
+    ),
+  );
+
+  return [
+    ...firstPage.items,
+    ...remainingPages.flatMap((response) => response.items),
+  ];
 }
